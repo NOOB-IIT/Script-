@@ -1,0 +1,255 @@
+--[[\
+    (C) All rights reserved to NOT_IITIAN
+    Quiz: Anime Hard Edition (Direct Question Style, 3s Gap, 14s Reading, 2s Gap between Options)
+]]--
+
+local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ChatService = game:GetService("Chat")
+
+local playerScores = {}
+local playerNames = {}
+local hasGuessedOption = {} 
+local quizActive = false
+local optionsAllowed = false 
+local isProcessingAnswer = false
+local correctAnswer = ""     
+local currentWordAnswer = "" 
+local currentQuestionIndex = 1
+local questionSession = 0
+
+-- BLACKLISTED PLAYERS (Banned from Quiz)
+local blacklistedPlayers = {
+	["DELTAFIRE2303"] = true,
+	["VERSA_TILE000"] = true
+}
+
+-- Robust Message Sender (Supports both Chat systems)
+local function sendChatMessage(msg)
+	pcall(function()
+		if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+			local textChannels = TextChatService:FindFirstChild("TextChannels")
+			local channel = textChannels and textChannels:FindFirstChild("RBXGeneral")
+			if channel then 
+				channel:SendAsync(msg) 
+			else
+				local foundChannel = TextChatService:FindFirstChild("RBXGeneral", true)
+				if foundChannel and foundChannel:IsA("TextChannel") then
+					foundChannel:SendAsync(msg)
+				end
+			end
+		else
+			ChatService:Chat(workspace, msg, Enum.ChatColor.Blue)
+		end
+	end)
+end
+
+-- Database: Anime (Hard Level Quiz - Direct Questions)
+local quizDatabase = {
+	{ Question = "[Anime Quiz] In Berserk, what is the specific name of the mercenary band originally led by Griffith before its tragic downfall?", Options = {"A) The Black Swordsmen", "B) Band of the Hawk", "C) Holy Iron Chain Knights", "D) Blue Whale Knights"}, Answer = "B", WordAnswer = "BANDOFTHEHAWK" },
+	{ Question = "[Anime Quiz] What is the true name of the Shinigami who drops the Death Note into the human world in Death Note?", Options = {"A) Rem", "B) Sidoh", "C) Ryuk", "D) Gelus"}, Answer = "C", WordAnswer = "RYUK" },
+	{ Question = "[Anime Quiz] In Neon Genesis Evangelion, what is the official designation given to the primary underground headquarters of NERV?", Options = {"A) Gehirn", "B) Terminal Dogma", "C) GeoFront", "D) Central Dogma"}, Answer = "C", WordAnswer = "GEOFRONT" },
+	{ Question = "[Anime Quiz] What is the name of the ancient kingdom destroyed by the World Government during the Void Century in One Piece?", Options = {"A) Alabasta Kingdom", "B) Ancient Kingdom", "C) Ryugu Kingdom", "D) Germa Kingdom"}, Answer = "B", WordAnswer = "ANCIENTKINGDOM" },
+	{ Question = "[Anime Quiz] In Steins;Gate, what numerical designation is given to the original timeline or world line where Kurisu Makise is found dead?", Options = {"A) Alpha Line", "B) Beta Line", "C) Steins Gate Line", "D) Gamma Line"}, Answer = "A", WordAnswer = "ALPHALINE" },
+	{ Question = "[Anime Quiz] What is the name of the legendary sword forged from the demon's fang wielded by Inuyasha?", Options = {"A) Tenseiga", "B) Tessaiga", "C) Bakusaiga", "D) So'unga"}, Answer = "B", WordAnswer = "TESSAIGA" },
+	{ Question = "[Anime Quiz] In Hunter x Hunter, what is the name of the elite royal guard ant created by the Chimera Ant Queen to protect Meruem?", Options = {"A) Colt", "B) Rlaf", "C) Neferpitou", "D) Leol"}, Answer = "C", WordAnswer = "NEFERPITOU" },
+	{ Question = "[Anime Quiz] What is the title of the elite task force established to investigate and eliminate ghouls in Tokyo Ghoul?", Options = {"A) Anti-Ghoul Squad", "B) CCG (Commission of Counter Ghoul)", "C) Doves Unit", "D) Quinx Squad"}, Answer = "B", WordAnswer = "CCG" },
+	{ Question = "[Anime Quiz] In Fullmetal Alchemist, what specific law of alchemy states that to obtain something, something of equal value must be lost?", Options = {"A) Law of Conservation of Energy", "B) Law of Equivalent Exchange", "C) Law of Transmutation", "D) Taboo of Human Transmutation"}, Answer = "B", WordAnswer = "LAWOFEQUIVALENTEXCHANGE" },
+	{ Question = "[Anime Quiz] What is the name of the parallel dimension entered by characters when using Domain Expansion in Jujutsu Kaisen?", Options = {"A) Cursed Realm", "B) Innate Domain", "C) Void Space", "D) Barrier Boundary"}, Answer = "B", WordAnswer = "INNATEDOMAIN" }
+}
+
+-- Forward declaration
+local askNextQuestion
+
+-- SMART WAIT FUNCTION 
+local function smartWait(seconds)
+	local elapsed = 0
+	while elapsed < seconds do
+		if not quizActive then return false end
+		task.wait(0.2)
+		elapsed += 0.2
+	end
+	return true
+end
+
+-- Leaderboard Display
+local function showLeaderboard()
+	quizActive = false
+	optionsAllowed = false
+	sendChatMessage("📊 --- ANIME HARD FINAL LEADERBOARD ---")
+	task.wait(4)
+	
+	local sortedScores = {}
+	for userId, score in pairs(playerScores) do
+		table.insert(sortedScores, {name = playerNames[userId] or "Unknown", score = score})
+	end
+	
+	table.sort(sortedScores, function(a, b) return a.score > b.score end)
+	
+	if #sortedScores == 0 then
+		sendChatMessage("Nobody scored any points! 😢")
+	else
+		for rank, data in ipairs(sortedScores) do
+			sendChatMessage("🏅 Rank " .. rank .. ": " .. data.name .. " - " .. data.score .. " Pts")
+			task.wait(3)
+		end
+	end
+	
+	task.wait(4)
+	sendChatMessage("📢 Quiz finished! All rights reserved to NOT_IITIAN! 🛡️⭐")
+end
+
+-- Trigger Win Function
+local function triggerWin(player)
+	isProcessingAnswer = true
+	quizActive = false
+	optionsAllowed = false
+	
+	playerScores[player.UserId] = (playerScores[player.UserId] or 0) + 10
+	playerNames[player.UserId] = player.DisplayName 
+	
+	sendChatMessage("🎉 " .. player.DisplayName .. " Correct answer! (+10 Pts) 🎉")
+	currentQuestionIndex += 1
+	
+	task.wait(2)
+	
+	if currentQuestionIndex > #quizDatabase then 
+		task.spawn(showLeaderboard)
+	else
+		isProcessingAnswer = false
+		task.spawn(askNextQuestion)
+	end
+end
+
+-- Core Answer Verification Logic
+local function onPlayerChatted(player, message)
+	if not quizActive or isProcessingAnswer then return end
+	
+	-- Blacklist check
+	local playerNameUpper = string.upper(player.Name)
+	local playerDisplayNameUpper = string.upper(player.DisplayName)
+	if blacklistedPlayers[playerNameUpper] or blacklistedPlayers[playerDisplayNameUpper] then
+		return
+	end
+	
+	local rawTrimmed = string.match(message, "^%s*(.-)%s*$")
+	local upperMsg = string.upper(rawTrimmed)
+	local cleanMsg = string.gsub(upperMsg, "[^%w]", "")
+	
+	-- Check if input is an Option (A, B, C, D)
+	local matchedLetter = string.match(upperMsg, "^([A-D])$") or string.match(upperMsg, "^([A-D])[%-%._%)%:]+$")
+	
+	if matchedLetter then
+		-- OPTIONS CHECK: Allowed immediately after reading time completes
+		if not optionsAllowed then return end
+		
+		if hasGuessedOption[player.UserId] then 
+			return -- Already used option attempt for this question, ignore
+		end
+		
+		hasGuessedOption[player.UserId] = true 
+		
+		if matchedLetter == correctAnswer then
+			triggerWin(player)
+		else
+			return
+		end
+	else
+		-- DIRECT WORD CHECK: Allowed INSTANTLY (Unlimited tries)
+		if cleanMsg == currentWordAnswer then
+			triggerWin(player)
+		else
+			return
+		end
+	end
+end
+
+-- SAFE CHAT LISTENER
+if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+	TextChatService.MessageReceived:Connect(function(t) 
+		if t.TextSource then
+			local p = Players:GetPlayerByUserId(t.TextSource.UserId) 
+			if p then onPlayerChatted(p, t.Text) end 
+		end
+	end)
+else
+	local function hookPlayer(p)
+		p.Chatted:Connect(function(m)
+			onPlayerChatted(p, m)
+		end)
+	end
+
+	Players.PlayerAdded:Connect(hookPlayer)
+	for _, p in ipairs(Players:GetPlayers()) do
+		hookPlayer(p)
+	end
+end
+
+function askNextQuestion()
+	if currentQuestionIndex > #quizDatabase then
+		showLeaderboard()
+		return
+	end
+
+	local currentQuiz = quizDatabase[currentQuestionIndex]
+	correctAnswer = string.upper(string.gsub(currentQuiz.Answer, "[^%w]", ""))
+	currentWordAnswer = string.upper(string.gsub(currentQuiz.WordAnswer, "[^%w]", ""))
+	
+	questionSession += 1
+	local currentSession = questionSession
+	
+	hasGuessedOption = {} 
+	quizActive = true
+	optionsAllowed = false 
+	isProcessingAnswer = false
+	
+	-- 1. Direct Word open message comes FIRST (Above the question)
+	sendChatMessage("💡 Direct Word Guessing is OPEN NOW! (Unlimited Tries)")
+	
+	-- 2. 3 seconds gap between Direct Answer notice and Question
+	if not smartWait(3) then return end 
+	if not quizActive or questionSession ~= currentSession then return end
+	
+	-- 3. Question comes AFTER
+	sendChatMessage(currentQuiz.Question)
+	
+	-- 4. Question Reading Time: 14 seconds
+	if not smartWait(14) then return end 
+	if not quizActive or questionSession ~= currentSession then return end
+	
+	-- 5. Reading time ends -> Instantly open option acceptance (no extra line text)
+	optionsAllowed = true
+	
+	-- 6. Print options one by one with a 2-second gap between each option
+	for _, opt in ipairs(currentQuiz.Options) do 
+		sendChatMessage(opt)
+		if not smartWait(2) then return end 
+		if not quizActive or questionSession ~= currentSession then return end
+	end
+	
+	if not smartWait(12) then return end 
+	
+	if quizActive and questionSession == currentSession then
+		quizActive = false
+		optionsAllowed = false
+		sendChatMessage("⏳ Time's up! Correct answer was: " .. correctAnswer .. " (" .. currentWordAnswer .. ")")
+		currentQuestionIndex += 1
+		
+		task.wait(3)
+		
+		if currentQuestionIndex <= #quizDatabase then 
+			task.spawn(askNextQuestion) 
+		else
+			task.spawn(showLeaderboard) 
+		end
+	end
+end
+
+-- Start Script
+sendChatMessage("(C) All rights reserved to NOT_IITIAN")
+task.wait(3) 
+sendChatMessage("=== 🌸 ANIME QUIZ (HARD EDITION) STARTING ===")
+task.wait(3) 
+askNextQuestion()
+
