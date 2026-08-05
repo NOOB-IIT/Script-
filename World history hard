@@ -1,0 +1,378 @@
+--[[\
+    (C) All rights reserved to NOT_IITIAN
+    Quiz: World History Hard Edition (Optimized & Cleaned)
+]]--
+
+--------------------------------------------------------------------------------
+-- SERVICES
+--------------------------------------------------------------------------------
+local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
+local ChatService = game:GetService("Chat")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+--------------------------------------------------------------------------------
+-- CONFIGURATION & STATE VARIABLES
+--------------------------------------------------------------------------------
+local playerScores = {}
+local playerNames = {}
+local hasGuessedOption = {} 
+local quizActive = false
+local optionsAllowed = false 
+local isProcessingAnswer = false
+local correctAnswer = ""     
+local currentWordAnswer = "" 
+local currentQuestionIndex = 1
+local questionSession = 0
+
+-- BLACKLISTED PLAYERS (Banned from Quiz)
+local blacklistedPlayers = {
+	["DELTAFIRE2303"] = true,
+	["VERSA_TILE000"] = true
+}
+
+-- CONFIGURABLE TIMINGS (Seconds)
+local TIMING_DIRECT_OPEN_DELAY = 3
+local TIMING_QUESTION_READ = 14
+local TIMING_OPTION_GAP = 2
+local TIMING_ANSWER_WAIT = 12
+local TIMING_POST_ANSWER = 3
+
+--------------------------------------------------------------------------------
+-- UTILITY FUNCTIONS & CHAT SENDER
+--------------------------------------------------------------------------------
+
+-- Robust Message Sender supporting modern TextChatService and legacy chat
+local function sendChatMessage(msg)
+	pcall(function()
+		if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+			local textChannels = TextChatService:FindFirstChild("TextChannels")
+			local channel = textChannels and textChannels:FindFirstChild("RBXGeneral")
+			if channel then 
+				channel:SendAsync(msg) 
+			else
+				local foundChannel = TextChatService:FindFirstChild("RBXGeneral", true)
+				if foundChannel and foundChannel:IsA("TextChannel") then
+					foundChannel:SendAsync(msg)
+				end
+			end
+		else
+			ChatService:Chat(workspace, msg, Enum.ChatColor.Blue)
+		end
+	end)
+end
+
+-- Advanced Logger Function for Studio Output Tracking
+local function logInfo(message)
+	print("[NOT_IITIAN_WORLD_HISTORY_HARD_QUIZ]: " .. tostring(message))
+end
+
+--------------------------------------------------------------------------------
+-- DATABASE: WORLD HISTORY (HARD LEVEL QUIZ)
+--------------------------------------------------------------------------------
+local quizDatabase = {
+	{ 
+		Question = "[World History Hard Quiz] Which 1648 treaty series ended both the Thirty Years' War and the Eighty Years' War, establishing the principle of sovereign nation-states?", 
+		Options = {"A) Treaty of Utrecht", "B) Peace of Westphalia", "C) Treaty of Tordesillas", "D) Congress of Vienna"}, 
+		Answer = "B", 
+		WordAnswer = "PEACEOFWESTPHALIA" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] What was the name of the secret diplomatic proposal issued in 1917 by the German Empire offering a military alliance to Mexico against the United States?", 
+		Options = {"A) Schlieffen Plan", "B) Zimmermann Telegram", "C) Sussex Pledge", "D) Reinsurance Treaty"}, 
+		Answer = "B", 
+		WordAnswer = "ZIMMERMANNTELEGRAM" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] Which massive 18th-century global conflict involved most of the major European powers of the time and spanned multiple continents, including North America where it was known as the French and Indian War?", 
+		Options = {"A) War of the Spanish Succession", "B) Nine Years' War", "C) Seven Years' War", "D) War of the Austrian Succession"}, 
+		Answer = "C", 
+		WordAnswer = "SEVENYEARSWAR" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] What was the precise designation of the secret project undertaken during World War II that produced the first nuclear weapons?", 
+		Options = {"A) Operation Paperclip", "B) Manhattan Project", "C) Enigma Project", "D) Ultra Project"}, 
+		Answer = "B", 
+		WordAnswer = "MANHATTANPROJECT" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] Which Byzantine Emperor commissioned the comprehensive codification of Roman law known as the Corpus Juris Civilis during the 6th century?", 
+		Options = {"A) Constantine the Great", "B) Justinian I", "C) Heraclius", "D) Basil II"}, 
+		Answer = "B", 
+		WordAnswer = "JUSTINIANI" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] What name was given to the brutal period of political terror and mass executions led by Maximilien Robespierre during the French Revolution?", 
+		Options = {"A) The Terror", "B) The Directory", "C) The Great Purge", "D) The Restoration"}, 
+		Answer = "A", 
+		WordAnswer = "THETERROR" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] Which 1215 charter, forced upon King John of England by his rebellious barons, established the foundational principle that everyone, including the monarch, is subject to the law?", 
+		Options = {"A) Petition of Right", "B) Habeas Corpus Act", "C) Magna Carta", "D) Bill of Rights"}, 
+		Answer = "C", 
+		WordAnswer = "MAGNACARTA" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] What was the name of the naval battle fought in 1571 where a coalition of Catholic maritime states decisively defeated the fleet of the Ottoman Empire?", 
+		Options = {"A) Battle of Trafalgar", "B) Battle of Lepanto", "C) Battle of Actium", "D) Battle of Navarino"}, 
+		Answer = "B", 
+		WordAnswer = "BATTLEOFLEPANTO" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] Which brilliant Carthaginian general famously crossed the Alps with war elephants to attack the Roman Republic during the Second Punic War?", 
+		Options = {"A) Scipio Africanus", "B) Hamilcar Barca", "C) Hannibal Barca", "D) Pyrrhus of Epirus"}, 
+		Answer = "C", 
+		WordAnswer = "HANNIBALBARCA" 
+	},
+	{ 
+		Question = "[World History Hard Quiz] What was the primary name of the international organization established in 1920 under the provisions of the Treaty of Versailles to promote global peace, which ultimately proved ineffective before dissolving?", 
+		Options = {"A) United Nations", "B) League of Nations", "C) Concert of Europe", "D) Warsaw Pact"}, 
+		Answer = "B", 
+		WordAnswer = "LEAGUEOFNATIONS" 
+	}
+}
+
+--------------------------------------------------------------------------------
+-- FORWARD DECLARATIONS
+--------------------------------------------------------------------------------
+local askNextQuestion
+local showLeaderboard
+local triggerWin
+
+--------------------------------------------------------------------------------
+-- SMART WAIT IMPLEMENTATION
+--------------------------------------------------------------------------------
+local function smartWait(seconds)
+	local elapsed = 0
+	while elapsed < seconds do
+		if not quizActive then 
+			return false 
+		end
+		task.wait(0.2)
+		elapsed += 0.2
+	end
+	return true
+end
+
+--------------------------------------------------------------------------------
+-- LEADERBOARD SYSTEM
+--------------------------------------------------------------------------------
+showLeaderboard = function()
+	quizActive = false
+	optionsAllowed = false
+	
+	logInfo("Displaying final leaderboard for World History Hard Quiz.")
+	sendChatMessage("📊 --- WORLD HISTORY HARD FINAL LEADERBOARD ---")
+	task.wait(4)
+	
+	local sortedScores = {}
+	for userId, score in pairs(playerScores) do
+		table.insert(sortedScores, {name = playerNames[userId] or "Unknown", score = score})
+	end
+	
+	table.sort(sortedScores, function(a, b) 
+		return a.score > b.score 
+	end)
+	
+	if #sortedScores == 0 then
+		sendChatMessage("Nobody scored any points! 😢")
+	else
+		for rank, data in ipairs(sortedScores) do
+			sendChatMessage("🏅 Rank " .. rank .. ": " .. data.name .. " - " .. data.score .. " Pts")
+			task.wait(3)
+		end
+	end
+	
+	task.wait(4)
+	sendChatMessage("📢 Quiz finished! All rights reserved to NOT_IITIAN! 🛡️⭐")
+end
+
+--------------------------------------------------------------------------------
+-- WIN TRIGGER SYSTEM
+--------------------------------------------------------------------------------
+triggerWin = function(player)
+	if isProcessingAnswer then return end
+	isProcessingAnswer = true
+	quizActive = false
+	optionsAllowed = false
+	
+	local userId = player.UserId
+	playerScores[userId] = (playerScores[userId] or 0) + 10
+	playerNames[userId] = player.DisplayName 
+	
+	logInfo("Player " .. player.Name .. " answered correctly!")
+	sendChatMessage("🎉 " .. player.DisplayName .. " Correct answer! (+10 Pts) 🎉")
+	currentQuestionIndex += 1
+	
+	task.wait(2)
+	
+	if currentQuestionIndex > #quizDatabase then 
+		task.spawn(showLeaderboard)
+	else
+		isProcessingAnswer = false
+		task.spawn(askNextQuestion)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- ANSWER PARSING & CHAT LISTENER LOGIC
+--------------------------------------------------------------------------------
+local function onPlayerChatted(player, message)
+	if not quizActive or isProcessingAnswer then return end
+	
+	-- Blacklist verification check
+	local playerNameUpper = string.upper(player.Name)
+	local playerDisplayNameUpper = string.upper(player.DisplayName)
+	if blacklistedPlayers[playerNameUpper] or blacklistedPlayers[playerDisplayNameUpper] then
+		return
+	end
+	
+	-- String sanitization and trimming
+	local rawTrimmed = string.match(message, "^%s*(.-)%s*$")
+	if not rawTrimmed then return end
+	
+	local upperMsg = string.upper(rawTrimmed)
+	local cleanMsg = string.gsub(upperMsg, "[^%w]", "")
+	
+	-- Option Letter Pattern Check (A, B, C, D)
+	local matchedLetter = string.match(upperMsg, "^([A-D])$") or string.match(upperMsg, "^([A-D])[%-%._%)%:]+$")
+	
+	if matchedLetter then
+		-- OPTIONS CHECK: Allowed only after reading time finishes
+		if not optionsAllowed then return end
+		
+		if hasGuessedOption[player.UserId] then 
+			return -- Already used option attempt for this question
+		end
+		
+		hasGuessedOption[player.UserId] = true 
+		
+		if matchedLetter == correctAnswer then
+			triggerWin(player)
+		else
+			return
+		end
+	else
+		-- DIRECT WORD CHECK: Allowed instantly with unlimited attempts
+		if cleanMsg == currentWordAnswer then
+			triggerWin(player)
+		else
+			return
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
+-- CHAT SYSTEM HOOK INITIALIZATION
+--------------------------------------------------------------------------------
+local function initializeChatListeners()
+	-- TextChatService support for modern Roblox chat
+	if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+		TextChatService.MessageReceived:Connect(function(textMessage) 
+			if textMessage.TextSource then
+				local targetPlayer = Players:GetPlayerByUserId(textMessage.TextSource.UserId) 
+				if targetPlayer then 
+					onPlayerChatted(targetPlayer, textMessage.Text) 
+				end 
+			end
+		end)
+	end
+	
+	-- Legacy and fallback system connections
+	local function hookPlayerInstance(plr)
+		plr.Chatted:Connect(function(chatMsg)
+			onPlayerChatted(plr, chatMsg)
+		end)
+	end
+
+	Players.PlayerAdded:Connect(hookPlayerInstance)
+	for _, existingPlayer in ipairs(Players:GetPlayers()) do
+		hookPlayerInstance(existingPlayer)
+	end
+	
+	logInfo("Chat listeners initialized successfully.")
+end
+
+initializeChatListeners()
+
+--------------------------------------------------------------------------------
+-- QUESTION FLOW MANAGEMENT
+--------------------------------------------------------------------------------
+askNextQuestion = function()
+	if currentQuestionIndex > #quizDatabase then
+		showLeaderboard()
+		return
+	end
+
+	local currentQuiz = quizDatabase[currentQuestionIndex]
+	correctAnswer = string.upper(string.gsub(currentQuiz.Answer, "[^%w]", ""))
+	currentWordAnswer = string.upper(string.gsub(currentQuiz.WordAnswer, "[^%w]", ""))
+	
+	questionSession += 1
+	local currentSession = questionSession
+	
+	hasGuessedOption = {} 
+	quizActive = true
+	optionsAllowed = false 
+	isProcessingAnswer = false
+	
+	logInfo("Asking question index: " .. currentQuestionIndex)
+	
+	-- 1. Direct Word open notification comes FIRST
+	sendChatMessage("💡 Direct Word Guessing is OPEN NOW! (Unlimited Tries)")
+	
+	-- 2. Delay before showing the actual question
+	if not smartWait(TIMING_DIRECT_OPEN_DELAY) then return end 
+	if not quizActive or questionSession ~= currentSession then return end
+	
+	-- 3. Broadcast the Question Text
+	sendChatMessage(currentQuiz.Question)
+	
+	-- 4. Question Reading Phase
+	if not smartWait(TIMING_QUESTION_READ) then return end 
+	if not quizActive or questionSession ~= currentSession then return end
+	
+	-- 5. Open option selection phase
+	optionsAllowed = true
+	
+	-- 6. Send options sequentially with gaps
+	for _, optionText in ipairs(currentQuiz.Options) do 
+		sendChatMessage(optionText)
+		if not smartWait(TIMING_OPTION_GAP) then return end 
+		if not quizActive or questionSession ~= currentSession then return end
+	end
+	
+	-- Wait remaining answer window time
+	if not smartWait(TIMING_ANSWER_WAIT) then return end 
+	
+	-- Handle timeout case if no one answers
+	if quizActive and questionSession == currentSession then
+		quizActive = false
+		optionsAllowed = false
+		sendChatMessage("⏳ Time's up! Correct answer was: " .. correctAnswer .. " (" .. currentWordAnswer .. ")")
+		currentQuestionIndex += 1
+		
+		task.wait(TIMING_POST_ANSWER)
+		
+		if currentQuestionIndex <= #quizDatabase then 
+			task.spawn(askNextQuestion) 
+		else
+			task.spawn(showLeaderboard) 
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
+-- SCRIPT INITIALIZATION
+--------------------------------------------------------------------------------
+task.spawn(function()
+	logInfo("Starting World History Hard Quiz Script Sequence...")
+	sendChatMessage("(C) All rights reserved to NOT_IITIAN")
+	task.wait(3) 
+	sendChatMessage("=== 📜 WORLD HISTORY QUIZ (HARD EDITION) STARTING ===")
+	task.wait(3) 
+	askNextQuestion()
+end)
+
