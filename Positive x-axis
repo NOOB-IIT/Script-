@@ -1,0 +1,557 @@
+--[[
+    Red Quiz Hub - By NOT_IITIAN
+    Advanced UI Script for Roblox Executors
+]]
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+
+-- Container setup
+local UIContainer = nil
+pcall(function() UIContainer = gethui and gethui() or CoreGui end)
+if not UIContainer then UIContainer = Players.LocalPlayer:WaitForChild("PlayerGui") end
+
+-- Prevent duplicates
+for _, gui in pairs(UIContainer:GetChildren()) do
+    if gui.Name == "RedQuizHub" then
+        gui:Destroy()
+    end
+end
+
+-- Settings & Theme
+local Settings = {
+    Key = "IITDELHI",
+    Theme = {
+        MainRed = Color3.fromRGB(150, 15, 15),
+        DarkRed = Color3.fromRGB(20, 5, 5),
+        TextWhite = Color3.fromRGB(255, 255, 255),
+        SuccessGreen = Color3.fromRGB(50, 255, 50),
+        ErrorRed = Color3.fromRGB(255, 50, 50)
+    },
+    Images = {
+        KeyBackground = "rbxassetid://6071575925", 
+        HubBackground = "rbxassetid://6031097225"
+    }
+}
+
+-- Utility Functions
+local function Create(className, properties)
+    local inst = Instance.new(className)
+    for k, v in pairs(properties) do
+        inst[k] = v
+    end
+    return inst
+end
+
+local function MakeDraggable(topbarObject, object)
+    local dragging, dragInput, dragStart, startPos
+
+    topbarObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = object.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    topbarObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            object.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+local function AnimateHover(button, originalColor, hoverColor)
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.3), {BackgroundColor3 = hoverColor}):Play()
+    end)
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.3), {BackgroundColor3 = originalColor}):Play()
+    end)
+end
+
+local function AnimateClick(button)
+    button.MouseButton1Down:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset - 4, button.Size.Y.Scale, button.Size.Y.Offset - 4)}):Play()
+    end)
+    button.MouseButton1Up:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset + 4, button.Size.Y.Scale, button.Size.Y.Offset + 4)}):Play()
+    end)
+end
+
+-- UI Creation
+local ScreenGui = Create("ScreenGui", {
+    Name = "RedQuizHub",
+    Parent = UIContainer,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    IgnoreGuiInset = true
+})
+
+-- // KEY SYSTEM \\
+local KeyCanvas = Create("CanvasGroup", {
+    Name = "KeySystem",
+    Parent = ScreenGui,
+    Size = UDim2.new(0, 400, 0, 260),
+    Position = UDim2.new(0.5, -200, 0.5, -130),
+    BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+    BorderSizePixel = 0,
+    GroupTransparency = 1
+})
+Create("UICorner", {Parent = KeyCanvas, CornerRadius = UDim.new(0, 10)})
+MakeDraggable(KeyCanvas, KeyCanvas)
+
+local KeyBg = Create("ImageLabel", {
+    Parent = KeyCanvas,
+    Size = UDim2.new(1, 0, 1, 0),
+    Image = Settings.Images.KeyBackground,
+    ImageTransparency = 0.05,
+    BackgroundTransparency = 1,
+    ScaleType = Enum.ScaleType.Crop
+})
+
+local Overlay = Create("Frame", {
+    Parent = KeyCanvas,
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    BackgroundTransparency = 0.4,
+    BorderSizePixel = 0
+})
+
+local KeyTitle = Create("TextLabel", {
+    Parent = KeyCanvas,
+    Size = UDim2.new(1, 0, 0, 40),
+    Position = UDim2.new(0, 0, 0, 15),
+    BackgroundTransparency = 1,
+    Text = "RED HUB key",
+    TextColor3 = Settings.Theme.TextWhite,
+    Font = Enum.Font.GothamBold,
+    TextSize = 26
+})
+Create("UIStroke", {Parent = KeyTitle, Color = Color3.fromRGB(0, 0, 0), Thickness = 1.5})
+
+local KeyInputBox = Create("TextBox", {
+    Parent = KeyCanvas,
+    Size = UDim2.new(0, 280, 0, 45),
+    Position = UDim2.new(0.5, -140, 0.38, 0),
+    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+    TextColor3 = Color3.fromRGB(0, 0, 0),
+    Text = "",
+    PlaceholderText = "Type Key Here...",
+    PlaceholderColor3 = Color3.fromRGB(130, 130, 130),
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 16,
+    ClearTextOnFocus = false
+})
+Create("UICorner", {Parent = KeyInputBox, CornerRadius = UDim.new(0, 6)})
+
+local KeyNote = Create("TextLabel", {
+    Parent = KeyCanvas,
+    Size = UDim2.new(1, 0, 0, 20),
+    Position = UDim2.new(0, 0, 0.65, 0),
+    BackgroundTransparency = 1,
+    Text = "For key visit discord channel",
+    TextColor3 = Color3.fromRGB(230, 230, 230),
+    Font = Enum.Font.Gotham,
+    TextSize = 14
+})
+Create("UIStroke", {Parent = KeyNote, Color = Color3.fromRGB(0, 0, 0), Thickness = 1})
+
+local DiscordLabel = Create("TextLabel", {
+    Parent = KeyCanvas,
+    Size = UDim2.new(1, 0, 0, 20),
+    Position = UDim2.new(0, 0, 0.85, 0),
+    BackgroundTransparency = 1,
+    Text = "Discord: Dhgamer65",
+    TextColor3 = Settings.Theme.TextWhite,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14
+})
+Create("UIStroke", {Parent = DiscordLabel, Color = Color3.fromRGB(0, 0, 0), Thickness = 1})
+
+-- // MAIN HUB \\
+local MainCanvas = Create("CanvasGroup", {
+    Name = "MainHub",
+    Parent = ScreenGui,
+    Size = UDim2.new(0, 500, 0, 350),
+    Position = UDim2.new(0.5, -250, 0.5, -175),
+    BackgroundColor3 = Settings.Theme.DarkRed,
+    BorderSizePixel = 0,
+    GroupTransparency = 1,
+    Visible = false
+})
+Create("UICorner", {Parent = MainCanvas, CornerRadius = UDim.new(0, 10)})
+
+local MainBg = Create("ImageLabel", {
+    Parent = MainCanvas,
+    Size = UDim2.new(1, 0, 1, 0),
+    Image = Settings.Images.HubBackground,
+    ImageColor3 = Settings.Theme.MainRed,
+    ImageTransparency = 0.85,
+    BackgroundTransparency = 1,
+    ScaleType = Enum.ScaleType.Crop
+})
+
+-- RGB Border
+local MainStroke = Create("UIStroke", {
+    Parent = MainCanvas,
+    Thickness = 2,
+    Color = Color3.fromRGB(255, 255, 255)
+})
+local RGBGradient = Create("UIGradient", {
+    Parent = MainStroke,
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+        ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 127, 0)),
+        ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 255, 0)),
+        ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0, 255, 0)),
+        ColorSequenceKeypoint.new(0.8, Color3.fromRGB(0, 0, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+    })
+})
+
+RunService.RenderStepped:Connect(function()
+    RGBGradient.Rotation = (RGBGradient.Rotation + 1) % 360
+end)
+
+-- Top Bar
+local TopBar = Create("Frame", {
+    Parent = MainCanvas,
+    Size = UDim2.new(1, 0, 0, 40),
+    BackgroundColor3 = Settings.Theme.MainRed,
+    BackgroundTransparency = 0.2
+})
+Create("UICorner", {Parent = TopBar, CornerRadius = UDim.new(0, 10)})
+MakeDraggable(TopBar, MainCanvas)
+
+Create("Frame", {
+    Parent = TopBar,
+    Size = UDim2.new(1, 0, 0, 10),
+    Position = UDim2.new(0, 0, 1, -10),
+    BackgroundColor3 = Settings.Theme.MainRed,
+    BackgroundTransparency = 0.2,
+    BorderSizePixel = 0
+})
+
+local HubTitle = Create("TextLabel", {
+    Parent = TopBar,
+    Size = UDim2.new(1, -100, 1, 0),
+    Position = UDim2.new(0, 15, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "Red quiz hub - By NOT_IITIAN",
+    TextColor3 = Settings.Theme.TextWhite,
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+
+-- Controls
+local CloseBtn = Create("TextButton", {
+    Parent = TopBar,
+    Size = UDim2.new(0, 30, 0, 30),
+    Position = UDim2.new(1, -35, 0, 5),
+    BackgroundColor3 = Settings.Theme.DarkRed,
+    Text = "X",
+    TextColor3 = Settings.Theme.TextWhite,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14
+})
+Create("UICorner", {Parent = CloseBtn, CornerRadius = UDim.new(0, 6)})
+
+local MinBtn = Create("TextButton", {
+    Parent = TopBar,
+    Size = UDim2.new(0, 30, 0, 30),
+    Position = UDim2.new(1, -70, 0, 5),
+    BackgroundColor3 = Settings.Theme.DarkRed,
+    Text = "-",
+    TextColor3 = Settings.Theme.TextWhite,
+    Font = Enum.Font.GothamBold,
+    TextSize = 18
+})
+Create("UICorner", {Parent = MinBtn, CornerRadius = UDim.new(0, 6)})
+
+-- Tab System
+local TabContainer = Create("Frame", {
+    Parent = MainCanvas,
+    Size = UDim2.new(0, 120, 1, -40),
+    Position = UDim2.new(0, 0, 0, 40),
+    BackgroundColor3 = Color3.fromRGB(15, 0, 0),
+    BackgroundTransparency = 0.5,
+    BorderSizePixel = 0
+})
+
+local UIListLayout = Create("UIListLayout", {
+    Parent = TabContainer,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 5)
+})
+Create("UIPadding", {Parent = TabContainer, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)})
+
+local ContentContainer = Create("Frame", {
+    Parent = MainCanvas,
+    Size = UDim2.new(1, -120, 1, -40),
+    Position = UDim2.new(0, 120, 0, 40),
+    BackgroundTransparency = 1
+})
+
+local Tabs = {}
+local function CreateTab(name, layoutOrder)
+    local TabBtn = Create("TextButton", {
+        Parent = TabContainer,
+        Size = UDim2.new(1, 0, 0, 35),
+        BackgroundColor3 = Settings.Theme.DarkRed,
+        Text = name,
+        TextColor3 = Color3.fromRGB(200, 200, 200),
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 14,
+        LayoutOrder = layoutOrder
+    })
+    Create("UICorner", {Parent = TabBtn, CornerRadius = UDim.new(0, 6)})
+    
+    local TabContent = Create("ScrollingFrame", {
+        Parent = ContentContainer,
+        Size = UDim2.new(1, -20, 1, -20),
+        Position = UDim2.new(0, 10, 0, 10),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 4,
+        Visible = false
+    })
+    
+    Tabs[name] = {Button = TabBtn, Content = TabContent}
+    
+    TabBtn.MouseButton1Click:Connect(function()
+        for tName, tabData in pairs(Tabs) do
+            if tName == name then
+                TweenService:Create(tabData.Button, TweenInfo.new(0.3), {BackgroundColor3 = Settings.Theme.MainRed, TextColor3 = Settings.Theme.TextWhite}):Play()
+                tabData.Content.Visible = true
+            else
+                TweenService:Create(tabData.Button, TweenInfo.new(0.3), {BackgroundColor3 = Settings.Theme.DarkRed, TextColor3 = Color3.fromRGB(200, 200, 200)}):Play()
+                tabData.Content.Visible = false
+            end
+        end
+    end)
+    
+    return TabContent
+end
+
+-- // TAB 1: QUIZZES \\
+local QuizzesTab = CreateTab("Quizzes", 1)
+local QuizzesListLayout = Create("UIListLayout", {Parent = QuizzesTab, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)})
+
+-- Auto-update CanvasSize for ScrollingFrame
+QuizzesListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    QuizzesTab.CanvasSize = UDim2.new(0, 0, 0, QuizzesListLayout.AbsoluteContentSize.Y + 15)
+end)
+
+-- Search Box in Quizzes Tab
+local SearchBox = Create("TextBox", {
+    Parent = QuizzesTab,
+    Size = UDim2.new(1, -10, 0, 35),
+    BackgroundColor3 = Color3.fromRGB(25, 5, 5),
+    TextColor3 = Settings.Theme.TextWhite,
+    Text = "",
+    PlaceholderText = "🔍 Search Quizzes...",
+    PlaceholderColor3 = Color3.fromRGB(150, 150, 150),
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 14,
+    ClearTextOnFocus = false,
+    LayoutOrder = 0
+})
+Create("UICorner", {Parent = SearchBox, CornerRadius = UDim.new(0, 6)})
+Create("UIStroke", {Parent = SearchBox, Color = Settings.Theme.MainRed, Thickness = 1})
+
+local QuizButtons = {}
+
+-- Helper Function
+local function AddQuiz(quizTitle, rawGithubUrl)
+    local btn = Create("TextButton", {
+        Parent = QuizzesTab,
+        Size = UDim2.new(1, -10, 0, 45),
+        BackgroundColor3 = Color3.fromRGB(25, 5, 5),
+        Text = quizTitle,
+        TextColor3 = Settings.Theme.TextWhite,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 14,
+        LayoutOrder = #QuizButtons + 1
+    })
+    Create("UICorner", {Parent = btn, CornerRadius = UDim.new(0, 6)})
+    Create("UIStroke", {Parent = btn, Color = Settings.Theme.MainRed, Thickness = 1})
+    AnimateHover(btn, Color3.fromRGB(25, 5, 5), Color3.fromRGB(50, 10, 10))
+    AnimateClick(btn)
+    btn.MouseButton1Click:Connect(function()
+        loadstring(game:HttpGet(rawGithubUrl))()
+    end)
+
+    table.insert(QuizButtons, {Button = btn, Title = quizTitle})
+end
+
+-- Dynamic Filter Logic
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local searchText = string.lower(SearchBox.Text)
+    for _, item in ipairs(QuizButtons) do
+        if searchText == "" or string.find(string.lower(item.Title), searchText) then
+            item.Button.Visible = true
+        else
+            item.Button.Visible = false
+        end
+    end
+end)
+
+-- ==========================================
+-- SARE QUIZZES (TOTAL 57 ADDED)
+-- ==========================================
+
+AddQuiz("Coding Culture lua", "https://pastebin.com/raw/NwmtxaXm")
+AddQuiz("Gaming Medium", "https://pastebin.com/raw/w41bT6Hm")
+AddQuiz("Gaming Hard", "https://pastebin.com/raw/n44rd4yx")
+AddQuiz("Guess the Flag Easy", "https://pastebin.com/raw/kjE5pBkP")
+AddQuiz("Guess the Country Medium", "https://pastebin.com/raw/rEUfE1Fu")
+AddQuiz("Guess the Flag Extreme", "https://pastebin.com/raw/ABZE3hzD")
+AddQuiz("country capital Easy", "https://pastebin.com/raw/us2LU1fX")
+AddQuiz("country Capital Medium", "https://pastebin.com/raw/LwCVaabJ")
+AddQuiz("country capital hard", "https://pastebin.com/raw/1C0hXkTB")
+AddQuiz("country capital extreme", "https://pastebin.com/raw/GbJC1Ynw")
+AddQuiz("Space Easy", "https://pastebin.com/raw/TpaYwJGK")
+AddQuiz("Space Medium", "https://pastebin.com/raw/Tc5CMJjp")
+AddQuiz("Space Hard", "https://pastebin.com/raw/z9fu7mwf")
+AddQuiz("Space Extreme", "https://pastebin.com/raw/0HNcR7VY")
+AddQuiz("Guess the launguage Easy", "https://pastebin.com/raw/gsaS1Fsz")
+AddQuiz("Guess the launguage Medium", "https://pastebin.com/raw/FYnvWVFe")
+AddQuiz("Guess the launguage hard", "https://pastebin.com/raw/91UJv31Q")
+AddQuiz("Guess the launguage Extreme", "https://pastebin.com/raw/zVxEZh5B")
+AddQuiz("Country and Continents Easy", "https://pastebin.com/raw/2CnBMB5w")
+AddQuiz("Country and Continents Medium", "https://pastebin.com/raw/f7hxdN2h")
+AddQuiz("Country and Continents Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/0fbe1617375c88504ab31035aa20637fa34ca9d0/Country%20and%20continents%20hard")
+AddQuiz("Country and Continents Extreme", "https://raw.githubusercontent.com/NOOB-IIT/Script-/f9b2ad68574f145e3ffcc00088a011e5cebf6b3c/Antonomy%20easy")
+AddQuiz("Human Anatomy Easy", "https://raw.githubusercontent.com/NOOB-IIT/Script-/8f26f05ce609a2977fe98a95a20339c2a35ce29b/Human%20Anatomy%20easy")
+AddQuiz("Human Anatomy medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/f682135e5e1a7633512ad8c97f9e33d6231565c3/Human%20Anatomy%20medium")
+AddQuiz("Human Anatomy Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/07ae575416b65ed922be79d64ce204da2087a676/Human%20Anatomy%20hard")
+AddQuiz("Human Anatomy Extreme", "https://raw.githubusercontent.com/NOOB-IIT/Script-/refs/heads/main/Human%20Anatomy%20extreme")
+AddQuiz("Anime Easy", "https://raw.githubusercontent.com/NOOB-IIT/Script-/af88fd3d225ac9019b6861b0f99487f6a0fb61a1/Anime%20easy")
+AddQuiz("Anime Medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/e83fc8b5fab16703c7ed3d36e2932492517860e0/Anime%20medium")
+AddQuiz("Anime Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/28d7e78167cf9f1bc7da6a58743be4a0e54bca57/Anime%20hard")
+AddQuiz("Anime Extreme", "https://raw.githubusercontent.com/NOOB-IIT/Script-/55180e67bc20130a36b4465b8faa916dbe940c2c/Anime%20extreme")
+AddQuiz("GK Easy", "https://raw.githubusercontent.com/NOOB-IIT/Script-/0b7bd85433a003e9ca093d1ad849c2558f2d0cc4/GK%20easy")
+AddQuiz("Gk Medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/7f66df5e02a04bd2ced4fcee02b8b369760c3171/GK%20medium")
+AddQuiz("GK Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/f1d7999430c35f155cb30d747bbb36652a25bdb8/GK%20hard")
+AddQuiz("GK Extreme", "https://raw.githubusercontent.com/NOOB-IIT/Script-/1eb87acffe596df5e844dc48397d949a888a76b8/GK%20extreme")
+AddQuiz("GTA series Medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/71cab9f772dc556ec6a0f217a2f992c8bd7ec6e6/Gta%20medium")
+AddQuiz("GTA series Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/fd0ba76b5a92e3275acfb049185e921ca38ec314/Gta%20hard")
+AddQuiz("Minecraft medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/b2a3f0d4ea40a8c926bf3e58b413903ac0d06aae/Minecraft%20medium")
+AddQuiz("Minecraft Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/0e966be7a69f09cdb7f40dc17b3a1ce3601ee625/Minecraft%20hard")
+AddQuiz("Roblox medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/6700ece2df8639a1460ff1d46e93e607861a5669/Roblox%20medium")
+AddQuiz("Roblox Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/e9cbd219b81154b5a3802665c66c6fb91df6366e/Roblox%20hard")
+AddQuiz("BGMI/PUBG medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/8c0257d62c6f25c07bbd6c43ccc5098788c4c0ec/BGMI%20Medium")
+AddQuiz("BGMI/PUBG Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/270f46a1411002f49d8858ba85c9b58edd6ce39a/BGMI%20hard")
+AddQuiz("Ultimate Gaming Medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/67e29033fb825bd0efb3e4ae013cab293afc1403/Ultimate%20Gaming%20medium")
+AddQuiz("Ultimate Gaming Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/c1c026551ace240c828ef5cd2144d0886adee443/Ultimate%20Gaming%20Hard")
+AddQuiz("World Geography medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/2153156f64ef8cb3a1658749390319049f0be04d/World%20Geography%20medium")
+AddQuiz("World Geography Hard", "https://raw.githubusercontent.com/NOOB-IIT/Script-/96891982191bf4be496ab6d9eef6431d5702881e/World%20Geography%20hard")
+AddQuiz("Indian Geography medium", "https://raw.githubusercontent.com/NOOB-IIT/Script-/d8e424d2c6478eae6b3d8daa54e45fdf409d93e3/Indian%20Geography%20medium")
+-- // TAB 2: CREDITS \\
+local CreditsTab = CreateTab("Credits", 2)
+local CreditsListLayout = Create("UIListLayout", {Parent = CreditsTab, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Center})
+
+CreditsListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    CreditsTab.CanvasSize = UDim2.new(0, 0, 0, CreditsListLayout.AbsoluteContentSize.Y + 15)
+end)
+
+local function CreateCreditText(text, size, isBold)
+    local lbl = Create("TextLabel", {
+        Parent = CreditsTab,
+        Size = UDim2.new(1, 0, 0, size + 10),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = Settings.Theme.TextWhite,
+        Font = isBold and Enum.Font.GothamBold or Enum.Font.Gotham,
+        TextSize = size,
+        TextWrapped = true
+    })
+    return lbl
+end
+
+CreateCreditText("Owner: INDIANGAMER6975 (NOT_IITIAN)", 16, true)
+CreateCreditText("Contributor: AYUSH0098 (DIABETO)", 16, true)
+CreateCreditText("Discord: Dhgamer65", 14, false)
+Create("Frame", {Parent = CreditsTab, Size = UDim2.new(0.8, 0, 0, 2), BackgroundColor3 = Settings.Theme.MainRed, BorderSizePixel = 0})
+CreateCreditText("FOR ANY HELP VISIT DISCORD CHANNEL", 14, true).TextColor3 = Settings.Theme.ErrorRed
+
+-- Default Tab Setup
+Tabs["Quizzes"].Button.BackgroundColor3 = Settings.Theme.MainRed
+Tabs["Quizzes"].Button.TextColor3 = Settings.Theme.TextWhite
+Tabs["Quizzes"].Content.Visible = true
+
+-- Key Logic & Animations
+TweenService:Create(KeyCanvas, TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {GroupTransparency = 0}):Play()
+
+KeyInputBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        if KeyInputBox.Text == Settings.Key then
+            KeyInputBox.Text = "Correct key, checking..."
+            KeyInputBox.TextColor3 = Settings.Theme.SuccessGreen
+            KeyInputBox.TextEditable = false
+            
+            task.wait(1)
+            
+            local fadeOut = TweenService:Create(KeyCanvas, TweenInfo.new(0.5), {GroupTransparency = 1, Size = UDim2.new(0, 380, 0, 240)})
+            fadeOut:Play()
+            fadeOut.Completed:Wait()
+            KeyCanvas:Destroy()
+            
+            MainCanvas.Visible = true
+            TweenService:Create(MainCanvas, TweenInfo.new(0.8, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
+                GroupTransparency = 0,
+                Size = UDim2.new(0, 500, 0, 350)
+            }):Play()
+        else
+            KeyInputBox.Text = "Invalid key"
+            KeyInputBox.TextColor3 = Settings.Theme.ErrorRed
+            task.wait(1.5)
+            if KeyInputBox.Text == "Invalid key" then
+                KeyInputBox.Text = ""
+                KeyInputBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+            end
+        end
+    end
+end)
+
+-- Window Controls Logic
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        TweenService:Create(MainCanvas, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 500, 0, 40)}):Play()
+        TabContainer.Visible = false
+        ContentContainer.Visible = false
+    else
+        TweenService:Create(MainCanvas, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 500, 0, 350)}):Play()
+        task.wait(0.2)
+        TabContainer.Visible = true
+        ContentContainer.Visible = true
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    local closeTween = TweenService:Create(MainCanvas, TweenInfo.new(0.4), {GroupTransparency = 1, Size = UDim2.new(0, 480, 0, 330)})
+    closeTween:Play()
+    closeTween.Completed:Wait()
+    ScreenGui:Destroy()
+end)
+
+AnimateHover(CloseBtn, Settings.Theme.DarkRed, Settings.Theme.ErrorRed)
+AnimateHover(MinBtn, Settings.Theme.DarkRed, Color3.fromRGB(60, 15, 15))
