@@ -1,0 +1,454 @@
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+-- Create Main ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PeacefulRobloxHub"
+if RunService:IsStudio() then
+    ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+else
+    ScreenGui.Parent = CoreGui
+end
+
+-----------------------------------------
+-- 1. PROFESSIONAL RECTANGLE KEY SYSTEM
+-----------------------------------------
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Name = "KeyFrame"
+KeyFrame.Parent = ScreenGui
+KeyFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 15) -- Dark background
+KeyFrame.Position = UDim2.new(0.5, -180, 0.5, -155)
+KeyFrame.Size = UDim2.new(0, 360, 0, 315)
+KeyFrame.BorderSizePixel = 0
+KeyFrame.ClipsDescendants = true
+
+local KeyCorner = Instance.new("UICorner")
+KeyCorner.CornerRadius = UDim.new(0, 10)
+KeyCorner.Parent = KeyFrame
+
+-- RGB Glowing Border for Key System
+local KeyStroke = Instance.new("UIStroke")
+KeyStroke.Parent = KeyFrame
+KeyStroke.Thickness = 2.5
+KeyStroke.Color = Color3.fromRGB(255, 0, 0)
+
+task.spawn(function()
+    local hue = 0
+    while task.wait() do
+        hue = hue + 0.004
+        if hue >= 1 then hue = 0 end
+        KeyStroke.Color = Color3.fromHSV(hue, 1, 1)
+    end
+end)
+
+-- Top Big Bold Title "RED HUB"
+local RedHubTitle = Instance.new("TextLabel")
+RedHubTitle.Parent = KeyFrame
+RedHubTitle.BackgroundTransparency = 1
+RedHubTitle.Position = UDim2.new(0, 0, 0, 10)
+RedHubTitle.Size = UDim2.new(1, 0, 0, 30)
+RedHubTitle.Font = Enum.Font.GothamBlack
+RedHubTitle.Text = "RED HUB"
+RedHubTitle.TextColor3 = Color3.fromRGB(255, 30, 30)
+RedHubTitle.TextSize = 24
+
+-- Noticeable Dark Background Container for Decal/Logo
+local LogoBg = Instance.new("Frame")
+LogoBg.Parent = KeyFrame
+LogoBg.BackgroundColor3 = Color3.fromRGB(18, 18, 24) -- Dark contrast background
+LogoBg.Position = UDim2.new(0.5, -30, 0, 45)
+LogoBg.Size = UDim2.new(0, 60, 0, 60)
+LogoBg.BorderSizePixel = 0
+
+local LogoBgCorner = Instance.new("UICorner")
+LogoBgCorner.CornerRadius = UDim.new(0, 10)
+LogoBgCorner.Parent = LogoBg
+
+local LogoBgStroke = Instance.new("UIStroke")
+LogoBgStroke.Parent = LogoBg
+LogoBgStroke.Thickness = 1.5
+LogoBgStroke.Color = Color3.fromRGB(45, 45, 60)
+
+-- Decal / Image using rbxthumb format so Decal ID works perfectly on GUI
+local Logo = Instance.new("ImageLabel")
+Logo.Parent = LogoBg
+Logo.BackgroundTransparency = 1
+Logo.Position = UDim2.new(0, 6, 0, 6)
+Logo.Size = UDim2.new(0, 48, 0, 48)
+Logo.Image = "rbxthumb://type=Asset&id=113207792437329&w=420&h=420"
+
+-- Key Authentication System Subtext
+local KeyTitle = Instance.new("TextLabel")
+KeyTitle.Parent = KeyFrame
+KeyTitle.BackgroundTransparency = 1
+KeyTitle.Position = UDim2.new(0, 0, 0, 112)
+KeyTitle.Size = UDim2.new(1, 0, 0, 20)
+KeyTitle.Font = Enum.Font.GothamBold
+KeyTitle.Text = "Key Authentication System"
+KeyTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
+KeyTitle.TextSize = 13
+
+-- TextBox Background Frame
+local InputBoxBg = Instance.new("Frame")
+InputBoxBg.Parent = KeyFrame
+InputBoxBg.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+InputBoxBg.Position = UDim2.new(0.1, 0, 0, 138)
+InputBoxBg.Size = UDim2.new(0.8, 0, 0, 38)
+InputBoxBg.BorderSizePixel = 0
+
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 6)
+InputCorner.Parent = InputBoxBg
+
+-- Key Input Box
+local KeyInput = Instance.new("TextBox")
+KeyInput.Parent = InputBoxBg
+KeyInput.BackgroundTransparency = 1
+KeyInput.Size = UDim2.new(1, 0, 1, 0)
+KeyInput.Font = Enum.Font.GothamMedium
+KeyInput.PlaceholderText = "enter your key"
+KeyInput.PlaceholderColor3 = Color3.fromRGB(110, 110, 130)
+KeyInput.Text = ""
+KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyInput.TextSize = 13
+KeyInput.ClearTextOnFocus = false
+
+-- Professional Note Under Key Box
+local NoteLabel = Instance.new("TextLabel")
+NoteLabel.Parent = KeyFrame
+NoteLabel.BackgroundTransparency = 1
+NoteLabel.Position = UDim2.new(0.1, 0, 0, 182)
+NoteLabel.Size = UDim2.new(0.8, 0, 0, 20)
+NoteLabel.Font = Enum.Font.Gotham
+NoteLabel.Text = "For key, please visit our official Discord channel."
+NoteLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+NoteLabel.TextSize = 11
+
+-- Status Label (Checking / Incorrect)
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Parent = KeyFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0.1, 0, 0, 204)
+StatusLabel.Size = UDim2.new(0.8, 0, 0, 20)
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.Text = ""
+StatusLabel.TextSize = 12
+
+-- Discord Link Button (Key System)
+local KeyDiscord = Instance.new("TextButton")
+KeyDiscord.Parent = KeyFrame
+KeyDiscord.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+KeyDiscord.Position = UDim2.new(0.1, 0, 0, 242)
+KeyDiscord.Size = UDim2.new(0.8, 0, 0, 38)
+KeyDiscord.Font = Enum.Font.GothamBold
+KeyDiscord.Text = "Click to Copy Discord Link"
+KeyDiscord.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyDiscord.TextSize = 13
+
+local DiscordCorner = Instance.new("UICorner")
+DiscordCorner.CornerRadius = UDim.new(0, 6)
+DiscordCorner.Parent = KeyDiscord
+
+
+-----------------------------------------
+-- 1.5 LOADING ANIMATION SCREEN (5s GAP)
+-----------------------------------------
+local LoadingFrame = Instance.new("Frame")
+LoadingFrame.Name = "LoadingFrame"
+LoadingFrame.Parent = ScreenGui
+LoadingFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+LoadingFrame.Position = UDim2.new(0.5, -150, 0.5, -50)
+LoadingFrame.Size = UDim2.new(0, 300, 0, 100)
+LoadingFrame.Visible = false
+LoadingFrame.BorderSizePixel = 0
+LoadingFrame.ClipsDescendants = true
+
+local LoadingCorner = Instance.new("UICorner")
+LoadingCorner.CornerRadius = UDim.new(0, 10)
+LoadingCorner.Parent = LoadingFrame
+
+local LoadingStroke = Instance.new("UIStroke")
+LoadingStroke.Parent = LoadingFrame
+LoadingStroke.Thickness = 2.5
+LoadingStroke.Color = Color3.fromRGB(255, 0, 0)
+
+local LoadingText = Instance.new("TextLabel")
+LoadingText.Parent = LoadingFrame
+LoadingText.BackgroundTransparency = 1
+LoadingText.Position = UDim2.new(0, 0, 0, 20)
+LoadingText.Size = UDim2.new(1, 0, 0, 30)
+LoadingText.Font = Enum.Font.GothamBold
+LoadingText.Text = "Authenticating..."
+LoadingText.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadingText.TextSize = 15
+
+local BarBg = Instance.new("Frame")
+BarBg.Parent = LoadingFrame
+BarBg.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+BarBg.Position = UDim2.new(0.1, 0, 0, 65)
+BarBg.Size = UDim2.new(0.8, 0, 0, 10)
+BarBg.BorderSizePixel = 0
+
+local BarBgCorner = Instance.new("UICorner")
+BarBgCorner.CornerRadius = UDim.new(0, 5)
+BarBgCorner.Parent = BarBg
+
+local BarFill = Instance.new("Frame")
+BarFill.Parent = BarBg
+BarFill.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
+BarFill.Size = UDim2.new(0, 0, 1, 0)
+BarFill.BorderSizePixel = 0
+
+local BarFillCorner = Instance.new("UICorner")
+BarFillCorner.CornerRadius = UDim.new(0, 5)
+BarFillCorner.Parent = BarFill
+
+
+-----------------------------------------
+-- 2. MAIN SCRIPT GUI (PEACEFUL ROBLOX)
+-----------------------------------------
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -110)
+MainFrame.Size = UDim2.new(0, 350, 0, 220)
+MainFrame.Visible = false
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Parent = MainFrame
+MainStroke.Thickness = 2.5
+MainStroke.Color = Color3.fromRGB(255, 0, 0)
+
+task.spawn(function()
+    local hue = 0
+    while task.wait() do
+        hue = hue + 0.004
+        if hue >= 1 then hue = 0 end
+        MainStroke.Color = Color3.fromHSV(hue, 1, 1)
+    end
+end)
+
+local TopBar = Instance.new("Frame")
+TopBar.Parent = MainFrame
+TopBar.BackgroundColor3 = Color3.fromRGB(200, 25, 25)
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BorderSizePixel = 0
+
+local Title = Instance.new("TextLabel")
+Title.Parent = TopBar
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 12, 0, 0)
+Title.Size = UDim2.new(0.7, 0, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Peaceful Roblox--NOT_IITIAN"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Parent = TopBar
+MinimizeBtn.BackgroundTransparency = 1
+MinimizeBtn.Position = UDim2.new(1, -65, 0, 0)
+MinimizeBtn.Size = UDim2.new(0, 30, 1, 0)
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.TextSize = 20
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Parent = TopBar
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Position = UDim2.new(1, -32, 0, 0)
+CloseBtn.Size = UDim2.new(0, 30, 1, 0)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 15
+
+local Content = Instance.new("Frame")
+Content.Parent = MainFrame
+Content.BackgroundTransparency = 1
+Content.Position = UDim2.new(0, 0, 0, 35)
+Content.Size = UDim2.new(1, 0, 1, -35)
+
+-- Option 1: Main Script Button (Attached with your updated Loadstring)
+local ScriptBtn = Instance.new("TextButton")
+ScriptBtn.Parent = Content
+ScriptBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+ScriptBtn.Position = UDim2.new(0.08, 0, 0.12, 0)
+ScriptBtn.Size = UDim2.new(0.84, 0, 0, 40)
+ScriptBtn.Font = Enum.Font.GothamBold
+ScriptBtn.Text = "⚡ Load Main Script"
+ScriptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ScriptBtn.TextSize = 14
+
+local ScriptCorner = Instance.new("UICorner")
+ScriptCorner.CornerRadius = UDim.new(0, 8)
+ScriptCorner.Parent = ScriptBtn
+
+local CreditsLabel = Instance.new("TextLabel")
+CreditsLabel.Parent = Content
+CreditsLabel.BackgroundTransparency = 1
+CreditsLabel.Position = UDim2.new(0.08, 0, 0.45, 0)
+CreditsLabel.Size = UDim2.new(0.84, 0, 0, 35)
+CreditsLabel.Font = Enum.Font.GothamBold
+CreditsLabel.Text = "OWNER: INDIANGAMER6975\n(NOT_IITIAN)"
+CreditsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+CreditsLabel.TextSize = 11
+
+local MainDiscord = Instance.new("TextButton")
+MainDiscord.Parent = Content
+MainDiscord.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+MainDiscord.Position = UDim2.new(0.08, 0, 0.70, 0)
+MainDiscord.Size = UDim2.new(0.84, 0, 0, 40)
+MainDiscord.Font = Enum.Font.GothamBold
+MainDiscord.Text = "DISCORD-: https://discord.gg/8p29Pq9Uk"
+MainDiscord.TextColor3 = Color3.fromRGB(255, 255, 255)
+MainDiscord.TextSize = 11
+
+local MainDiscordCorner = Instance.new("UICorner")
+MainDiscordCorner.CornerRadius = UDim.new(0, 8)
+MainDiscordCorner.Parent = MainDiscord
+
+
+-----------------------------------------
+-- LOGIC & EVENT HANDLERS
+-----------------------------------------
+
+-- Key Authentication Logic
+KeyInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        if KeyInput.Text == "IITBOMBAY" then
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
+            StatusLabel.Text = "Key Verified!"
+            task.wait(0.5)
+            
+            KeyFrame.Visible = false
+            LoadingFrame.Visible = true
+            
+            -- 5 Seconds Loading Bar Animation
+            local tweenInfo = TweenInfo.new(5, Enum.EasingStyle.Linear)
+            local tween = TweenService:Create(BarFill, tweenInfo, {Size = UDim2.new(1, 0, 1, 0)})
+            tween:Play()
+            
+            task.spawn(function()
+                task.wait(1.5)
+                LoadingText.Text = "Checking Whitelist..."
+                task.wait(1.5)
+                LoadingText.Text = "Loading UI..."
+                task.wait(1.5)
+                LoadingText.Text = "Ready!"
+            end)
+            
+            tween.Completed:Wait()
+            task.wait(0.3)
+            
+            LoadingFrame.Visible = false
+            MainFrame.Visible = true
+        else
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+            StatusLabel.Text = "incorrect key, try again"
+            task.wait(1.5)
+            StatusLabel.Text = ""
+        end
+    end
+end)
+
+-- Execute Updated Loadstring when "Load Main Script" button is clicked
+ScriptBtn.MouseButton1Click:Connect(function()
+    ScriptBtn.Text = "Loading..."
+    task.spawn(function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/NOOB-IIT/Script-/5421dc9b127a425ff6b9b19fb4c59cd6868a7ce5/IITBOMBAY"))()
+        end)
+        
+        if success then
+            ScriptBtn.Text = "Loaded Successfully!"
+            task.wait(2)
+            ScriptBtn.Text = "⚡ Load Main Script"
+        else
+            ScriptBtn.Text = "Failed to Load!"
+            warn("Script Error: " .. tostring(err))
+            task.wait(2)
+            ScriptBtn.Text = "⚡ Load Main Script"
+        end
+    end)
+end)
+
+KeyDiscord.MouseButton1Click:Connect(function()
+    if setclipboard then
+        setclipboard("https://discord.gg/8p29Pq9Uk")
+        KeyDiscord.Text = "Copied to Clipboard!"
+        task.wait(2)
+        KeyDiscord.Text = "Click to Copy Discord Link"
+    end
+end)
+
+MainDiscord.MouseButton1Click:Connect(function()
+    if setclipboard then
+        setclipboard("https://discord.gg/8p29Pq9Uk")
+        MainDiscord.Text = "Copied to Clipboard!"
+        task.wait(2)
+        MainDiscord.Text = "DISCORD-: https://discord.gg/8p29Pq9Uk"
+    end
+end)
+
+local isMinimized = false
+MinimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        MainFrame.Size = UDim2.new(0, 350, 0, 35)
+        Content.Visible = false
+    else
+        MainFrame.Size = UDim2.new(0, 350, 0, 220)
+        Content.Visible = true
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+local function MakeDraggable(frame, topbar)
+    local dragging, dragInput, dragStart, startPos
+    
+    topbar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+MakeDraggable(KeyFrame, KeyFrame)
+MakeDraggable(MainFrame, TopBar)
+MakeDraggable(LoadingFrame, LoadingFrame)
