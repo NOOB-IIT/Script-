@@ -1,0 +1,341 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local TextChatService = game:GetService("TextChatService")
+local LocalPlayer = Players.LocalPlayer
+
+-- GUI Setup (Clean & Professional Modern Panel with Min/Close)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "VanishPlayerProfessionalGUI"
+ScreenGui.ResetOnSpawn = false
+
+local success, _ = pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not success then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Main Container Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 340, 0, 235)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -117)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+-- Premium RGB Border Stroke
+local RGBStroke = Instance.new("UIStroke")
+RGBStroke.Thickness = 2
+RGBStroke.Parent = MainFrame
+
+RunService.RenderStepped:Connect(function()
+    RGBStroke.Color = Color3.fromHSV(tick() % 6 / 6, 0.8, 1)
+end)
+
+-- Top Header Bar (For Title, Minimize & Close)
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 42)
+TopBar.BackgroundTransparency = 1
+TopBar.Parent = MainFrame
+
+-- Title: VANISH PLAYER (Mote, Bade characters, Red Theme)
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0.65, 0, 1, 0)
+Title.Position = UDim2.new(0, 12, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "VANISH PLAYER"
+Title.TextColor3 = Color3.fromRGB(255, 35, 35) -- Bold Red Color
+Title.TextSize = 17
+Title.Font = Enum.Font.GothamBlack
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -34, 0.5, -13)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Text = "X"
+CloseBtn.TextSize = 13
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TopBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseBtn
+
+-- Minimize Button (-)
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 26, 0, 26)
+MinBtn.Position = UDim2.new(1, -66, 0.5, -13)
+MinBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.Text = "-"
+MinBtn.TextSize = 15
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.Parent = TopBar
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 6)
+MinCorner.Parent = MinBtn
+
+-- Container for all interactive elements
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, 0, 1, -42)
+ContentContainer.Position = UDim2.new(0, 0, 0, 42)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
+
+-- Input Box (Clean Search / Name Field)
+local TextBox = Instance.new("TextBox")
+TextBox.Size = UDim2.new(0.88, 0, 0, 36)
+TextBox.Position = UDim2.new(0.06, 0, 0, 8)
+TextBox.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.PlaceholderText = "Enter Player Name or Display Name..."
+TextBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 110)
+TextBox.TextSize = 13
+TextBox.Font = Enum.Font.GothamMedium
+TextBox.Text = ""
+TextBox.Parent = ContentContainer
+
+local BoxCorner = Instance.new("UICorner")
+BoxCorner.CornerRadius = UDim.new(0, 6)
+BoxCorner.Parent = TextBox
+
+local BoxStroke = Instance.new("UIStroke")
+BoxStroke.Color = Color3.fromRGB(45, 45, 45)
+BoxStroke.Thickness = 1
+BoxStroke.Parent = TextBox
+
+-- Dropdown Toggle Bar (Select Player Menu)
+local DropdownBar = Instance.new("TextButton")
+DropdownBar.Size = UDim2.new(0.88, 0, 0, 34)
+DropdownBar.Position = UDim2.new(0.06, 0, 0, 52)
+DropdownBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+DropdownBar.TextColor3 = Color3.fromRGB(200, 200, 200)
+DropdownBar.Text = "  Select Player  ^"
+DropdownBar.TextXAlignment = Enum.TextXAlignment.Left
+DropdownBar.TextSize = 13
+DropdownBar.Font = Enum.Font.GothamMedium
+DropdownBar.Parent = ContentContainer
+
+local DropCorner = Instance.new("UICorner")
+DropCorner.CornerRadius = UDim.new(0, 6)
+DropCorner.Parent = DropdownBar
+
+-- Scrolling Frame for Player List (Display Names + Usernames)
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(0.88, 0, 0, 100)
+ScrollFrame.Position = UDim2.new(0.06, 0, 0, 90)
+ScrollFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 4
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollFrame.Visible = false
+ScrollFrame.Parent = ContentContainer
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = ScrollFrame
+UIListLayout.Padding = UDim.new(0, 4)
+
+-- Action Button: Vanish Player
+local VanishBtn = Instance.new("TextButton")
+VanishBtn.Size = UDim2.new(0.88, 0, 0, 36)
+VanishBtn.Position = UDim2.new(0.06, 0, 0, 92) -- Default state when dropdown is closed
+VanishBtn.BackgroundColor3 = Color3.fromRGB(200, 25, 45)
+VanishBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+VanishBtn.Text = "Vanish Player"
+VanishBtn.TextSize = 14
+VanishBtn.Font = Enum.Font.GothamBold
+VanishBtn.Parent = ContentContainer
+
+local VanishCorner = Instance.new("UICorner")
+VanishCorner.CornerRadius = UDim.new(0, 6)
+VanishCorner.Parent = VanishBtn
+
+-- Minimize & Close Button Functionality
+local isMinimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        MinBtn.Text = "+"
+        ContentContainer.Visible = false
+        MainFrame.Size = UDim2.new(0, 340, 0, 42)
+    else
+        MinBtn.Text = "-"
+        ContentContainer.Visible = true
+        MainFrame.Size = UDim2.new(0, 340, 0, 235)
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Dropdown Open/Close Handler
+local isOpen = false
+DropdownBar.MouseButton1Click:Connect(function()
+    if isMinimized then return end
+    isOpen = not isOpen
+    if isOpen then
+        DropdownBar.Text = "  Select Player  v"
+        ScrollFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 340, 0, 295)
+        ContentContainer.Size = UDim2.new(1, 0, 1, -42)
+        VanishBtn.Position = UDim2.new(0.06, 0, 0, 196)
+    else
+        DropdownBar.Text = "  Select Player  ^"
+        ScrollFrame.Visible = false
+        MainFrame.Size = UDim2.new(0, 340, 0, 235)
+        VanishBtn.Position = UDim2.new(0.06, 0, 0, 92)
+    end
+end)
+
+-- Update Player List with Alphabetical Sorting (A to Z)
+local function UpdatePlayerList()
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    -- Gather players except local player
+    local playerList = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            table.insert(playerList, player)
+        end
+    end
+    
+    -- Sort alphabetically based on DisplayName (A-Z)
+    table.sort(playerList, function(a, b)
+        return a.DisplayName:lower() < b.DisplayName:lower()
+    end)
+    
+    local ySize = 0
+    for _, player in ipairs(playerList) do
+        local pBtn = Instance.new("TextButton")
+        pBtn.Size = UDim2.new(1, -4, 0, 28)
+        pBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+        pBtn.TextColor3 = Color3.fromRGB(230, 230, 230)
+        pBtn.Text = "  " .. player.DisplayName .. " (@" .. player.Name .. ")"
+        pBtn.TextXAlignment = Enum.TextXAlignment.Left
+        pBtn.TextSize = 12
+        pBtn.Font = Enum.Font.Gotham
+        pBtn.Parent = ScrollFrame
+        
+        pBtn.MouseButton1Click:Connect(function()
+            TextBox.Text = player.Name
+            isOpen = false
+            DropdownBar.Text = "  Select Player  ^"
+            ScrollFrame.Visible = false
+            MainFrame.Size = UDim2.new(0, 340, 0, 235)
+            VanishBtn.Position = UDim2.new(0.06, 0, 0, 92)
+        end)
+        ySize = ySize + 32
+    end
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ySize)
+end
+
+UpdatePlayerList()
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(UpdatePlayerList)
+
+-- Vanish Execution System
+local VanishedPlayers = {}
+
+local function VanishTarget(inputName)
+    local target = nil
+    local cleanInput = string.lower(inputName):gsub("@", "")
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if string.lower(p.Name) == cleanInput or string.lower(p.DisplayName) == cleanInput or 
+           string.lower(p.Name):match("^" .. cleanInput) or string.lower(p.DisplayName):match("^" .. cleanInput) then
+            target = p
+            break
+        end
+    end
+
+    if target and target ~= LocalPlayer then
+        VanishedPlayers[target.UserId] = true
+        
+        if target.Character then
+            target.Character:Destroy()
+        end
+        
+        target.CharacterAdded:Connect(function(char)
+            if VanishedPlayers[target.UserId] then
+                task.wait()
+                char:Destroy()
+            end
+        end)
+        
+        TextBox.Text = "Success: " .. target.DisplayName
+        task.wait(2)
+        TextBox.Text = ""
+    else
+        TextBox.Text = "Player not found!"
+        task.wait(1.5)
+        TextBox.Text = ""
+    end
+end
+
+-- Chat Block via TextChatService
+if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+    TextChatService.OnIncomingMessage = function(message)
+        if message.TextSource then
+            local player = Players:GetPlayerByUserId(message.TextSource.UserId)
+            if player and VanishedPlayers[player.UserId] then
+                local prop = Instance.new("TextChatMessageProperties")
+                prop.Text = ""
+                return prop
+            end
+        end
+    end
+end
+
+-- Vanish Button Trigger
+VanishBtn.MouseButton1Click:Connect(function()
+    local nameInput = TextBox.Text
+    if nameInput ~= "" and nameInput ~= "Enter Player Name or Display Name..." then
+        VanishTarget(nameInput)
+    end
+end)
+
+-- Draggable Logic
+local dragging, dragInput, dragStart, startPos
+
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if dragging and dragInput then
+        local delta = dragInput.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
