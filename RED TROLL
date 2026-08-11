@@ -1,0 +1,402 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- Purane GUI ko cleanup karne ke liye
+if CoreGui:FindFirstChild("RedTrollHubGUI") then
+	CoreGui.RedTrollHubGUI:Destroy()
+end
+
+-- ScreenGui Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RedTrollHubGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = (pcall(function() return CoreGui end) and CoreGui) or LocalPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame (Black Theme with RGB Border)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 300, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -150, 0.35, -160)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 10)
+frameCorner.Parent = mainFrame
+
+-- Border RGB Light
+local frameStroke = Instance.new("UIStroke")
+frameStroke.Thickness = 2.5
+frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+frameStroke.LineJoinMode = Enum.LineJoinMode.Round
+frameStroke.Color = Color3.fromRGB(255, 0, 0)
+frameStroke.Parent = mainFrame
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -70, 0, 40)
+titleLabel.Position = UDim2.new(0, 10, 0, 5)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "RED TROLL HUB"
+titleLabel.TextColor3 = Color3.fromRGB(255, 30, 30)
+titleLabel.TextSize = 22
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = mainFrame
+
+-- Minimize Button
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Size = UDim2.new(0, 26, 0, 26)
+minimizeButton.Position = UDim2.new(1, -62, 0, 10)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+minimizeButton.Text = "-"
+minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeButton.Font = Enum.Font.SourceSansBold
+minimizeButton.TextSize = 20
+minimizeButton.Parent = mainFrame
+
+local miniCorner = Instance.new("UICorner")
+miniCorner.CornerRadius = UDim.new(0, 6)
+miniCorner.Parent = minimizeButton
+
+local isMinimized = false
+minimizeButton.MouseButton1Click:Connect(function()
+	isMinimized = not isMinimized
+	if isMinimized then
+		mainFrame:TweenSize(UDim2.new(0, 300, 0, 42), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.2, true)
+		minimizeButton.Text = "+"
+	else
+		mainFrame:TweenSize(UDim2.new(0, 300, 0, 420), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.2, true)
+		minimizeButton.Text = "-"
+	end
+end)
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 26, 0, 26)
+closeButton.Position = UDim2.new(1, -32, 0, 10)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.TextSize = 15
+closeButton.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+closeButton.MouseButton1Click:Connect(function()
+	screenGui:Destroy()
+end)
+
+-- Input Box
+local targetBox = Instance.new("TextBox")
+targetBox.Name = "TargetBox"
+targetBox.Size = UDim2.new(1, -55, 0, 35)
+targetBox.Position = UDim2.new(0, 15, 0, 50)
+targetBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255) 
+targetBox.PlaceholderText = "type player name"
+targetBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+targetBox.Text = ""
+targetBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+targetBox.Font = Enum.Font.SourceSansBold
+targetBox.TextSize = 15
+targetBox.ClearTextOnFocus = false
+targetBox.Parent = mainFrame
+
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 6)
+boxCorner.Parent = targetBox
+
+-- Dropdown Toggle Button
+local dropdownToggle = Instance.new("TextButton")
+dropdownToggle.Size = UDim2.new(0, 30, 0, 35)
+dropdownToggle.Position = UDim2.new(1, -35, 0, 50)
+dropdownToggle.BackgroundColor3 = Color3.fromRGB(180, 25, 25)
+dropdownToggle.Text = "^"
+dropdownToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+dropdownToggle.Font = Enum.Font.SourceSansBold
+dropdownToggle.TextSize = 18
+dropdownToggle.Parent = mainFrame
+
+local dropToggleCorner = Instance.new("UICorner")
+dropToggleCorner.CornerRadius = UDim.new(0, 6)
+dropToggleCorner.Parent = dropdownToggle
+
+-- Dropdown List
+local dropdownFrame = Instance.new("ScrollingFrame")
+dropdownFrame.Size = UDim2.new(1, -30, 0, 110)
+dropdownFrame.Position = UDim2.new(0, 15, 0, 90)
+dropdownFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+dropdownFrame.BorderColor3 = Color3.fromRGB(200, 30, 30)
+dropdownFrame.BorderSizePixel = 1
+dropdownFrame.Visible = false
+dropdownFrame.ZIndex = 5
+dropdownFrame.ScrollBarThickness = 5
+dropdownFrame.Parent = mainFrame
+
+local uiListLayout = Instance.new("UIListLayout")
+uiListLayout.Parent = dropdownFrame
+uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function UpdateDropdownList()
+	for _, child in ipairs(dropdownFrame:GetChildren()) do
+		if child:IsA("TextButton") then child:Destroy() end
+	end
+	local serverPlayers = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer then table.insert(serverPlayers, p) end
+	end
+	table.sort(serverPlayers, function(a, b) return a.DisplayName:lower() < b.DisplayName:lower() end)
+
+	for _, p in ipairs(serverPlayers) do
+		local pBtn = Instance.new("TextButton")
+		pBtn.Size = UDim2.new(1, 0, 0, 25)
+		pBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+		pBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		pBtn.Text = p.DisplayName .. " (@" .. p.Name .. ")"
+		pBtn.Font = Enum.Font.SourceSans
+		pBtn.TextSize = 14
+		pBtn.ZIndex = 6
+		pBtn.Parent = dropdownFrame
+
+		pBtn.MouseButton1Click:Connect(function()
+			targetBox.Text = p.Name
+			dropdownFrame.Visible = false
+			dropdownToggle.Text = "^"
+		end)
+	end
+	dropdownFrame.CanvasSize = UDim2.new(0, 0, 0, #serverPlayers * 25)
+end
+
+dropdownToggle.MouseButton1Click:Connect(function()
+	dropdownFrame.Visible = not dropdownFrame.Visible
+	dropdownToggle.Text = dropdownFrame.Visible and "v" or "^"
+	if dropdownFrame.Visible then UpdateDropdownList() end
+end)
+
+-- Buttons Setup
+local flingButton = Instance.new("TextButton")
+flingButton.Size = UDim2.new(1, -30, 0, 40)
+flingButton.Position = UDim2.new(0, 15, 0, 100)
+flingButton.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+flingButton.Text = "FLING PLAYER"
+flingButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingButton.Font = Enum.Font.SourceSansBold
+flingButton.TextSize = 18
+flingButton.Parent = mainFrame
+Instance.new("UICorner", flingButton).CornerRadius = UDim.new(0, 6)
+
+local flingAllButton = Instance.new("TextButton")
+flingAllButton.Size = UDim2.new(1, -30, 0, 40)
+flingAllButton.Position = UDim2.new(0, 15, 0, 150)
+flingAllButton.BackgroundColor3 = Color3.fromRGB(220, 20, 20)
+flingAllButton.Text = "FLING ALL"
+flingAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingAllButton.Font = Enum.Font.SourceSansBold
+flingAllButton.TextSize = 18
+flingAllButton.Parent = mainFrame
+Instance.new("UICorner", flingAllButton).CornerRadius = UDim.new(0, 6)
+
+local stopFlingAllButton = Instance.new("TextButton")
+stopFlingAllButton.Size = UDim2.new(1, -30, 0, 40)
+stopFlingAllButton.Position = UDim2.new(0, 15, 0, 200)
+stopFlingAllButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+stopFlingAllButton.Text = "STOP FLING ALL"
+stopFlingAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+stopFlingAllButton.Font = Enum.Font.SourceSansBold
+stopFlingAllButton.TextSize = 18
+stopFlingAllButton.Parent = mainFrame
+Instance.new("UICorner", stopFlingAllButton).CornerRadius = UDim.new(0, 6)
+
+-- Discord Button
+local discordBtn = Instance.new("TextButton")
+discordBtn.Size = UDim2.new(1, -30, 0, 38)
+discordBtn.Position = UDim2.new(0, 15, 0, 255)
+discordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+discordBtn.BorderSizePixel = 0
+discordBtn.Text = "     Copy Discord Link"
+discordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+discordBtn.Font = Enum.Font.SourceSansBold
+discordBtn.TextSize = 16
+discordBtn.Parent = mainFrame
+
+local discordCorner = Instance.new("UICorner")
+discordCorner.CornerRadius = UDim.new(0, 6)
+discordCorner.Parent = discordBtn
+
+local discordIcon = Instance.new("ImageLabel")
+discordIcon.Size = UDim2.new(0, 22, 0, 22)
+discordIcon.Position = UDim2.new(0, 12, 0.5, -11)
+discordIcon.BackgroundTransparency = 1
+discordIcon.Image = "rbxassetid://10709789397"
+discordIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+discordIcon.Parent = discordBtn
+
+discordBtn.MouseButton1Click:Connect(function()
+	local discordLink = "https://discord.gg/8p29Pq9Uk"
+	if setclipboard then 
+		setclipboard(discordLink) 
+	elseif toclipboard then 
+		toclipboard(discordLink) 
+	end
+	
+	discordBtn.Text = "     Copied to Clipboard!"
+	task.wait(1.5)
+	discordBtn.Text = "     Copy Discord Link"
+end)
+
+-- Owner Credits
+local ownerLabel = Instance.new("TextLabel")
+ownerLabel.Size = UDim2.new(1, 0, 0, 30)
+ownerLabel.Position = UDim2.new(0, 0, 1, -35)
+ownerLabel.BackgroundTransparency = 1
+ownerLabel.Text = "owner-: INDIANGAMER6975(NOT_IITIAN)"
+ownerLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+ownerLabel.TextSize = 13
+ownerLabel.Font = Enum.Font.SourceSansItalic
+ownerLabel.Parent = mainFrame
+
+-- RGB Rainbow Logic
+RunService.RenderStepped:Connect(function()
+	if screenGui.Parent then
+		local hue = (tick() % 4) / 4
+		local rgbColor = Color3.fromHSV(hue, 1, 1)
+		
+		frameStroke.Color = rgbColor
+		titleLabel.TextColor3 = rgbColor
+	end
+end)
+
+---------------------------------------------------------
+-- BALANCED & STABLE FLING LOGIC
+---------------------------------------------------------
+
+local function GetTargetPlayer(searchName)
+	searchName = tostring(searchName or ""):lower()
+	if searchName == "" then return nil end
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			local pName = player.Name:lower()
+			local dName = (player.DisplayName or ""):lower()
+			if pName:sub(1, #searchName) == searchName or dName:sub(1, #searchName) == searchName then return player end
+		end
+	end
+	return nil
+end
+
+local isFlinging = false
+local isFlingingAll = false
+
+local function FlingPlayer(targetUsername, duration)
+	if isFlinging then return end
+	duration = duration or 2.0 -- Set default duration to 2 seconds
+
+	local targetPlayer = GetTargetPlayer(targetUsername)
+	if not targetPlayer or not targetPlayer.Character then
+		if not isFlingingAll then
+			flingButton.Text = "Player Not Found!"
+			flingButton.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
+			task.wait(1.5)
+			flingButton.Text = "FLING PLAYER"
+			flingButton.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+		end
+		return
+	end
+
+	local myChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+	local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+	if not myRoot or not targetRoot then return end
+
+	isFlinging = true
+	if not isFlingingAll then
+		flingButton.Text = "FLINGING..."
+		flingButton.BackgroundColor3 = Color3.fromRGB(255, 120, 0)
+	end
+
+	local savedCFrame = myRoot.CFrame
+	local connection
+	local startTime = tick()
+
+	connection = RunService.Heartbeat:Connect(function()
+		if (tick() - startTime >= duration) or not targetRoot.Parent or not targetPlayer.Character or (isFlingingAll == false and flingAllButton.Text == "FLINGING ALL...") then
+			if connection then connection:Disconnect() end
+
+			-- Reset velocity and teleport safely back to original spot
+			myRoot.AssemblyLinearVelocity = Vector3.zero
+			myRoot.AssemblyAngularVelocity = Vector3.zero
+			myRoot.CFrame = savedCFrame
+			
+			pcall(function() sethiddenproperty(myRoot, "PhysicsRepRootPart", nil) end)
+
+			isFlinging = false
+			if not isFlingingAll then
+				flingButton.Text = "FLING PLAYER"
+				flingButton.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+			end
+			return
+		end
+
+		local timePassed = tick() - startTime
+		
+		-- Jameen ke thoda andar (-3.5 studs) se target ki chest (+1.0 stud) tak movement
+		local yOffset = math.sin(timePassed * 300) * 2.25 - 1.25
+		
+		myRoot.CFrame = CFrame.new(targetRoot.Position + Vector3.new(0, yOffset, 0)) * CFrame.Angles(-math.pi / 2, 0, 0)
+		
+		-- Force updated to 40,000
+		myRoot.AssemblyLinearVelocity = Vector3.new(40000, 40000, 40000)
+		myRoot.AssemblyAngularVelocity = Vector3.new(40000, 40000, 40000)
+
+		pcall(function() sethiddenproperty(myRoot, "PhysicsRepRootPart", targetRoot) end)
+	end)
+end
+
+-- Single Player Fling Trigger (2 Seconds)
+flingButton.MouseButton1Click:Connect(function()
+	if not isFlingingAll then
+		FlingPlayer(targetBox.Text, 2.0)
+	end
+end)
+
+-- Fling All Trigger (2 Seconds per player)
+flingAllButton.MouseButton1Click:Connect(function()
+	if isFlingingAll then return end
+	isFlingingAll = true
+	flingAllButton.Text = "FLINGING ALL..."
+	flingAllButton.BackgroundColor3 = Color3.fromRGB(255, 120, 0)
+	
+	task.spawn(function()
+		while isFlingingAll do
+			local allPlayers = Players:GetPlayers()
+			for _, p in ipairs(allPlayers) do
+				if not isFlingingAll then break end
+				
+				if p ~= LocalPlayer then
+					FlingPlayer(p.Name, 2.0) -- 2 seconds duration per target
+					task.wait(2.05)
+				end
+			end
+			task.wait(0.3)
+		end
+		flingAllButton.Text = "FLING ALL"
+		flingAllButton.BackgroundColor3 = Color3.fromRGB(220, 20, 20)
+	end)
+end)
+
+-- Stop Fling All Trigger
+stopFlingAllButton.MouseButton1Click:Connect(function()
+	isFlingingAll = false
+	stopFlingAllButton.Text = "STOPPING..."
+	task.wait(0.5)
+	stopFlingAllButton.Text = "STOP FLING ALL"
+end)
