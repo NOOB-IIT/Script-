@@ -1,0 +1,399 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Create the GUI elements
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RedTrollHub"
+ScreenGui.ResetOnSpawn = false -- Taki player ke marne par menu gayab na ho
+-- Executor ke liye CoreGui better hota hai, fallback PlayerGui rakha hai
+local success, coreGui = pcall(function() return game:GetService("CoreGui") end)
+ScreenGui.Parent = success and coreGui or LocalPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame (Black Background)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 350, 0, 470) -- Height 470 ki hai taaki Discord frame fit ho
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -235)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+-- State for minimized/maximized
+local minimized = false
+local fullHeight = 470
+local minHeight = 60
+
+-- Header Frame (Red)
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 50)
+Header.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+
+-- RGB Light effect on Header (we'll cycle hue)
+local hue = 0
+task.spawn(function()
+	while ScreenGui.Parent do
+		hue = (hue + 1) % 360
+		local color = Color3.fromHSV(hue / 360, 1, 1)
+		Header.BackgroundColor3 = color
+		task.wait(0.03)
+	end
+end)
+
+-- Header Text
+local HeaderLabel = Instance.new("TextLabel")
+HeaderLabel.Size = UDim2.new(1, -70, 1, 0)
+HeaderLabel.Position = UDim2.new(0, 10, 0, 0)
+HeaderLabel.BackgroundTransparency = 1
+HeaderLabel.Text = "RED TROLL HUB"
+HeaderLabel.Font = Enum.Font.SourceSansBold
+HeaderLabel.TextColor3 = Color3.new(1, 1, 1)
+HeaderLabel.TextScaled = true
+HeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+HeaderLabel.Parent = Header
+
+-- Minimize Button (-)
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Position = UDim2.new(1, -65, 0, 10)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+MinimizeButton.Font = Enum.Font.SourceSansBold
+MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
+MinimizeButton.Text = "-"
+MinimizeButton.Parent = Header
+
+-- Close Button (X)
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -30, 0, 10)
+CloseButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.TextColor3 = Color3.new(1, 1, 1)
+CloseButton.Text = "X"
+CloseButton.Parent = Header
+
+-- Function to toggle minimize/maximize
+local function toggleMinimize()
+	if minimized then
+		MainFrame.Size = UDim2.new(0, 350, 0, fullHeight)
+		minimized = false
+	else
+		MainFrame.Size = UDim2.new(0, 350, 0, minHeight)
+		minimized = true
+	end
+end
+
+MinimizeButton.MouseButton1Click:Connect(toggleMinimize)
+
+-- Close button hides the GUI
+CloseButton.MouseButton1Click:Connect(function()
+	ScreenGui.Enabled = false
+end)
+
+-- Player Name Input Box (White)
+local PlayerNameBox = Instance.new("TextBox")
+PlayerNameBox.Size = UDim2.new(0.9, 0, 0, 35)
+PlayerNameBox.Position = UDim2.new(0.05, 0, 0, 70)
+PlayerNameBox.PlaceholderText = "Type player name here"
+PlayerNameBox.Font = Enum.Font.SourceSans
+PlayerNameBox.TextColor3 = Color3.new(0, 0, 0)
+PlayerNameBox.BackgroundColor3 = Color3.new(1, 1, 1)
+PlayerNameBox.ClearTextOnFocus = true
+PlayerNameBox.Text = ""
+PlayerNameBox.Parent = MainFrame
+
+-- Players List Frame (Scroll)
+local PlayersListFrame = Instance.new("ScrollingFrame") -- Changed to ScrollingFrame for better use
+PlayersListFrame.Size = UDim2.new(0.9, 0, 0, 150)
+PlayersListFrame.Position = UDim2.new(0.05, 0, 0, 115)
+PlayersListFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+PlayersListFrame.BorderSizePixel = 0
+PlayersListFrame.ScrollBarThickness = 5
+PlayersListFrame.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 4)
+UIListLayout.Parent = PlayersListFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(200, 0, 0)
+UIStroke.Thickness = 2
+UIStroke.Parent = PlayersListFrame
+
+-- Start Button
+local StartButton = Instance.new("TextButton")
+StartButton.Size = UDim2.new(0.4, 0, 0, 40)
+StartButton.Position = UDim2.new(0.05, 0, 0, 275)
+StartButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+StartButton.Font = Enum.Font.SourceSansBold
+StartButton.TextColor3 = Color3.new(1, 1, 1)
+StartButton.Text = "START"
+StartButton.Parent = MainFrame
+
+-- Stop Button
+local StopButton = Instance.new("TextButton")
+StopButton.Size = UDim2.new(0.4, 0, 0, 40)
+StopButton.Position = UDim2.new(0.55, 0, 0, 275)
+StopButton.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+StopButton.Font = Enum.Font.SourceSansBold
+StopButton.TextColor3 = Color3.new(1, 1, 1)
+StopButton.Text = "STOP"
+StopButton.Parent = MainFrame
+
+-- Height Slider Label
+local HeightLabel = Instance.new("TextLabel")
+HeightLabel.Size = UDim2.new(0.9, 0, 0, 20)
+HeightLabel.Position = UDim2.new(0.05, 0, 0, 320)
+HeightLabel.BackgroundTransparency = 1
+HeightLabel.Text = "Height: 5"
+HeightLabel.Font = Enum.Font.SourceSans
+HeightLabel.TextColor3 = Color3.new(1, 1, 1)
+HeightLabel.TextXAlignment = Enum.TextXAlignment.Left
+HeightLabel.Parent = MainFrame
+
+-- Height Slider
+local HeightSlider = Instance.new("Frame")
+HeightSlider.Size = UDim2.new(0.9, 0, 0, 20)
+HeightSlider.Position = UDim2.new(0.05, 0, 0, 345)
+HeightSlider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+HeightSlider.Parent = MainFrame
+
+local HeightFill = Instance.new("Frame")
+HeightFill.Size = UDim2.new(0.25, 0, 1, 0)
+HeightFill.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+HeightFill.Parent = HeightSlider
+
+local draggingHeight = false
+HeightSlider.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingHeight = true
+	end
+end)
+HeightSlider.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingHeight = false
+	end
+end)
+HeightSlider.InputChanged:Connect(function(input)
+	if draggingHeight and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local pos = input.Position.X - HeightSlider.AbsolutePosition.X
+		local size = math.clamp(pos / HeightSlider.AbsoluteSize.X, 0, 1)
+		HeightFill.Size = UDim2.new(size, 0, 1, 0)
+		local heightValue = math.floor(size * 20)
+		if heightValue < 1 then heightValue = 1 end
+		HeightLabel.Text = "Height: "..heightValue
+	end
+end)
+
+-- Speed Slider Label
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(0.9, 0, 0, 20)
+SpeedLabel.Position = UDim2.new(0.05, 0, 0, 375)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Text = "Speed: 9999"
+SpeedLabel.Font = Enum.Font.SourceSans
+SpeedLabel.TextColor3 = Color3.new(1, 1, 1)
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.Parent = MainFrame
+
+-- Speed Slider
+local SpeedSlider = Instance.new("Frame")
+SpeedSlider.Size = UDim2.new(0.9, 0, 0, 20)
+SpeedSlider.Position = UDim2.new(0.05, 0, 0, 400)
+SpeedSlider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SpeedSlider.Parent = MainFrame
+
+local SpeedFill = Instance.new("Frame")
+SpeedFill.Size = UDim2.new(0.5, 0, 1, 0)
+SpeedFill.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+SpeedFill.Parent = SpeedSlider
+
+local draggingSpeed = false
+SpeedSlider.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingSpeed = true
+	end
+end)
+SpeedSlider.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingSpeed = false
+	end
+end)
+SpeedSlider.InputChanged:Connect(function(input)
+	if draggingSpeed and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local pos = input.Position.X - SpeedSlider.AbsolutePosition.X
+		local size = math.clamp(pos / SpeedSlider.AbsoluteSize.X, 0, 1)
+		SpeedFill.Size = UDim2.new(size, 0, 1, 0)
+		local speedValue = math.floor(size * 20000)
+		if speedValue < 1000 then speedValue = 1000 end
+		SpeedLabel.Text = "Speed: "..speedValue
+	end
+end)
+
+-- Discord Link Frame
+local DiscordFrame = Instance.new("Frame")
+DiscordFrame.Size = UDim2.new(0.9, 0, 0, 30)
+DiscordFrame.Position = UDim2.new(0.05, 0, 0, 430) -- Ab ye properly visible hoga
+DiscordFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+DiscordFrame.BorderSizePixel = 0
+DiscordFrame.Parent = MainFrame
+
+local DiscordText = Instance.new("TextLabel")
+DiscordText.Size = UDim2.new(0.7, 0, 1, 0)
+DiscordText.Position = UDim2.new(0, 0, 0, 0)
+DiscordText.BackgroundTransparency = 1
+DiscordText.Text = "Discord: https://discord.gg/yourlink"
+DiscordText.Font = Enum.Font.SourceSans
+DiscordText.TextSize = 14
+DiscordText.TextColor3 = Color3.new(1, 1, 1)
+DiscordText.TextXAlignment = Enum.TextXAlignment.Left
+DiscordText.Parent = DiscordFrame
+
+local CopyButton = Instance.new("TextButton")
+CopyButton.Size = UDim2.new(0.3, 0, 1, 0)
+CopyButton.Position = UDim2.new(0.7, 0, 0, 0)
+CopyButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+CopyButton.Font = Enum.Font.SourceSansBold
+CopyButton.TextColor3 = Color3.new(1, 1, 1)
+CopyButton.Text = "COPY"
+CopyButton.Parent = DiscordFrame
+
+CopyButton.MouseButton1Click:Connect(function()
+	if setclipboard then
+		setclipboard("https://discord.gg/yourlink")
+		CopyButton.Text = "COPIED!"
+		task.wait(1.5)
+		CopyButton.Text = "COPY"
+	else
+		warn("setclipboard aapke executor me supported nahi hai!")
+	end
+end)
+
+-- Owner Label
+local OwnerLabel = Instance.new("TextLabel")
+OwnerLabel.Size = UDim2.new(1, 0, 0, 20)
+OwnerLabel.Position = UDim2.new(0, 0, 1, -20)
+OwnerLabel.BackgroundTransparency = 1
+OwnerLabel.Text = "Owner-: INDIANGAMER6975(NOT_IITIAN)"
+OwnerLabel.Font = Enum.Font.SourceSans
+OwnerLabel.TextColor3 = Color3.new(1, 1, 1)
+OwnerLabel.TextScaled = false
+OwnerLabel.Parent = MainFrame
+
+-- Populate Players List
+local function RefreshPlayersList()
+	for _, child in ipairs(PlayersListFrame:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(1, 0, 0, 30)
+			btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+			btn.TextColor3 = Color3.new(1, 1, 1)
+			btn.Font = Enum.Font.SourceSans
+			btn.Text = player.Name
+			btn.Parent = PlayersListFrame
+
+			btn.MouseButton1Click:Connect(function()
+				PlayerNameBox.Text = player.Name
+			end)
+		end
+	end
+	PlayersListFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+end
+
+RefreshPlayersList()
+
+-- Physics Glue Logic
+local bangConnection
+local function BangPlayer(targetUsername, height, speed)
+	local targetPlayer = Players:FindFirstChild(targetUsername)
+	if not targetPlayer or not targetPlayer.Character then
+		warn("Target player nahi mila ya character loaded nahi hai!")
+		return
+	end
+
+	local myChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+	local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+	if not myRoot or not targetRoot then return end
+
+	bangConnection = RunService.Heartbeat:Connect(function()
+		pcall(function()
+			if sethiddenproperty then
+				sethiddenproperty(myRoot, "PhysicsRepRootPart", targetRoot)
+			end
+		end)
+
+		myRoot.CFrame = CFrame.new(targetRoot.Position + Vector3.new(0, height, 0)) * CFrame.Angles(-math.pi / 2, 0, 0)
+		myRoot.AssemblyLinearVelocity = Vector3.new(speed, speed, speed)
+		myRoot.AssemblyAngularVelocity = Vector3.new(speed, speed, speed)
+	end)
+end
+
+-- Stop bang and reset
+local function StopBang()
+	if bangConnection then
+		bangConnection:Disconnect()
+		bangConnection = nil
+	end
+
+	local myChar = LocalPlayer.Character
+	if myChar then
+		local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+		if myRoot then
+			pcall(function()
+				if sethiddenproperty then
+					sethiddenproperty(myRoot, "PhysicsRepRootPart", nil)
+				end
+			end)
+			myRoot.AssemblyLinearVelocity = Vector3.zero
+			myRoot.AssemblyAngularVelocity = Vector3.zero
+		end
+	end
+end
+
+-- Start Button click
+StartButton.MouseButton1Click:Connect(function()
+	if minimized then
+		toggleMinimize()
+	end
+	local targetName = PlayerNameBox.Text
+	if targetName == "" then
+		warn("Please enter a player name!")
+		return
+	end
+	local heightValue = tonumber(string.match(HeightLabel.Text, "%d+")) or 5
+	local speedValue = tonumber(string.match(SpeedLabel.Text, "%d+")) or 9999
+	BangPlayer(targetName, heightValue, speedValue)
+end)
+
+-- Stop Button click
+StopButton.MouseButton1Click:Connect(function()
+	StopBang()
+end)
+
+-- Clear placeholder text on focus
+PlayerNameBox.Focused:Connect(function()
+	if PlayerNameBox.Text == "" then
+		PlayerNameBox.PlaceholderText = ""
+	end
+end)
+PlayerNameBox.FocusLost:Connect(function(entered)
+	if PlayerNameBox.Text == "" then
+		PlayerNameBox.PlaceholderText = "Type player name here"
+	end
+end)
+
+-- Refresh player list when players join or leave
+Players.PlayerAdded:Connect(RefreshPlayersList)
+Players.PlayerRemoving:Connect(RefreshPlayersList)
