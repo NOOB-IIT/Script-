@@ -1,0 +1,445 @@
+-- [[ RED SPAMMING HUB By NOT_IITIAN ]] --
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+-- Puraana UI delete karne ke liye agar already run kiya ho
+if CoreGui:FindFirstChild("RedSpammingHub") then
+    CoreGui:FindFirstChild("RedSpammingHub"):Destroy()
+end
+
+-- ScreenGui Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RedSpammingHub"
+ScreenGui.Parent = CoreGui
+
+-- Main Frame (Size reduced for better screen fit)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 360, 0, 330)
+MainFrame.Position = UDim2.new(0.5, -180, 0.5, -165)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MainFrame.Active = true
+MainFrame.Draggable = true -- Makes the GUI movable
+
+-- RGB Stroke for MainFrame (Corners)
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 3
+UIStroke.Parent = MainFrame
+
+-- RGB Animation Loop
+RunService.RenderStepped:Connect(function()
+    UIStroke.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+end)
+
+-- Top Bar Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -60, 0, 40)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "RED SPAMMING HUB"
+Title.TextColor3 = Color3.fromRGB(255, 0, 0)
+Title.TextSize = 22
+Title.Font = Enum.Font.GothamBlack
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+-- Minimize Button (-)
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -65, 0, 5)
+MinBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextSize = 20
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.Parent = MainFrame
+
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 18
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = MainFrame
+
+local UICornerClose = Instance.new("UICorner", CloseBtn)
+local UICornerMin = Instance.new("UICorner", MinBtn)
+
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        MainFrame.Size = UDim2.new(0, 360, 0, 40)
+        MainFrame.ClipsDescendants = true
+    else
+        MainFrame.Size = UDim2.new(0, 360, 0, 330)
+        MainFrame.ClipsDescendants = false
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Player Target Input
+local TargetInput = Instance.new("TextBox")
+TargetInput.Size = UDim2.new(1, -50, 0, 35)
+TargetInput.Position = UDim2.new(0, 10, 0, 45)
+TargetInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TargetInput.TextColor3 = Color3.fromRGB(0, 0, 0)
+TargetInput.PlaceholderText = "Type player Display Name"
+TargetInput.Text = ""
+TargetInput.Font = Enum.Font.GothamSemibold
+TargetInput.TextSize = 14
+TargetInput.Parent = MainFrame
+Instance.new("UICorner", TargetInput).CornerRadius = UDim.new(0, 5)
+
+-- Player Dropdown Button (^)
+local PlayerDropBtn = Instance.new("TextButton")
+PlayerDropBtn.Size = UDim2.new(0, 30, 0, 35)
+PlayerDropBtn.Position = UDim2.new(1, -40, 0, 45)
+PlayerDropBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+PlayerDropBtn.Text = "^"
+PlayerDropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlayerDropBtn.TextSize = 20
+PlayerDropBtn.Parent = MainFrame
+Instance.new("UICorner", PlayerDropBtn).CornerRadius = UDim.new(0, 5)
+
+-- Player List Frame
+local PlayerScroll = Instance.new("ScrollingFrame")
+PlayerScroll.Size = UDim2.new(1, -20, 0, 150)
+PlayerScroll.Position = UDim2.new(0, 10, 0, 85)
+PlayerScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+PlayerScroll.Visible = false
+PlayerScroll.ZIndex = 5
+PlayerScroll.Parent = MainFrame
+local UIListLayout1 = Instance.new("UIListLayout", PlayerScroll)
+UIListLayout1.Padding = UDim.new(0, 2)
+
+-- Update Player List Function (Alphabetical Order)
+PlayerDropBtn.MouseButton1Click:Connect(function()
+    PlayerScroll.Visible = not PlayerScroll.Visible
+    if PlayerScroll.Visible then
+        for _, v in pairs(PlayerScroll:GetChildren()) do
+            if v:IsA("TextButton") then v:Destroy() end
+        end
+        
+        local playerList = Players:GetPlayers()
+        table.sort(playerList, function(a, b)
+            return a.DisplayName:lower() < b.DisplayName:lower()
+        end)
+        
+        for _, plr in ipairs(playerList) do
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, 0, 0, 30)
+            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            btn.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.ZIndex = 6
+            btn.Parent = PlayerScroll
+            btn.MouseButton1Click:Connect(function()
+                TargetInput.Text = plr.DisplayName
+                PlayerScroll.Visible = false
+            end)
+        end
+        PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, #playerList * 32)
+    end
+end)
+
+TargetInput.Focused:Connect(function()
+    if TargetInput.Text == "Type player Display Name" then TargetInput.Text = "" end
+end)
+
+-- Category Input
+local CategoryInput = Instance.new("TextBox")
+CategoryInput.Size = UDim2.new(1, -50, 0, 35)
+CategoryInput.Position = UDim2.new(0, 10, 0, 85)
+CategoryInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+CategoryInput.TextColor3 = Color3.fromRGB(0, 0, 0)
+CategoryInput.PlaceholderText = "Choose category"
+CategoryInput.Text = ""
+CategoryInput.TextEditable = false
+CategoryInput.Font = Enum.Font.GothamSemibold
+CategoryInput.TextSize = 14
+CategoryInput.Parent = MainFrame
+Instance.new("UICorner", CategoryInput).CornerRadius = UDim.new(0, 5)
+
+-- Category Dropdown Button (^)
+local CatDropBtn = Instance.new("TextButton")
+CatDropBtn.Size = UDim2.new(0, 30, 0, 35)
+CatDropBtn.Position = UDim2.new(1, -40, 0, 85)
+CatDropBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+CatDropBtn.Text = "^"
+CatDropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CatDropBtn.TextSize = 20
+CatDropBtn.Parent = MainFrame
+Instance.new("UICorner", CatDropBtn).CornerRadius = UDim.new(0, 5)
+
+-- Category Lists Data
+local Categories = {
+    ["Food"] = {"DAAL", "CHAWAL", "ROTI", "PANEER", "SAMOSA", "MOMO", "PIZZA", "BURGER", "DOSA", "IDLI", "BIRYANI", "PASTA", "NOODLES", "KABAB", "PARATHA", "PAVBHAJI", "CHOLE", "BHATURE", "RAJMA", "MAGGI", "KACHORI", "JALEBI", "RASGULLA", "GULABJAMUN", "LADDOO", "VADA", "UPMA", "POHA", "DHOKLA", "KHAKHRA", "THEPLA", "PEDA", "BARFI", "KHEER", "HALWA", "NAAN", "KULCHA", "ALOO TIKKI", "PANI PURI", "BHEL PURI", "SEV PURI", "SANDWICH", "FRIES", "TACO", "SUSHI", "SPRING ROLL", "DIM SUM", "WAFERS", "MACARONI", "CHEESE", "BUTTER", "GHEE", "LASAGNA", "SOUP", "SALAD", "STEAK", "BACON", "OMELETTE", "PANCAKE", "WAFFLE", "DONUT", "BROWNIE", "ICE CREAM", "MILKSHAKE", "JUICE"},
+    
+    ["Electronics"] = {"TV", "PHONE", "LAPTOP", "FAN", "AC", "FRIDGE", "OVEN", "MICROWAVE", "HEATER", "SPEAKER", "HEADPHONES", "MOUSE", "KEYBOARD", "MONITOR", "TABLET", "WATCH", "CAMERA", "ROUTER", "CHARGER", "BATTERY", "DRONE", "BULB", "TUBELIGHT", "INVERTER", "GEYSER", "PRINTER", "SCANNER", "PROJECTOR", "WEBCAM", "MICROPHONE", "SMARTWATCH", "EARBUDS", "TRIMMER", "IRON", "BLENDER", "MIXER", "TOASTER", "WASHING MACHINE", "DISHWASHER", "PURIFIER", "VACCUM", "GAMING CONSOLE", "JOYSTICK", "MODEM", "POWERBANK", "CALCULATOR", "THERMOSTAT", "ALARM", "RADIATOR", "HAIR DRYER", "STRAIGHTENER", "MASSAGER", "EPILATOR", "KINDLE", "E-READER", "GPS", "DASHCAM", "VR HEADSET", "AMPLIFIER", "SUBWOOFER", "SOUNDBAR", "TURNTABLE", "CD PLAYER", "SMARTPHONE", "TRASH COMPACTOR"},
+    
+    ["Metal and Nonmetal"] = {"IRON", "GOLD", "SILVER", "COPPER", "ZINC", "ALUMINUM", "LEAD", "PLATINUM", "TITANIUM", "MERCURY", "OXYGEN", "CARBON", "NITROGEN", "SULFUR", "PHOSPHORUS", "NEON", "HELIUM", "CHLORINE", "IODINE", "FLUORINE", "BROMINE", "ARGON", "SODIUM", "CALCIUM", "POTASSIUM", "NICKEL", "COBALT", "TIN", "TUNGSTEN", "MAGNESIUM", "BARIUM", "LITHIUM", "URANIUM", "PLUTONIUM", "RADIUM", "KRYPTON", "XENON", "RADON", "SILICON", "BORON", "ARSENIC", "ANTIMONY", "BISMUTH", "GALLIUM", "INDIUM", "STRONTIUM", "BERYLLIUM", "CHROMIUM", "MANGANESE", "PALLADIUM", "RHODIUM", "IRIDIUM", "OSMIUM", "TANTALUM", "VANADIUM", "ZIRCONIUM", "YTTRIUM", "NIOBIUM", "MOLYBDENUM", "RUTHENIUM", "TELLURIUM", "SELENIUM", "ASTATINE", "THALLIUM", "CESIUM"},
+    
+    ["Animal"] = {"DOG", "CAT", "LION", "TIGER", "ELEPHANT", "HORSE", "COW", "PIG", "SHEEP", "GOAT", "MONKEY", "RABBIT", "DEER", "BEAR", "WOLF", "FOX", "KANGAROO", "PANDA", "GIRAFFE", "ZEBRA", "CAMEL", "RAT", "MOUSE", "BAT", "FROG", "SNAKE", "CROCODILE", "ALLIGATOR", "TURTLE", "TORTOISE", "LIZARD", "CHAMELEON", "IGUANA", "GECKO", "SHARK", "WHALE", "DOLPHIN", "OCTOPUS", "SQUID", "CRAB", "LOBSTER", "SHRIMP", "STARFISH", "SEAL", "WALRUS", "CHEETAH", "LEOPARD", "PANTHER", "JAGUAR", "HYENA", "RHINO", "HIPPO", "GORILLA", "CHIMPANZEE", "ORANGUTAN", "BABOON", "LEMUR", "SLOTH", "ARMADILLO", "PORCUPINE", "BEAVER", "OTTER", "MEERKAT", "MONGOOSE", "KOALA"},
+    
+    ["Human Organs"] = {"HEART", "BRAIN", "LIVER", "LUNGS", "KIDNEY", "STOMACH", "SKIN", "BONE", "EYE", "EAR", "NOSE", "HAND", "LEG", "ARM", "FOOT", "FINGER", "TOE", "TONGUE", "TOOTH", "HAIR", "NAIL", "NECK", "BACK", "CHEST", "VEIN", "ARTERY", "CAPILLARY", "MUSCLE", "TENDON", "LIGAMENT", "CARTILAGE", "SPINE", "SKULL", "RIB", "PELVIS", "SHOULDER", "ELBOW", "WRIST", "KNEE", "ANKLE", "HEEL", "THUMB", "JAW", "CHIN", "CHEEK", "PANCREAS", "GALLBLADDER", "SPLEEN", "BLADDER", "APPENDIX", "THYROID", "TONSILS", "TRACHEA", "ESOPHAGUS", "INTESTINE", "COLON", "RECTUM", "PROSTATE", "OVARIES", "UTERUS", "TESTES", "PITUITARY", "HYPOTHALAMUS", "THYMUS", "DIAPHRAGM"},
+    
+    ["Roblox Games"] = {"BLOX FRUITS", "BROOKHAVEN", "ADOPT ME", "TOWER OF HELL", "MURDER MYSTERY 2", "MEEP CITY", "BEDWARS", "DOORS", "PET SIMULATOR", "PIGGY", "ARSENAL", "DA HOOD", "JAILBREAK", "LUMBER TYCOON", "BEE SWARM", "ANIME FIGHTERS", "KING LEGACY", "BLADE BALL", "PLZ DONATE", "NATURAL DISASTER", "ROYALE HIGH", "FRONTLINES", "PHANTOM FORCES", "VEHICLE LEGENDS", "MAD CITY", "SLAP BATTLES", "PET SIMULATOR 99", "FRUIT BATTLEGROUNDS", "ANIME DEFENDERS", "TIDE", "DEEPWOKEN", "GRAND PIECE ONLINE", "SHINDO LIFE", "RO GHOUL", "YBA", "AUT", "WELCOME TO BLOXBURG", "WORK AT A PIZZA PLACE", "HIDE AND SEEK EXTREME", "EPIC MINIGAMES", "SPEED RUN 4", "FLOOD ESCAPE", "TOWER DEFENSE SIMULATOR", "ALL STAR TOWER DEFENSE", "ANIME CHAMPIONS", "THE STRONGEST BATTLEGROUNDS", "EVADE", "FLEE THE FACILITY", "BUILD A BOAT FOR TREASURE", "THE MIMIC", "APEIROPHOBIA", "BREAK IN", "SURVIVE THE KILLER", "PIGGY: HUNT", "KAT", "RIVALS", "BEDWARS 2", "ANIME ADVENTURES", "PROJECT SLAYERS", "TYPE SOUL", "PEROXIDE", "BLOX FRUITS 2", "HAZEM", "PLS DONATE 2", "MIC UP"}
+}
+
+local CatScroll = Instance.new("ScrollingFrame")
+CatScroll.Size = UDim2.new(1, -20, 0, 150)
+CatScroll.Position = UDim2.new(0, 10, 0, 125)
+CatScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+CatScroll.Visible = false
+CatScroll.ZIndex = 5
+CatScroll.Parent = MainFrame
+local UIListLayout2 = Instance.new("UIListLayout", CatScroll)
+UIListLayout2.Padding = UDim.new(0, 2)
+
+-- Populate Categories
+local CatNames = {"Food", "Electronics", "Metal and Nonmetal", "Animal", "Human Organs", "Server Players", "Roblox Games"}
+CatScroll.CanvasSize = UDim2.new(0, 0, 0, #CatNames * 32)
+for _, cat in pairs(CatNames) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 30)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.Text = cat
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.ZIndex = 6
+    btn.Parent = CatScroll
+    btn.MouseButton1Click:Connect(function()
+        CategoryInput.Text = cat
+        CatScroll.Visible = false
+    end)
+end
+
+CatDropBtn.MouseButton1Click:Connect(function()
+    CatScroll.Visible = not CatScroll.Visible
+end)
+
+-- Spam Duration Settings
+local DurationInput = Instance.new("TextBox")
+DurationInput.Size = UDim2.new(0, 165, 0, 35)
+DurationInput.Position = UDim2.new(0, 10, 0, 125)
+DurationInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+DurationInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+DurationInput.PlaceholderText = "Duration (Sec)"
+DurationInput.Text = ""
+DurationInput.Font = Enum.Font.Gotham
+DurationInput.Parent = MainFrame
+Instance.new("UICorner", DurationInput).CornerRadius = UDim.new(0, 5)
+
+-- Message Delay Settings
+local DelayInput = Instance.new("TextBox")
+DelayInput.Size = UDim2.new(0, 165, 0, 35)
+DelayInput.Position = UDim2.new(1, -175, 0, 125)
+DelayInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+DelayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+DelayInput.PlaceholderText = "Msg Delay (Sec)"
+DelayInput.Text = "2"
+DelayInput.Font = Enum.Font.Gotham
+DelayInput.Parent = MainFrame
+Instance.new("UICorner", DelayInput).CornerRadius = UDim.new(0, 5)
+
+-- Start Spam Button
+local StartBtn = Instance.new("TextButton")
+StartBtn.Size = UDim2.new(1, -20, 0, 35)
+StartBtn.Position = UDim2.new(0, 10, 0, 165)
+StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+StartBtn.Text = "START SPAM"
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.TextSize = 16
+StartBtn.Parent = MainFrame
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 5)
+
+-- Stop Spam Button
+local StopBtn = Instance.new("TextButton")
+StopBtn.Size = UDim2.new(1, -20, 0, 35)
+StopBtn.Position = UDim2.new(0, 10, 0, 205)
+StopBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+StopBtn.Text = "STOP SPAM"
+StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopBtn.Font = Enum.Font.GothamBold
+StopBtn.TextSize = 16
+StopBtn.Parent = MainFrame
+Instance.new("UICorner", StopBtn).CornerRadius = UDim.new(0, 5)
+
+-- Cooler Discord Button Design
+local DiscordBtn = Instance.new("TextButton")
+DiscordBtn.Size = UDim2.new(1, -20, 0, 35)
+DiscordBtn.Position = UDim2.new(0, 10, 0, 245)
+DiscordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+DiscordBtn.RichText = true
+DiscordBtn.Text = "<b>🌟 <font color='#FFFFFF'>COPY DISCORD LINK</font> 🌟</b>"
+DiscordBtn.Font = Enum.Font.GothamBold
+DiscordBtn.TextSize = 15
+DiscordBtn.Parent = MainFrame
+Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 5)
+
+local DiscordStroke = Instance.new("UIStroke")
+DiscordStroke.Color = Color3.fromRGB(255, 255, 255)
+DiscordStroke.Thickness = 1.5
+DiscordStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+DiscordStroke.Parent = DiscordBtn
+
+DiscordBtn.MouseButton1Click:Connect(function()
+    setclipboard("https://discord.gg/8p29Pq9Uk")
+    DiscordBtn.Text = "<b>✅ <font color='#A8FFB2'>COPIED TO CLIPBOARD!</font> ✅</b>"
+    task.wait(2)
+    DiscordBtn.Text = "<b>🌟 <font color='#FFFFFF'>COPY DISCORD LINK</font> 🌟</b>"
+end)
+
+-- Owner Text Label
+local OwnerLabel = Instance.new("TextLabel")
+OwnerLabel.Size = UDim2.new(1, -20, 0, 30)
+OwnerLabel.Position = UDim2.new(0, 10, 0, 290)
+OwnerLabel.BackgroundTransparency = 1
+OwnerLabel.Text = "OWNER-: INDIANGAMER6975 (NOT_IITIAN)"
+OwnerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+OwnerLabel.Font = Enum.Font.GothamBold
+OwnerLabel.TextSize = 12
+OwnerLabel.Parent = MainFrame
+
+-- Bulletproof Real-time Multi-Tag Handler & Lock System
+local isPausedForTag = false
+
+local function handleTagPenalty()
+    if isPausedForTag then return end
+    isPausedForTag = true
+    
+    -- Send anti-tag statement
+    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        local textChannel = TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+        if textChannel then textChannel:SendAsync("I love Roblox]-: Because roblox tags") end
+    else
+        ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer("I love Roblox]-: Because roblox tags", "All")
+    end
+    
+    -- Wait 7 seconds penalty
+    task.wait(7)
+    isPausedForTag = false
+end
+
+local function checkFilteredText(txt)
+    if string.find(txt, "#") then
+        task.spawn(handleTagPenalty)
+    end
+end
+
+local function setupChannel(channel)
+    channel.OnIncomingMessage = function(message)
+        if message.TextSource and message.TextSource.UserId == Players.LocalPlayer.UserId then
+            checkFilteredText(message.Text)
+        end
+    end
+end
+
+if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+    for _, channel in pairs(TextChatService.TextChannels:GetChildren()) do
+        setupChannel(channel)
+    end
+    TextChatService.TextChannels.ChildAdded:Connect(setupChannel)
+end
+
+local ChatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+if ChatEvents and ChatEvents:FindFirstChild("OnMessageDoneFiltering") then
+    ChatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(packet)
+        if packet.FromSpeaker == Players.LocalPlayer.Name or packet.FromSpeaker == Players.LocalPlayer.DisplayName then
+            checkFilteredText(packet.Message)
+        end
+    end)
+end
+
+-- Chat Function Setup with Pause Locking
+local function sendChatMessage(msg)
+    -- Agar tag ki wajah se pause chal raha hai, toh naya message bhejne se pehle script yahin ruk jayegi
+    while isPausedForTag do
+        task.wait(0.2)
+    end
+    
+    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        local textChannel = TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+        if textChannel then textChannel:SendAsync(msg) end
+    else
+        ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All")
+    end
+end
+
+-- Spam Logic
+local isSpamming = false
+local spamRoutine = nil
+
+StartBtn.MouseButton1Click:Connect(function()
+    if isSpamming then return end
+    local targetName = TargetInput.Text
+    local selectedCat = CategoryInput.Text
+    local delayTime = tonumber(DelayInput.Text) or 2
+    local durationTime = tonumber(DurationInput.Text) or 999999
+
+    if targetName == "" or targetName == "Type player Display Name" then return end
+    if selectedCat == "" or selectedCat == "Choose category" then return end
+
+    isSpamming = true
+    StartBtn.Text = "SPAMMING..."
+    
+    local spamArray = {}
+    if selectedCat == "Server Players" then
+        for _, p in pairs(Players:GetPlayers()) do
+            table.insert(spamArray, p.DisplayName)
+        end
+    else
+        spamArray = Categories[selectedCat]
+    end
+
+    spamRoutine = task.spawn(function()
+        local startTime = tick()
+        local index = 1
+        
+        while isSpamming and (tick() - startTime) < durationTime do
+            local currentItem = spamArray[index]
+            if not currentItem then 
+                index = 1
+                currentItem = spamArray[index]
+            end
+            
+            local message = "Script Created by NOT_IITIAN { 🚀 } @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ " .. targetName .. " TMXH MHN MAI " .. currentItem
+            
+            sendChatMessage(message)
+            
+            index = index + 1
+            task.wait(delayTime)
+        end
+        
+        isSpamming = false
+        StartBtn.Text = "START SPAM"
+    end)
+end)
+
+StopBtn.MouseButton1Click:Connect(function()
+    isSpamming = false
+    StartBtn.Text = "START SPAM"
+    isPausedForTag = false
+    if spamRoutine then
+        task.cancel(spamRoutine)
+        spamRoutine = nil
+    end
+end)
