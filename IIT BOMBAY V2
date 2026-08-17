@@ -1,0 +1,532 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local TextChatService = game:GetService("TextChatService")
+local LocalPlayer = Players.LocalPlayer
+
+-- GUI Setup (Clean & Professional Modern Panel with Min/Close)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "VanishPlayerProfessionalGUI"
+ScreenGui.ResetOnSpawn = false
+
+local success, _ = pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not success then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Main Container Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -160)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+-- Premium RGB Border Stroke
+local RGBStroke = Instance.new("UIStroke")
+RGBStroke.Thickness = 2
+RGBStroke.Parent = MainFrame
+
+RunService.RenderStepped:Connect(function()
+    RGBStroke.Color = Color3.fromHSV(tick() % 6 / 6, 0.8, 1)
+end)
+
+-- Top Header Bar
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 42)
+TopBar.BackgroundTransparency = 1
+TopBar.Parent = MainFrame
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0.65, 0, 1, 0)
+Title.Position = UDim2.new(0, 12, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "VANISH PLAYER"
+Title.TextColor3 = Color3.fromRGB(255, 35, 35)
+Title.TextSize = 17
+Title.Font = Enum.Font.GothamBlack
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -34, 0.5, -13)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Text = "X"
+CloseBtn.TextSize = 13
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TopBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseBtn
+
+-- Minimize Button (-)
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 26, 0, 26)
+MinBtn.Position = UDim2.new(1, -66, 0.5, -13)
+MinBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.Text = "-"
+MinBtn.TextSize = 15
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.Parent = TopBar
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 6)
+MinCorner.Parent = MinBtn
+
+-- Container for all interactive elements
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Position = UDim2.new(0, 0, 0, 42)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
+
+-- ==================== VANISH SECTION ==================== --
+
+local VanishBox = Instance.new("TextBox")
+VanishBox.Size = UDim2.new(0.88, 0, 0, 36)
+VanishBox.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+VanishBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+VanishBox.PlaceholderText = "Type player Name..."
+VanishBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 110)
+VanishBox.TextSize = 13
+VanishBox.Font = Enum.Font.GothamMedium
+VanishBox.Text = ""
+VanishBox.Parent = ContentContainer
+Instance.new("UICorner", VanishBox).CornerRadius = UDim.new(0, 6)
+local BoxStroke = Instance.new("UIStroke", VanishBox)
+BoxStroke.Color = Color3.fromRGB(45, 45, 45)
+BoxStroke.Thickness = 1
+
+local DropdownBar = Instance.new("TextButton")
+DropdownBar.Size = UDim2.new(0.88, 0, 0, 34)
+DropdownBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+DropdownBar.TextColor3 = Color3.fromRGB(200, 200, 200)
+DropdownBar.Text = "  Select Player  ^"
+DropdownBar.TextXAlignment = Enum.TextXAlignment.Left
+DropdownBar.TextSize = 13
+DropdownBar.Font = Enum.Font.GothamMedium
+DropdownBar.Parent = ContentContainer
+Instance.new("UICorner", DropdownBar).CornerRadius = UDim.new(0, 6)
+
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(0.88, 0, 0, 100)
+ScrollFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 4
+ScrollFrame.Visible = false
+ScrollFrame.Parent = ContentContainer
+local UIListLayout1 = Instance.new("UIListLayout", ScrollFrame)
+UIListLayout1.Padding = UDim.new(0, 4)
+
+local VanishBtn = Instance.new("TextButton")
+VanishBtn.Size = UDim2.new(0.88, 0, 0, 36)
+VanishBtn.BackgroundColor3 = Color3.fromRGB(200, 25, 45)
+VanishBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+VanishBtn.Text = "Vanish Player"
+VanishBtn.TextSize = 14
+VanishBtn.Font = Enum.Font.GothamBold
+VanishBtn.Parent = ContentContainer
+Instance.new("UICorner", VanishBtn).CornerRadius = UDim.new(0, 6)
+
+-- ==================== UN-VANISH SECTION ==================== --
+
+local UnVanishBox = Instance.new("TextBox")
+UnVanishBox.Size = UDim2.new(0.88, 0, 0, 36)
+UnVanishBox.BackgroundColor3 = Color3.fromRGB(245, 245, 245) -- White Box
+UnVanishBox.TextColor3 = Color3.fromRGB(15, 15, 15) -- Dark text for contrast
+UnVanishBox.PlaceholderText = "Type player Name..."
+UnVanishBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+UnVanishBox.TextSize = 13
+UnVanishBox.Font = Enum.Font.GothamMedium
+UnVanishBox.Text = ""
+UnVanishBox.Parent = ContentContainer
+Instance.new("UICorner", UnVanishBox).CornerRadius = UDim.new(0, 6)
+
+local UnVanishDropdownBar = Instance.new("TextButton")
+UnVanishDropdownBar.Size = UDim2.new(0.88, 0, 0, 34)
+UnVanishDropdownBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+UnVanishDropdownBar.TextColor3 = Color3.fromRGB(200, 200, 200)
+UnVanishDropdownBar.Text = "  Select Vanished Player  ^"
+UnVanishDropdownBar.TextXAlignment = Enum.TextXAlignment.Left
+UnVanishDropdownBar.TextSize = 13
+UnVanishDropdownBar.Font = Enum.Font.GothamMedium
+UnVanishDropdownBar.Parent = ContentContainer
+Instance.new("UICorner", UnVanishDropdownBar).CornerRadius = UDim.new(0, 6)
+
+local UnVanishScrollFrame = Instance.new("ScrollingFrame")
+UnVanishScrollFrame.Size = UDim2.new(0.88, 0, 0, 100)
+UnVanishScrollFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+UnVanishScrollFrame.BorderSizePixel = 0
+UnVanishScrollFrame.ScrollBarThickness = 4
+UnVanishScrollFrame.Visible = false
+UnVanishScrollFrame.Parent = ContentContainer
+local UIListLayout2 = Instance.new("UIListLayout", UnVanishScrollFrame)
+UIListLayout2.Padding = UDim.new(0, 4)
+
+local UnVanishBtn = Instance.new("TextButton")
+UnVanishBtn.Size = UDim2.new(0.88, 0, 0, 36)
+UnVanishBtn.BackgroundColor3 = Color3.fromRGB(200, 25, 45) -- Red Button
+UnVanishBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+UnVanishBtn.Text = "Un-Vanish Player"
+UnVanishBtn.TextSize = 14
+UnVanishBtn.Font = Enum.Font.GothamBold
+UnVanishBtn.Parent = ContentContainer
+Instance.new("UICorner", UnVanishBtn).CornerRadius = UDim.new(0, 6)
+
+-- ==================== FOOTER ==================== --
+local Footer = Instance.new("TextLabel")
+Footer.Size = UDim2.new(1, 0, 0, 20)
+Footer.BackgroundTransparency = 1
+Footer.Text = "Owner-: INDIANGAMER6975(NOT_IITIAN)"
+Footer.TextColor3 = Color3.fromRGB(150, 150, 150)
+Footer.TextSize = 11
+Footer.Font = Enum.Font.GothamBold
+Footer.Parent = ContentContainer
+
+-- ==================== DYNAMIC LAYOUT ENGINE ==================== --
+
+local isMinimized = false
+local isOpen = false
+local isUnVanishOpen = false
+
+local function UpdateLayout()
+    if isMinimized then
+        ContentContainer.Visible = false
+        MainFrame.Size = UDim2.new(0, 340, 0, 42)
+        MinBtn.Text = "+"
+        return
+    end
+    
+    MinBtn.Text = "-"
+    ContentContainer.Visible = true
+    
+    local yPos = 8
+    
+    VanishBox.Position = UDim2.new(0.06, 0, 0, yPos)
+    yPos = yPos + 40
+    
+    DropdownBar.Position = UDim2.new(0.06, 0, 0, yPos)
+    DropdownBar.Text = isOpen and "  Select Player  v" or "  Select Player  ^"
+    yPos = yPos + 38
+    
+    if isOpen then
+        ScrollFrame.Position = UDim2.new(0.06, 0, 0, yPos)
+        ScrollFrame.Visible = true
+        yPos = yPos + 104
+    else
+        ScrollFrame.Visible = false
+    end
+    
+    VanishBtn.Position = UDim2.new(0.06, 0, 0, yPos)
+    yPos = yPos + 46
+    
+    UnVanishBox.Position = UDim2.new(0.06, 0, 0, yPos)
+    yPos = yPos + 40
+    
+    UnVanishDropdownBar.Position = UDim2.new(0.06, 0, 0, yPos)
+    UnVanishDropdownBar.Text = isUnVanishOpen and "  Select Vanished Player  v" or "  Select Vanished Player  ^"
+    yPos = yPos + 38
+    
+    if isUnVanishOpen then
+        UnVanishScrollFrame.Position = UDim2.new(0.06, 0, 0, yPos)
+        UnVanishScrollFrame.Visible = true
+        yPos = yPos + 104
+    else
+        UnVanishScrollFrame.Visible = false
+    end
+    
+    UnVanishBtn.Position = UDim2.new(0.06, 0, 0, yPos)
+    yPos = yPos + 42
+    
+    Footer.Position = UDim2.new(0, 0, 0, yPos)
+    yPos = yPos + 26
+    
+    ContentContainer.Size = UDim2.new(1, 0, 1, -42)
+    MainFrame.Size = UDim2.new(0, 340, 0, 42 + yPos)
+end
+
+-- ==================== SYSTEM LOGIC ==================== --
+
+local VanishedPlayers = {}
+local HiddenCharacters = {}
+local CharacterConnections = {}
+
+-- Updates Normal Player List
+local function UpdatePlayerList()
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    
+    local playerList = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not VanishedPlayers[player.UserId] then
+            table.insert(playerList, player)
+        end
+    end
+    
+    table.sort(playerList, function(a, b) return a.DisplayName:lower() < b.DisplayName:lower() end)
+    
+    local ySize = 0
+    for _, player in ipairs(playerList) do
+        local pBtn = Instance.new("TextButton")
+        pBtn.Size = UDim2.new(1, -4, 0, 28)
+        pBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+        pBtn.TextColor3 = Color3.fromRGB(230, 230, 230)
+        pBtn.Text = "  " .. player.DisplayName .. " (@" .. player.Name .. ")"
+        pBtn.TextXAlignment = Enum.TextXAlignment.Left
+        pBtn.TextSize = 12
+        pBtn.Font = Enum.Font.Gotham
+        pBtn.Parent = ScrollFrame
+        
+        pBtn.MouseButton1Click:Connect(function()
+            VanishBox.Text = player.Name
+            isOpen = false
+            UpdateLayout()
+        end)
+        ySize = ySize + 32
+    end
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ySize)
+end
+
+-- Updates Vanished Player List
+local function UpdateUnVanishList()
+    for _, child in pairs(UnVanishScrollFrame:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    
+    local vList = {}
+    for userId, isV in pairs(VanishedPlayers) do
+        if isV then
+            local player = Players:GetPlayerByUserId(userId)
+            if player then
+                table.insert(vList, player)
+            else
+                VanishedPlayers[userId] = nil
+                HiddenCharacters[userId] = nil
+                if CharacterConnections[userId] then
+                    CharacterConnections[userId]:Disconnect()
+                    CharacterConnections[userId] = nil
+                end
+            end
+        end
+    end
+    
+    table.sort(vList, function(a, b) return a.DisplayName:lower() < b.DisplayName:lower() end)
+    
+    local ySize = 0
+    for _, player in ipairs(vList) do
+        local pBtn = Instance.new("TextButton")
+        pBtn.Size = UDim2.new(1, -4, 0, 28)
+        pBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+        pBtn.TextColor3 = Color3.fromRGB(230, 230, 230)
+        pBtn.Text = "  " .. player.DisplayName .. " (@" .. player.Name .. ")"
+        pBtn.TextXAlignment = Enum.TextXAlignment.Left
+        pBtn.TextSize = 12
+        pBtn.Font = Enum.Font.Gotham
+        pBtn.Parent = UnVanishScrollFrame
+        
+        pBtn.MouseButton1Click:Connect(function()
+            UnVanishBox.Text = player.Name
+            isUnVanishOpen = false
+            UpdateLayout()
+        end)
+        ySize = ySize + 32
+    end
+    UnVanishScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ySize)
+end
+
+-- Actions
+local function VanishTarget(inputName)
+    local target = nil
+    local cleanInput = string.lower(inputName):gsub("@", "")
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if string.lower(p.Name) == cleanInput or string.lower(p.DisplayName) == cleanInput or 
+           string.lower(p.Name):match("^" .. cleanInput) or string.lower(p.DisplayName):match("^" .. cleanInput) then
+            target = p
+            break
+        end
+    end
+
+    if target and target ~= LocalPlayer then
+        VanishedPlayers[target.UserId] = true
+        
+        local function hideChar(char)
+            if char and char.Parent then
+                HiddenCharacters[target.UserId] = char
+                char.Parent = nil -- Local hiding (Preserves model & VC)
+            end
+        end
+
+        if target.Character then
+            hideChar(target.Character)
+        end
+        
+        if not CharacterConnections[target.UserId] then
+            CharacterConnections[target.UserId] = target.CharacterAdded:Connect(function(char)
+                if VanishedPlayers[target.UserId] then
+                    task.wait(0.1)
+                    hideChar(char)
+                end
+            end)
+        end
+
+        UpdatePlayerList()
+        UpdateUnVanishList()
+        
+        VanishBox.Text = "Success: " .. target.DisplayName
+        task.wait(2)
+        VanishBox.Text = ""
+    else
+        VanishBox.Text = "Player not found!"
+        task.wait(1.5)
+        VanishBox.Text = ""
+    end
+end
+
+local function UnVanishTarget(inputName)
+    local target = nil
+    local cleanInput = string.lower(inputName):gsub("@", "")
+    
+    for userId, _ in pairs(VanishedPlayers) do
+        local p = Players:GetPlayerByUserId(userId)
+        if p and (string.lower(p.Name) == cleanInput or string.lower(p.DisplayName) == cleanInput or 
+           string.lower(p.Name):match("^" .. cleanInput) or string.lower(p.DisplayName):match("^" .. cleanInput)) then
+            target = p
+            break
+        end
+    end
+
+    if target then
+        VanishedPlayers[target.UserId] = nil
+        
+        -- Restore character model & Voice Chat instantly
+        local char = HiddenCharacters[target.UserId] or target.Character
+        if char then
+            char.Parent = workspace
+        end
+        HiddenCharacters[target.UserId] = nil
+        
+        if CharacterConnections[target.UserId] then
+            CharacterConnections[target.UserId]:Disconnect()
+            CharacterConnections[target.UserId] = nil
+        end
+        
+        UpdatePlayerList()
+        UpdateUnVanishList()
+        
+        UnVanishBox.Text = "Success: " .. target.DisplayName
+        task.wait(2)
+        UnVanishBox.Text = ""
+    else
+        UnVanishBox.Text = "Vanished player not found!"
+        task.wait(1.5)
+        UnVanishBox.Text = ""
+    end
+end
+
+-- Connections
+VanishBtn.MouseButton1Click:Connect(function()
+    if VanishBox.Text ~= "" and VanishBox.Text ~= "Type player Name..." then
+        VanishTarget(VanishBox.Text)
+    end
+end)
+
+UnVanishBtn.MouseButton1Click:Connect(function()
+    if UnVanishBox.Text ~= "" and UnVanishBox.Text ~= "Type player Name..." then
+        UnVanishTarget(UnVanishBox.Text)
+    end
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    UpdateLayout()
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+DropdownBar.MouseButton1Click:Connect(function()
+    if isMinimized then return end
+    isOpen = not isOpen
+    isUnVanishOpen = false
+    UpdateLayout()
+end)
+
+UnVanishDropdownBar.MouseButton1Click:Connect(function()
+    if isMinimized then return end
+    isUnVanishOpen = not isUnVanishOpen
+    isOpen = false
+    UpdateLayout()
+end)
+
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(function(player)
+    if VanishedPlayers[player.UserId] then
+        VanishedPlayers[player.UserId] = nil
+    end
+    if HiddenCharacters[player.UserId] then
+        HiddenCharacters[player.UserId] = nil
+    end
+    if CharacterConnections[player.UserId] then
+        CharacterConnections[player.UserId]:Disconnect()
+        CharacterConnections[player.UserId] = nil
+    end
+    UpdatePlayerList()
+    UpdateUnVanishList()
+end)
+
+-- Chat Block via TextChatService
+if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+    TextChatService.OnIncomingMessage = function(message)
+        if message.TextSource then
+            local player = Players:GetPlayerByUserId(message.TextSource.UserId)
+            if player and VanishedPlayers[player.UserId] then
+                local prop = Instance.new("TextChatMessageProperties")
+                prop.Text = ""
+                return prop
+            end
+        end
+    end
+end
+
+-- Draggable Logic
+local dragging, dragInput, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+RunService.RenderStepped:Connect(function()
+    if dragging and dragInput then
+        local delta = dragInput.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Initialize UI
+UpdatePlayerList()
+UpdateUnVanishList()
+UpdateLayout()
