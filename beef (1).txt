@@ -4,7 +4,7 @@ local oldIndex
 
 oldIndex = hooktableinstance or hookmetamethod(game, "__newindex", function(self, key, value)
     if tostring(key) == "Text" then
-        -- Purana title "Universal" check karega
+        -- Purana title "UNIVERSAL" check karega
         if tostring(value) == "Universal" then 
             value = "Universal ~~ By NOT_IITIAN" -- Naya title set karega
         end
