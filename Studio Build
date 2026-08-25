@@ -1,0 +1,633 @@
+-- ====================================================================
+-- HOSTEL COMPLEX (WITH MAIN GATE, WINDING PATH, HOSTEL NAMES & ROOM UPGRADES)
+-- Paste this script into ServerScriptService and hit Play!
+-- ====================================================================
+
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+
+-- Set default lighting setup
+Lighting.Ambient = Color3.fromRGB(120, 120, 120)
+Lighting.OutdoorAmbient = Color3.fromRGB(100, 100, 100)
+Lighting.Brightness = 1.5
+
+if Workspace:FindFirstChild("HostelComplex") then
+	Workspace.HostelComplex:Destroy()
+end
+
+local MainFolder = Instance.new("Folder")
+MainFolder.Name = "HostelComplex"
+MainFolder.Parent = Workspace
+
+local attentionSound = Instance.new("Sound")
+attentionSound.SoundId = "rbxassetid://318812395"
+attentionSound.Volume = 1
+attentionSound.Parent = MainFolder
+
+-----------------------------------------------------------------------
+-- CONFIGURATION
+-----------------------------------------------------------------------
+local FLOORS = 7            
+local ROOMS_PER_FLOOR = 12  
+local ROOM_W = 18           
+local ROOM_D = 22           
+local ROOM_H = 11           
+local HALLWAY_W = 24        
+local BALCONY_D = 6         
+local WALL_THICK = 0.8      
+
+-----------------------------------------------------------------------
+-- HELPER FUNCTIONS
+-----------------------------------------------------------------------
+local function createPart(name, size, cframe, color, material, parent, anchored, transparency)
+	local part = Instance.new("Part")
+	part.Name = name or "Part"
+	part.Size = size
+	part.CFrame = cframe
+	part.BrickColor = BrickColor.new(color)
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.Anchored = (anchored == nil) and true or anchored
+	part.Transparency = transparency or 0
+	part.Parent = parent
+	return part
+end
+
+local function createSeat(name, size, cframe, parent)
+	local seat = Instance.new("Seat")
+	seat.Name = name or "ChairSeat"
+	seat.Size = size
+	seat.CFrame = cframe
+	seat.Anchored = true
+	seat.Transparency = 1
+	seat.Parent = parent
+	return seat
+end
+
+local function createPoster(name, size, cframe, text, fontColor, bgColor, parent)
+	local framePart = createPart(name, size, cframe, bgColor, Enum.Material.SmoothPlastic, parent)
+	local sg = Instance.new("SurfaceGui", framePart)
+	sg.Face = Enum.NormalId.Front
+	
+	local label = Instance.new("TextLabel", sg)
+	label.Size = UDim2.new(1, -10, 1, -10)
+	label.Position = UDim2.new(0, 5, 0, 5)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = fontColor
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.TextWrapped = true
+	return framePart
+end
+
+-----------------------------------------------------------------------
+-- 1. BASE GROUND & SPAWN
+-----------------------------------------------------------------------
+createPart("GrassGround", Vector3.new(900, 0.3, 900), CFrame.new(0, 0.15, 0), "Earth green", Enum.Material.Grass, MainFolder)
+
+local spawnLocation = Instance.new("SpawnLocation")
+spawnLocation.Name = "HostelSpawnPoint"
+spawnLocation.Size = Vector3.new(12, 1, 12)
+spawnLocation.CFrame = CFrame.new(0, 0.9, -240)
+spawnLocation.Anchored = true
+spawnLocation.BrickColor = BrickColor.new("Medium stone grey")
+spawnLocation.Parent = MainFolder
+
+-----------------------------------------------------------------------
+-- 2. DECORATIVE WINDING PATH & LIGHTING (SPAWN TO MAIN GATE)
+-----------------------------------------------------------------------
+local pathSegments = {
+	{CFrame = CFrame.new(0, 0.35, -225), Size = Vector3.new(18, 0.4, 25), Angle = 0},
+	{CFrame = CFrame.new(18, 0.35, -195), Size = Vector3.new(18, 0.4, 45), Angle = 28},
+	{CFrame = CFrame.new(-15, 0.35, -150), Size = Vector3.new(18, 0.4, 55), Angle = -32},
+	{CFrame = CFrame.new(0, 0.35, -110), Size = Vector3.new(18, 0.4, 35), Angle = 0}
+}
+
+for i, seg in ipairs(pathSegments) do
+	local cf = seg.CFrame * CFrame.Angles(0, math.rad(seg.Angle), 0)
+	createPart("WindingPath_"..i, seg.Size, cf, "Dark stone grey", Enum.Material.Concrete, MainFolder)
+	
+	-- Street Light Poles along path bends
+	local lampPosL = cf * CFrame.new(-seg.Size.X/2 - 2, 5, 0)
+	local lampPosR = cf * CFrame.new(seg.Size.X/2 + 2, 5, 0)
+	
+	for _, lPos in ipairs({lampPosL, lampPosR}) do
+		createPart("PathLampPole", Vector3.new(0.8, 10, 0.8), lPos, "Really black", Enum.Material.Metal, MainFolder)
+		local bulb = createPart("PathLampBulb", Vector3.new(2, 1.2, 2), lPos * CFrame.new(0, 5, 0), "Institutional white", Enum.Material.Neon, MainFolder)
+		
+		local pLight = Instance.new("PointLight", bulb)
+		pLight.Brightness = 1.2
+		pLight.Range = 25
+		pLight.Color = Color3.fromRGB(255, 230, 170)
+		
+		-- Garden Flower/Bush Decoration along path
+		createPart("Bush", Vector3.new(3.5, 2.5, 3.5), lPos * CFrame.new(0, -4, 2), "Bright green", Enum.Material.Grass, MainFolder)
+	end
+end
+
+-----------------------------------------------------------------------
+-- 3. TRANSPARENT MAIN ENTRY GATE WITH RED & GREEN TOGGLE KEYS
+-----------------------------------------------------------------------
+local gateCenterCF = CFrame.new(0, 7.5, -90)
+local boundaryWallW = 120
+
+-- Boundary Walls
+createPart("FenceLeft", Vector3.new(boundaryWallW, 14, 2), gateCenterCF * CFrame.new(-boundaryWallW/2 - 12, 0, 0), "Dark stone grey", Enum.Material.Concrete, MainFolder)
+createPart("FenceRight", Vector3.new(boundaryWallW, 14, 2), gateCenterCF * CFrame.new(boundaryWallW/2 + 12, 0, 0), "Dark stone grey", Enum.Material.Concrete, MainFolder)
+createPart("GateArchTop", Vector3.new(24, 3, 3), gateCenterCF * CFrame.new(0, 6, 0), "Really black", Enum.Material.Metal, MainFolder)
+
+-- Transparent Glass Gate Doors
+local gateDoorL = createPart("MainGateDoorL", Vector3.new(11.5, 12, 0.8), gateCenterCF * CFrame.new(-5.75, -0.5, 0), "Institutional white", Enum.Material.Glass, MainFolder, true, 0.5)
+local gateDoorR = createPart("MainGateDoorR", Vector3.new(11.5, 12, 0.8), gateCenterCF * CFrame.new(5.75, -0.5, 0), "Institutional white", Enum.Material.Glass, MainFolder, true, 0.5)
+
+local closedCFL = gateDoorL.CFrame
+local closedCFR = gateDoorR.CFrame
+local openCFL = closedCFL * CFrame.new(-11, 0, 0)
+local openCFR = closedCFR * CFrame.new(11, 0, 0)
+
+local isGateBusy = false
+local function toggleMainGate()
+	if isGateBusy then return end
+	isGateBusy = true
+	
+	TweenService:Create(gateDoorL, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = openCFL}):Play()
+	TweenService:Create(gateDoorR, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = openCFR}):Play()
+	
+	task.wait(4.5)
+	
+	TweenService:Create(gateDoorL, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {CFrame = closedCFL}):Play()
+	TweenService:Create(gateDoorR, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {CFrame = closedCFR}):Play()
+	
+	task.wait(1.3)
+	isGateBusy = false
+end
+
+-- Outer RED Toggle Key (Entry from Outside)
+local redPillar = createPart("RedPillar", Vector3.new(1.2, 4.5, 1.2), gateCenterCF * CFrame.new(14, -4.5, -5), "Dark stone grey", Enum.Material.Metal, MainFolder)
+local redButton = createPart("RedToggleKey", Vector3.new(0.8, 1.2, 0.8), redPillar.CFrame * CFrame.new(0, 2.5, 0), "Bright red", Enum.Material.Neon, MainFolder)
+local redPrompt = Instance.new("ProximityPrompt", redButton)
+redPrompt.ActionText = "Press to Enter (Red Key)"
+redPrompt.ObjectText = "Main Entry Gate"
+redPrompt.MaxActivationDistance = 10
+redPrompt.Triggered:Connect(toggleMainGate)
+
+-- Inner GREEN Toggle Key (Exit from Inside)
+local greenPillar = createPart("GreenPillar", Vector3.new(1.2, 4.5, 1.2), gateCenterCF * CFrame.new(-14, -4.5, 5), "Dark stone grey", Enum.Material.Metal, MainFolder)
+local greenButton = createPart("GreenToggleKey", Vector3.new(0.8, 1.2, 0.8), greenPillar.CFrame * CFrame.new(0, 2.5, 0), "Bright green", Enum.Material.Neon, MainFolder)
+local greenPrompt = Instance.new("ProximityPrompt", greenButton)
+greenPrompt.ActionText = "Press to Exit (Green Key)"
+greenPrompt.ObjectText = "Main Exit Gate"
+greenPrompt.MaxActivationDistance = 10
+greenPrompt.Triggered:Connect(toggleMainGate)
+
+-----------------------------------------------------------------------
+-- 4. ROOM FURNITURE & CORNER AMENITIES (AC, CLOSET, BOOKSHELF)
+-----------------------------------------------------------------------
+local function buildRoomFurniture(roomCFrame, roomFolder)
+	local floorY = -ROOM_H/2 + WALL_THICK/2
+
+	-- Bed & Pillow
+	createPart("BedFrame", Vector3.new(5, 1.2, 9), roomCFrame * CFrame.new(-5, floorY + 0.6, 2), "Reddish brown", Enum.Material.Wood, roomFolder)
+	createPart("Mattress", Vector3.new(4.6, 0.8, 8.4), roomCFrame * CFrame.new(-5, floorY + 1.6, 2), "White", Enum.Material.Fabric, roomFolder)
+	createPart("Pillow", Vector3.new(4, 0.4, 2), roomCFrame * CFrame.new(-5, floorY + 2.2, -1.5), "Pastel Blue", Enum.Material.Fabric, roomFolder)
+	createSeat("BedSeat", Vector3.new(4, 1, 4), roomCFrame * CFrame.new(-5, floorY + 2.5, 1) * CFrame.Angles(math.rad(-90), 0, 0), roomFolder)
+
+	-- Bedside Lamp & Nightstand
+	createPart("Nightstand", Vector3.new(2.5, 2, 2.5), roomCFrame * CFrame.new(-7.5, floorY + 1, -3), "Wood finish", Enum.Material.Wood, roomFolder)
+	local lampBase = createPart("TableLamp", Vector3.new(1, 1.5, 1), roomCFrame * CFrame.new(-7.5, floorY + 2.75, -3), "Institutional white", Enum.Material.Neon, roomFolder)
+	
+	local lampLight = Instance.new("PointLight", lampBase)
+	lampLight.Brightness = 0.5
+	lampLight.Range = 15
+	lampLight.Color = Color3.fromRGB(255, 220, 150)
+	
+	local lampPrompt = Instance.new("ProximityPrompt", lampBase)
+	lampPrompt.ActionText = "Toggle Lamp"
+	lampPrompt.ObjectText = "Bedside Lamp"
+	lampPrompt.MaxActivationDistance = 8
+
+	-- Study Table & Chair
+	createPart("StudyTableTop", Vector3.new(6.5, 0.4, 4.5), roomCFrame * CFrame.new(5.0, floorY + 3.0, 6.5), "Wood finish", Enum.Material.Wood, roomFolder)
+	createPart("TableLeg1", Vector3.new(0.5, 2.8, 0.5), roomCFrame * CFrame.new(2.0, floorY + 1.4, 4.5), "Dark stone grey", Enum.Material.Metal, roomFolder)
+	createPart("TableLeg2", Vector3.new(0.5, 2.8, 0.5), roomCFrame * CFrame.new(8.0, floorY + 1.4, 4.5), "Dark stone grey", Enum.Material.Metal, roomFolder)
+	createPart("TableLeg3", Vector3.new(0.5, 2.8, 0.5), roomCFrame * CFrame.new(2.0, floorY + 1.4, 8.5), "Dark stone grey", Enum.Material.Metal, roomFolder)
+	createPart("TableLeg4", Vector3.new(0.5, 2.8, 0.5), roomCFrame * CFrame.new(8.0, floorY + 1.4, 8.5), "Dark stone grey", Enum.Material.Metal, roomFolder)
+	
+	createPart("ChairSeatPart", Vector3.new(2, 0.3, 2), roomCFrame * CFrame.new(5.0, floorY + 1.6, 3.0), "Really black", Enum.Material.SmoothPlastic, roomFolder)
+	createPart("ChairBackPart", Vector3.new(2, 2.0, 0.3), roomCFrame * CFrame.new(5.0, floorY + 2.4, 2.1), "Really black", Enum.Material.SmoothPlastic, roomFolder)
+	createSeat("ChairSeat", Vector3.new(1.8, 0.5, 1.8), roomCFrame * CFrame.new(5.0, floorY + 1.6, 3.0) * CFrame.Angles(0, math.rad(180), 0), roomFolder)
+
+	-- Ceiling Fan
+	createPart("FanHub", Vector3.new(1.2, 0.8, 1.2), roomCFrame * CFrame.new(0, ROOM_H/2 - 1.2, 0), "Dark stone grey", Enum.Material.Metal, roomFolder)
+	createPart("FanBlades", Vector3.new(5.5, 0.1, 5.5), roomCFrame * CFrame.new(0, ROOM_H/2 - 1.4, 0), "Brown", Enum.Material.Wood, roomFolder)
+	
+	local fanSwitch = createPart("FanSwitch", Vector3.new(0.8, 1.2, 0.3), roomCFrame * CFrame.new(-5.0, floorY + 4.5, -ROOM_D/2 + 0.45), "Pastel Blue", Enum.Material.SmoothPlastic, roomFolder)
+	local fanPrompt = Instance.new("ProximityPrompt", fanSwitch)
+	fanPrompt.ActionText = "Toggle Fan"
+	fanPrompt.ObjectText = "Fan Switch"
+	fanPrompt.MaxActivationDistance = 8
+
+	-- Corner 1: AIR CONDITIONER (AC Unit - Top Right Wall Corner)
+	local acBody = createPart("AirConditioner", Vector3.new(4.5, 1.4, 1.2), roomCFrame * CFrame.new(6.0, ROOM_H/2 - 1.4, -ROOM_D/2 + 1.2), "Institutional white", Enum.Material.SmoothPlastic, roomFolder)
+	createPart("ACVent", Vector3.new(4.2, 0.2, 1.0), roomCFrame * CFrame.new(6.0, ROOM_H/2 - 2.0, -ROOM_D/2 + 1.2), "Dark stone grey", Enum.Material.SmoothPlastic, roomFolder)
+	local acLed = createPart("ACLed", Vector3.new(0.3, 0.3, 0.1), roomCFrame * CFrame.new(8.0, ROOM_H/2 - 1.4, -ROOM_D/2 + 0.5), "Bright blue", Enum.Material.Neon, roomFolder)
+	
+	local acPrompt = Instance.new("ProximityPrompt", acBody)
+	acPrompt.ActionText = "Toggle AC"
+	acPrompt.ObjectText = "Air Conditioner"
+	acPrompt.MaxActivationDistance = 8
+	acPrompt.Triggered:Connect(function()
+		local isOn = acLed.BrickColor.Name == "Bright blue"
+		acLed.BrickColor = BrickColor.new(isOn and "Dark stone grey" or "Bright blue")
+	end)
+
+	-- Corner 2: WARDROBE CLOSET (Back-Left Corner)
+	createPart("WardrobeBody", Vector3.new(3.8, 7.8, 3.8), roomCFrame * CFrame.new(-6.8, floorY + 4.1, ROOM_D/2 - 2.5), "Reddish brown", Enum.Material.Wood, roomFolder)
+	createPart("WardrobeDoorL", Vector3.new(1.8, 7.4, 0.2), roomCFrame * CFrame.new(-7.7, floorY + 4.1, ROOM_D/2 - 4.4), "Dark orange", Enum.Material.Wood, roomFolder)
+	createPart("WardrobeDoorR", Vector3.new(1.8, 7.4, 0.2), roomCFrame * CFrame.new(-5.9, floorY + 4.1, ROOM_D/2 - 4.4), "Dark orange", Enum.Material.Wood, roomFolder)
+	createPart("WardrobeHandleL", Vector3.new(0.2, 0.8, 0.3), roomCFrame * CFrame.new(-7.0, floorY + 4.1, ROOM_D/2 - 4.6), "Dark stone grey", Enum.Material.Metal, roomFolder)
+	createPart("WardrobeHandleR", Vector3.new(0.2, 0.8, 0.3), roomCFrame * CFrame.new(-6.6, floorY + 4.1, ROOM_D/2 - 4.6), "Dark stone grey", Enum.Material.Metal, roomFolder)
+
+	-- Corner 3: BOOKSHELF WITH BOOKS (Front-Right Corner)
+	createPart("BookshelfFrame", Vector3.new(3.2, 6.5, 2.2), roomCFrame * CFrame.new(7.0, floorY + 3.45, -ROOM_D/2 + 2.0), "Reddish brown", Enum.Material.Wood, roomFolder)
+	createPart("BookshelfPlank1", Vector3.new(3.0, 0.2, 2.0), roomCFrame * CFrame.new(7.0, floorY + 2.0, -ROOM_D/2 + 2.0), "Wood finish", Enum.Material.Wood, roomFolder)
+	createPart("BookshelfPlank2", Vector3.new(3.0, 0.2, 2.0), roomCFrame * CFrame.new(7.0, floorY + 4.0, -ROOM_D/2 + 2.0), "Wood finish", Enum.Material.Wood, roomFolder)
+
+	local bookColors = {"Earth blue", "Bright red", "Bright green", "Pastel violet", "Gold"}
+	for i = 1, 4 do
+		createPart("Book_Row1_"..i, Vector3.new(0.4, 1.2, 1.4), roomCFrame * CFrame.new(6.0 + (i * 0.5), floorY + 2.7, -ROOM_D/2 + 2.0), bookColors[(i % #bookColors) + 1], Enum.Material.SmoothPlastic, roomFolder)
+		createPart("Book_Row2_"..i, Vector3.new(0.4, 1.2, 1.4), roomCFrame * CFrame.new(6.0 + (i * 0.5), floorY + 4.7, -ROOM_D/2 + 2.0), bookColors[((i + 2) % #bookColors) + 1], Enum.Material.SmoothPlastic, roomFolder)
+	end
+
+	-- Wall Posters
+	local goldColor = Color3.fromRGB(255, 215, 0)
+	local cyanColor = Color3.fromRGB(0, 255, 255)
+	local whiteColor = Color3.fromRGB(255, 255, 255)
+
+	createPoster("QuotePoster1", Vector3.new(4.5, 3.5, 0.1), roomCFrame * CFrame.new(-ROOM_W/2 + 0.45, floorY + 5.5, 2) * CFrame.Angles(0, math.rad(-90), 0), "DREAM BIG\nWORK HARD\nMAKE IT HAPPEN", goldColor, "Really black", roomFolder)
+	createPoster("QuotePoster2", Vector3.new(4.5, 3.5, 0.1), roomCFrame * CFrame.new(ROOM_W/2 - 0.45, floorY + 5.5, -2) * CFrame.Angles(0, math.rad(90), 0), "NEVER GIVE UP\nSUCCESS TAKES TIME", cyanColor, "Really black", roomFolder)
+	createPoster("ChartPoster1", Vector3.new(4.5, 3.5, 0.1), roomCFrame * CFrame.new(-4, floorY + 5.5, -ROOM_D/2 + 0.45) * CFrame.Angles(0, math.rad(180), 0), "PERIODIC TABLE &\nFORMULA CHART", whiteColor, "Dark stone grey", roomFolder)
+end
+
+-----------------------------------------------------------------------
+-- 5. ROOM BUILDER
+-----------------------------------------------------------------------
+local function buildSingleRoom(roomCFrame, roomNum, wallColor, isGroundFloor, roomFolder)
+	local halfW, halfD, halfH = ROOM_W / 2, ROOM_D / 2, ROOM_H / 2
+
+	createPart("RoomFloor", Vector3.new(ROOM_W, WALL_THICK, ROOM_D), roomCFrame * CFrame.new(0, -halfH + WALL_THICK/2, 0), "Medium stone grey", Enum.Material.Concrete, roomFolder)
+	createPart("RoomCeiling", Vector3.new(ROOM_W, WALL_THICK, ROOM_D), roomCFrame * CFrame.new(0, halfH - WALL_THICK/2, 0), "Institutional white", Enum.Material.SmoothPlastic, roomFolder)
+
+	createPart("WallLeft", Vector3.new(WALL_THICK, ROOM_H, ROOM_D), roomCFrame * CFrame.new(-halfW + WALL_THICK/2, 0, 0), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+	createPart("WallRight", Vector3.new(WALL_THICK, ROOM_H, ROOM_D), roomCFrame * CFrame.new(halfW - WALL_THICK/2, 0, 0), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+	createPart("WallFrontL", Vector3.new(halfW - 2.5, ROOM_H, WALL_THICK), roomCFrame * CFrame.new(-halfW/2 - 1.25, 0, -halfD + WALL_THICK/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+	createPart("WallFrontR", Vector3.new(halfW - 2.5, ROOM_H, WALL_THICK), roomCFrame * CFrame.new(halfW/2 + 1.25, 0, -halfD + WALL_THICK/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+	createPart("WallFrontTop", Vector3.new(5, ROOM_H - 7.5, WALL_THICK), roomCFrame * CFrame.new(0, halfH - (ROOM_H-7.5)/2, -halfD + WALL_THICK/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+
+	if isGroundFloor then
+		createPart("WallBackSolid", Vector3.new(ROOM_W, ROOM_H, WALL_THICK), roomCFrame * CFrame.new(0, 0, halfD - WALL_THICK/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+	else
+		createPart("WallBackL", Vector3.new(halfW - 2.5, ROOM_H, WALL_THICK), roomCFrame * CFrame.new(-halfW/2 - 1.25, 0, halfD - WALL_THICK/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+		createPart("WallBackR", Vector3.new(halfW - 2.5, ROOM_H, WALL_THICK), roomCFrame * CFrame.new(halfW/2 + 1.25, 0, halfD - WALL_THICK/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+		createPart("WallBackTop", Vector3.new(5, ROOM_H - 7.5, WALL_THICK), roomCFrame * CFrame.new(0, halfH - (ROOM_H-7.5)/2, halfD - WALL_THICK/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+		
+		local balcDoor = createPart("BalconyDoor", Vector3.new(4.8, 7.3, 0.4), roomCFrame * CFrame.new(0, -halfH + 3.65, halfD - WALL_THICK/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+		balcDoor.Transparency = 0.2
+		balcDoor:SetAttribute("IsOpen", false)
+		balcDoor:SetAttribute("ClosedCF", balcDoor.CFrame)
+		
+		local balcPrompt = Instance.new("ProximityPrompt", balcDoor)
+		balcPrompt.ActionText = "Open / Close"
+		balcPrompt.ObjectText = "Balcony Gate"
+		balcPrompt.MaxActivationDistance = 8
+
+		local balconyCFrame = roomCFrame * CFrame.new(0, -halfH + 0.4, halfD + BALCONY_D/2)
+		createPart("BalconyFloor", Vector3.new(ROOM_W, 0.8, BALCONY_D), balconyCFrame, "Dark stone grey", Enum.Material.Concrete, roomFolder)
+		createPart("BalconyRailOuter", Vector3.new(ROOM_W, 3.5, 0.5), balconyCFrame * CFrame.new(0, 2.1, BALCONY_D/2), wallColor, Enum.Material.SmoothPlastic, roomFolder)
+	end
+
+	local door = createPart("Door", Vector3.new(4.8, 7.3, 0.4), roomCFrame * CFrame.new(0, -halfH + 3.65, -halfD + WALL_THICK/2), "Reddish brown", Enum.Material.Wood, roomFolder)
+	door:SetAttribute("IsOpen", false)
+	door:SetAttribute("ClosedCF", door.CFrame)
+	
+	local doorPrompt = Instance.new("ProximityPrompt", door)
+	doorPrompt.ActionText = "Open / Close"
+	doorPrompt.ObjectText = "Room Door"
+	doorPrompt.MaxActivationDistance = 8
+
+	local numPlate = createPart("RoomNumPlate", Vector3.new(3.5, 1.4, 0.3), roomCFrame * CFrame.new(0, halfH - 1.5, -halfD - 0.2), "Really black", Enum.Material.SmoothPlastic, roomFolder)
+	local sg = Instance.new("SurfaceGui", numPlate)
+	sg.Face = Enum.NormalId.Front
+	local txt = Instance.new("TextLabel", sg)
+	txt.Size = UDim2.new(1, 0, 1, 0)
+	txt.BackgroundTransparency = 1
+	txt.Text = tostring(roomNum)
+	txt.TextColor3 = Color3.fromRGB(255, 215, 0)
+	txt.TextScaled = true
+	txt.Font = Enum.Font.GothamBold
+
+	buildRoomFurniture(roomCFrame, roomFolder)
+end
+
+-----------------------------------------------------------------------
+-- 6. ELEVATOR TELEPORT SYSTEM
+-----------------------------------------------------------------------
+local function isPlayerInsideCabin(player, cabinCF, cabinSize)
+	if not (player.Character and player.Character:FindFirstChild("HumanoidRootPart")) then return false end
+	local pPos = player.Character.HumanoidRootPart.Position
+	local localPos = cabinCF:PointToObjectSpace(pPos)
+	return (math.abs(localPos.X) <= cabinSize.X / 2) and (math.abs(localPos.Z) <= cabinSize.Z / 2)
+end
+
+local function openElevatorGui(player, buildingCFrame, currentFloorFolder, totalBuildingWidth, liftDepth, liftWidth, cabinCF)
+	local pGui = player:FindFirstChild("PlayerGui")
+	if not pGui then return end
+	if pGui:FindFirstChild("ElevatorGui") then pGui.ElevatorGui:Destroy() end
+
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "ElevatorGui"
+	sg.ResetOnSpawn = false
+	
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(0, 320, 0, 430)
+	frame.Position = UDim2.new(0.5, -160, 0.5, -215)
+	frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+	frame.BorderSizePixel = 2
+	frame.BorderColor3 = Color3.fromRGB(0, 255, 100)
+	frame.Parent = sg
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, 0, 0, 50)
+	title.Text = "🚨 SELECT FLOOR 🚨"
+	title.TextColor3 = Color3.fromRGB(0, 255, 100)
+	title.TextScaled = true
+	title.Font = Enum.Font.GothamBold
+	title.BackgroundTransparency = 1
+	title.Parent = frame
+
+	local monitorConn
+	monitorConn = RunService.Heartbeat:Connect(function()
+		if not isPlayerInsideCabin(player, cabinCF, Vector3.new(liftDepth, ROOM_H, liftWidth)) then
+			if sg and sg.Parent then sg:Destroy() end
+			if monitorConn then monitorConn:Disconnect() end
+		end
+	end)
+
+	for f = 1, FLOORS do
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0.85, 0, 0, 42)
+		btn.Position = UDim2.new(0.075, 0, 0, 55 + (f - 1) * 47)
+		btn.Text = "FLOOR " .. tostring(f) .. (f == 1 and " (GROUND)" or "")
+		btn.BackgroundColor3 = Color3.fromRGB(45, 50, 65)
+		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		btn.Font = Enum.Font.GothamBold
+		btn.TextSize = 16
+		btn.Parent = frame
+
+		btn.MouseButton1Click:Connect(function()
+			if monitorConn then monitorConn:Disconnect() end
+			sg:Destroy() 
+			
+			if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+				task.wait(4)
+				local targetY = (f - 1) * ROOM_H + (ROOM_H / 2)
+				local targetCabinCF = buildingCFrame * CFrame.new(-totalBuildingWidth/2 - liftDepth/2, targetY, 0)
+				player.Character:PivotTo(targetCabinCF * CFrame.new(0, -ROOM_H/2 + 3, 0))
+
+				local buildingFolder = currentFloorFolder.Parent
+				local targetFloorFolder = buildingFolder:FindFirstChild("Floor_" .. tostring(f))
+				if targetFloorFolder then
+					local tDoorL = targetFloorFolder:FindFirstChild("EleDoorL")
+					local tDoorR = targetFloorFolder:FindFirstChild("EleDoorR")
+					
+					if tDoorL and tDoorR then
+						task.wait(0.5)
+						TweenService:Create(tDoorL, TweenInfo.new(0.8), {CFrame = tDoorL:GetAttribute("OpenCF")}):Play()
+						TweenService:Create(tDoorR, TweenInfo.new(0.8), {CFrame = tDoorR:GetAttribute("OpenCF")}):Play()
+
+						task.delay(4, function()
+							TweenService:Create(tDoorL, TweenInfo.new(0.8), {CFrame = tDoorL:GetAttribute("ClosedCF")}):Play()
+							TweenService:Create(tDoorR, TweenInfo.new(0.8), {CFrame = tDoorR:GetAttribute("ClosedCF")}):Play()
+						end)
+					end
+				end
+			end
+		end)
+	end
+	sg.Parent = pGui
+end
+
+-----------------------------------------------------------------------
+-- 7. HOSTEL BUILDING GENERATOR (WITH EXTERIOR SIGNBOARDS)
+-----------------------------------------------------------------------
+local function buildHostelBuilding(buildingName, buildingCFrame, wallColorName, hostelDisplayName)
+	local buildingFolder = Instance.new("Folder")
+	buildingFolder.Name = buildingName
+	buildingFolder.Parent = MainFolder
+
+	local halfRooms = ROOMS_PER_FLOOR / 2
+	local totalBuildingWidth = halfRooms * ROOM_W
+	local totalBuildingDepth = (ROOM_D * 2) + HALLWAY_W
+	
+	local liftDepth = 14
+	local liftWidth = HALLWAY_W
+
+	for floor = 1, FLOORS do
+		local floorY = (floor - 1) * ROOM_H + (ROOM_H / 2)
+		local floorCFrame = buildingCFrame * CFrame.new(0, floorY, 0)
+		local floorFolder = Instance.new("Folder")
+		floorFolder.Name = "Floor_" .. tostring(floor)
+		floorFolder.Parent = buildingFolder
+
+		createPart("CorridorFloor", Vector3.new(totalBuildingWidth, WALL_THICK, HALLWAY_W), floorCFrame * CFrame.new(0, -ROOM_H/2 + WALL_THICK/2, 0), "Dark stone grey", Enum.Material.Concrete, floorFolder)
+		createPart("CorridorCeiling", Vector3.new(totalBuildingWidth, WALL_THICK, HALLWAY_W), floorCFrame * CFrame.new(0, ROOM_H/2 - WALL_THICK/2, 0), "Institutional white", Enum.Material.SmoothPlastic, floorFolder)
+
+		for cl = -1, 1 do
+			local corrLamp = createPart("CorridorLamp", Vector3.new(4, 0.3, 1.5), floorCFrame * CFrame.new(cl * 35, ROOM_H/2 - 0.4, 0), "Institutional white", Enum.Material.Neon, floorFolder)
+			local cLight = Instance.new("PointLight", corrLamp)
+			cLight.Brightness = 0.5 
+			cLight.Range = 18 
+			cLight.Color = Color3.fromRGB(255, 250, 230)
+		end
+
+		-- Elevator Setup
+		local eleCabinCF = floorCFrame * CFrame.new(-totalBuildingWidth/2 - liftDepth/2, 0, 0)
+		createPart("EleFloor", Vector3.new(liftDepth, WALL_THICK, liftWidth), eleCabinCF * CFrame.new(0, -ROOM_H/2 + WALL_THICK/2, 0), "Really black", Enum.Material.SmoothPlastic, floorFolder)
+		createPart("EleCeil", Vector3.new(liftDepth, WALL_THICK, liftWidth), eleCabinCF * CFrame.new(0, ROOM_H/2 - WALL_THICK/2, 0), "Really black", Enum.Material.SmoothPlastic, floorFolder)
+
+		createPart("EleWallBack", Vector3.new(WALL_THICK, ROOM_H, liftWidth), eleCabinCF * CFrame.new(-liftDepth/2 + WALL_THICK/2, 0, 0), "Dark stone grey", Enum.Material.Concrete, floorFolder)
+		createPart("EleWallSide1", Vector3.new(liftDepth, ROOM_H, WALL_THICK), eleCabinCF * CFrame.new(0, 0, liftWidth/2 - WALL_THICK/2), "Dark stone grey", Enum.Material.Concrete, floorFolder)
+		createPart("EleWallSide2", Vector3.new(liftDepth, ROOM_H, WALL_THICK), eleCabinCF * CFrame.new(0, 0, -liftWidth/2 + WALL_THICK/2), "Dark stone grey", Enum.Material.Concrete, floorFolder)
+
+		local doorWidth = 10
+		local sideWallW = (liftWidth - doorWidth) / 2
+		local frontX = liftDepth/2 - WALL_THICK/2
+
+		createPart("EleFrontL", Vector3.new(WALL_THICK, ROOM_H, sideWallW), eleCabinCF * CFrame.new(frontX, 0, -liftWidth/2 + sideWallW/2), "Medium stone grey", Enum.Material.Concrete, floorFolder)
+		createPart("EleFrontR", Vector3.new(WALL_THICK, ROOM_H, sideWallW), eleCabinCF * CFrame.new(frontX, 0, liftWidth/2 - sideWallW/2), "Medium stone grey", Enum.Material.Concrete, floorFolder)
+		createPart("EleFrontTop", Vector3.new(WALL_THICK, ROOM_H - 8, doorWidth), eleCabinCF * CFrame.new(frontX, ROOM_H/2 - (ROOM_H - 8)/2, 0), "Medium stone grey", Enum.Material.Concrete, floorFolder)
+
+		local liftLight = Instance.new("PointLight")
+		liftLight.Brightness = 0.5  
+		liftLight.Range = 20
+		liftLight.Color = Color3.fromRGB(255, 255, 255)
+		liftLight.Parent = createPart("LiftRoofLight", Vector3.new(4, 0.2, 4), eleCabinCF * CFrame.new(0, ROOM_H/2 - 0.5, 0), "Ghost grey", Enum.Material.Neon, floorFolder)
+
+		local eleDoorL = createPart("EleDoorL", Vector3.new(0.4, 8, doorWidth/2), eleCabinCF * CFrame.new(frontX, -ROOM_H/2 + 4, -doorWidth/4), "Ghost grey", Enum.Material.SmoothPlastic, floorFolder)
+		local eleDoorR = createPart("EleDoorR", Vector3.new(0.4, 8, doorWidth/2), eleCabinCF * CFrame.new(frontX, -ROOM_H/2 + 4, doorWidth/4), "Ghost grey", Enum.Material.SmoothPlastic, floorFolder)
+		
+		local closedCFL = eleDoorL.CFrame
+		local closedCFR = eleDoorR.CFrame
+		local openCFL = closedCFL * CFrame.new(0, 0, -doorWidth/2 + 0.2)
+		local openCFR = closedCFR * CFrame.new(0, 0, doorWidth/2 - 0.2)
+		
+		eleDoorL:SetAttribute("ClosedCF", closedCFL)
+		eleDoorL:SetAttribute("OpenCF", openCFL)
+		eleDoorR:SetAttribute("ClosedCF", closedCFR)
+		eleDoorR:SetAttribute("OpenCF", openCFR)
+
+		local doorBtnX = frontX + 0.45 
+		local doorBtn = createPart("EleDoorBtn", Vector3.new(0.5, 1.8, 1.4), eleCabinCF * CFrame.new(doorBtnX, -1, doorWidth/2 + 1.2), "Really black", Enum.Material.SmoothPlastic, floorFolder)
+		createPart("BtnLight", Vector3.new(0.55, 0.8, 0.8), eleCabinCF * CFrame.new(doorBtnX, -1, doorWidth/2 + 1.2), "Bright red", Enum.Material.Neon, floorFolder)
+		
+		local doorPrompt = Instance.new("ProximityPrompt", doorBtn)
+		doorPrompt.ActionText = "Call Lift"
+		doorPrompt.ObjectText = "Floor " .. tostring(floor) .. " Elevator"
+		doorPrompt.MaxActivationDistance = 15
+		doorPrompt.RequiresLineOfSight = false 
+
+		doorPrompt.Triggered:Connect(function(player)
+			doorPrompt.Enabled = false 
+			task.wait(3)
+			TweenService:Create(eleDoorL, TweenInfo.new(0.8), {CFrame = openCFL}):Play()
+			TweenService:Create(eleDoorR, TweenInfo.new(0.8), {CFrame = openCFR}):Play()
+			
+			task.wait(4)
+			TweenService:Create(eleDoorL, TweenInfo.new(0.8), {CFrame = closedCFL}):Play()
+			TweenService:Create(eleDoorR, TweenInfo.new(0.8), {CFrame = closedCFR}):Play()
+			
+			task.wait(4)
+			if isPlayerInsideCabin(player, eleCabinCF, Vector3.new(liftDepth, ROOM_H, liftWidth)) then
+				attentionSound:Play()
+				openElevatorGui(player, buildingCFrame, floorFolder, totalBuildingWidth, liftDepth, liftWidth, eleCabinCF)
+			end
+			doorPrompt.Enabled = true
+		end)
+
+		local panelBtn = createPart("EleInsideBtn", Vector3.new(0.5, 1.8, 1.4), eleCabinCF * CFrame.new(-liftDepth/2 + 0.4, -1, 0), "Really black", Enum.Material.SmoothPlastic, floorFolder)
+		createPart("PanelLight", Vector3.new(0.6, 0.8, 0.8), eleCabinCF * CFrame.new(-liftDepth/2 + 0.4, -1, 0), "Bright red", Enum.Material.Neon, floorFolder)
+		
+		local panelPrompt = Instance.new("ProximityPrompt", panelBtn)
+		panelPrompt.ActionText = "Open Panel"
+		panelPrompt.ObjectText = "Lift Controls"
+		panelPrompt.MaxActivationDistance = 15
+		panelPrompt.RequiresLineOfSight = false
+
+		panelPrompt.Triggered:Connect(function(player)
+			openElevatorGui(player, buildingCFrame, floorFolder, totalBuildingWidth, liftDepth, liftWidth, eleCabinCF)
+		end)
+
+		-- Rooms Construction
+		for r = 1, ROOMS_PER_FLOOR do
+			local isSideA = (r <= halfRooms)
+			local rIndex = isSideA and r or (r - halfRooms)
+			local xOffset = (rIndex - 0.5 - (halfRooms / 2)) * ROOM_W
+			local zOffset = isSideA and (HALLWAY_W/2 + ROOM_D/2) or -(HALLWAY_W/2 + ROOM_D/2)
+
+			local roomCFrame = floorCFrame * CFrame.new(xOffset, 0, zOffset)
+			if not isSideA then roomCFrame = roomCFrame * CFrame.Angles(0, math.rad(180), 0) end
+
+			local roomFolder = Instance.new("Folder")
+			roomFolder.Name = "Room_" .. tostring((floor * 100) + r)
+			roomFolder.Parent = floorFolder
+			buildSingleRoom(roomCFrame, (floor * 100) + r, wallColorName, (floor == 1), roomFolder)
+		end
+		task.wait(0.01)
+	end
+
+	-- Roof & Outer Walls
+	local roomSideDepth = ROOM_D
+	createPart("LeftEndWallBack", Vector3.new(WALL_THICK, FLOORS * ROOM_H, roomSideDepth), buildingCFrame * CFrame.new(-totalBuildingWidth/2 - WALL_THICK/2, (FLOORS*ROOM_H)/2, HALLWAY_W/2 + ROOM_D/2), wallColorName, Enum.Material.SmoothPlastic, buildingFolder)
+	createPart("LeftEndWallFront", Vector3.new(WALL_THICK, FLOORS * ROOM_H, roomSideDepth), buildingCFrame * CFrame.new(-totalBuildingWidth/2 - WALL_THICK/2, (FLOORS*ROOM_H)/2, -HALLWAY_W/2 - ROOM_D/2), wallColorName, Enum.Material.SmoothPlastic, buildingFolder)
+	
+	local upperHeight = (FLOORS - 1) * ROOM_H
+	createPart("RightEndWallUpper", Vector3.new(WALL_THICK, upperHeight, totalBuildingDepth), buildingCFrame * CFrame.new(totalBuildingWidth/2 + WALL_THICK/2, ROOM_H + upperHeight/2, 0), wallColorName, Enum.Material.SmoothPlastic, buildingFolder)
+
+	local roofY = FLOORS * ROOM_H + 0.5
+	createPart("TerraceFloor", Vector3.new(totalBuildingWidth + 4, 1.2, totalBuildingDepth + 4), buildingCFrame * CFrame.new(0, roofY, 0), "Dark stone grey", Enum.Material.Concrete, buildingFolder)
+
+	-- Ground Level Exterior Signboard (Hostel Name)
+	local nameBoard = createPart("HostelNameBoard", Vector3.new(42, 5, 0.8), buildingCFrame * CFrame.new(0, 8, -totalBuildingDepth/2 - 0.5), "Really black", Enum.Material.SmoothPlastic, buildingFolder)
+	local sgSign = Instance.new("SurfaceGui", nameBoard)
+	sgSign.Face = Enum.NormalId.Front
+	local txtSign = Instance.new("TextLabel", sgSign)
+	txtSign.Size = UDim2.new(1, -20, 1, -10)
+	txtSign.Position = UDim2.new(0, 10, 0, 5)
+	txtSign.BackgroundTransparency = 1
+	txtSign.Text = hostelDisplayName
+	txtSign.TextColor3 = Color3.fromRGB(255, 215, 0)
+	txtSign.TextScaled = true
+	txtSign.Font = Enum.Font.GothamBold
+end
+
+-----------------------------------------------------------------------
+-- 8. INTERACTION MANAGER
+-----------------------------------------------------------------------
+MainFolder.DescendantAdded:Connect(function(child)
+	if child:IsA("ProximityPrompt") then
+		child.Triggered:Connect(function(player)
+			local action = child.ActionText
+			local parentPart = child.Parent
+			
+			if action == "Open / Close" then
+				local isOpen = not (parentPart:GetAttribute("IsOpen") or false)
+				parentPart:SetAttribute("IsOpen", isOpen)
+				
+				local closedCF = parentPart:GetAttribute("ClosedCF")
+				local pivotOffset = CFrame.new(-parentPart.Size.X/2, 0, 0)
+				local pivotWorld = closedCF * pivotOffset
+				
+				local targetCF = isOpen and (pivotWorld * CFrame.Angles(0, math.rad(90), 0) * pivotOffset:Inverse()) or closedCF
+				TweenService:Create(parentPart, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = targetCF}):Play()
+
+			elseif action == "Toggle Lamp" then
+				local pointLight = parentPart:FindFirstChildWhichIsA("PointLight")
+				if pointLight then
+					pointLight.Enabled = not pointLight.Enabled
+					parentPart.Material = pointLight.Enabled and Enum.Material.Neon or Enum.Material.SmoothPlastic
+				end
+
+			elseif action == "Toggle Fan" then
+				local blades = parentPart.Parent:FindFirstChild("FanBlades")
+				if blades then
+					blades:SetAttribute("IsSpinning", not (blades:GetAttribute("IsSpinning") or false))
+				end
+			end
+		end)
+	end
+end)
+
+RunService.Heartbeat:Connect(function()
+	for _, desc in ipairs(MainFolder:GetDescendants()) do
+		if desc.Name == "FanBlades" and desc:GetAttribute("IsSpinning") then
+			desc.CFrame = desc.CFrame * CFrame.Angles(0, math.rad(18), 0)
+		end
+	end
+end)
+
+-----------------------------------------------------------------------
+-- 9. GENERATE ALL BUILDINGS WITH ASSIGNED NAMES
+-----------------------------------------------------------------------
+print("Building Satpura Hostel (White Wing)...")
+buildHostelBuilding("SatpuraHostelWing", CFrame.new(0, 0, 130), "Medium stone grey", "SATPURA HOSTEL")
+
+print("Building Aravali Hostel (Blue Wing)...")
+buildHostelBuilding("AravaliHostelWing", CFrame.new(-220, 0, -30) * CFrame.Angles(0, math.rad(90), 0), "Earth blue", "ARAVALI HOSTEL")
+
+print("Building Jwalamukhi Hostel (Pink Wing)...")
+buildHostelBuilding("JwalamukhiHostelWing", CFrame.new(220, 0, -30) * CFrame.Angles(0, math.rad(-90), 0), "Pastel violet", "JWALAMUKHI HOSTEL")
+
+print("✅ ALL UPDATES COMPLETE: MAIN GATE, WINDING DECORATED PATH, HOSTEL NAMES & CORNER ROOM ITEMS ADDED!")
