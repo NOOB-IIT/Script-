@@ -1,0 +1,206 @@
+-- Decked Clicker (Hyper-Optimized & Fully English)
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+
+if not success or not Rayfield then return end
+
+-- Services
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+-- Settings
+local settingsData = {
+    Running = false,
+    Hours = 0,
+    Mins = 0,
+    Secs = 0,
+    Millisecs = 10,
+    AntiAFK = false,
+    ScriptActive = true
+}
+
+-- Fast & Zero-Overhead Delay Calculation
+local function GetTotalDelay()
+    local h = tonumber(settingsData.Hours) or 0
+    local m = tonumber(settingsData.Mins) or 0
+    local s = tonumber(settingsData.Secs) or 0
+    local ms = tonumber(settingsData.Millisecs) or 10
+    
+    local total = (h * 3600) + (m * 60) + s + (ms / 1000)
+    if total < 0.001 then
+        return 0.001
+    end
+    return total
+end
+
+-- Lowest Player Server Finder (English)
+local function JoinLowestPlayerServer()
+    Rayfield:Notify({ Title = "Server Finder", Content = "Searching for the lowest player server...", Duration = 3, Image = 4483362458 })
+    
+    task.spawn(function()
+        local success = pcall(function()
+            local servers = {}
+            local cursor = ""
+            
+            while true do
+                local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+                if cursor and cursor ~= "" then
+                    url = url .. "&cursor=" .. cursor
+                end
+                
+                local response = HttpService:JSONDecode(game:HttpGet(url))
+                if response and response.data then
+                    for _, server in ipairs(response.data) do
+                        if server.playing and server.id ~= game.JobId then
+                            table.insert(servers, server)
+                        end
+                    end
+                    
+                    if response.nextPageCursor then
+                        cursor = response.nextPageCursor
+                    else
+                        break
+                    end
+                else
+                    break
+                end
+                task.wait(0.1)
+            end
+            
+            table.sort(servers, function(a, b)
+                return a.playing < b.playing
+            end)
+            
+            if #servers > 0 then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[1].id, localPlayer)
+            else
+                Rayfield:Notify({ Title = "Server Finder", Content = "No suitable server found!", Duration = 3, Image = 4483362458 })
+            end
+        end)
+        
+        if not success then
+            Rayfield:Notify({ Title = "Error", Content = "Failed to fetch server list!", Duration = 3, Image = 4483362458 })
+        end
+    end)
+end
+
+-- Rejoin Function (English)
+local function RejoinGame()
+    Rayfield:Notify({ Title = "Rejoin", Content = "Reconnecting...", Duration = 3, Image = 4483362458 })
+    task.wait(0.5)
+    if #Players:GetPlayers() <= 1 then
+        localPlayer:Kick("\nReconnecting to server...")
+        task.wait(0.5)
+        TeleportService:Teleport(game.PlaceId, localPlayer)
+    else
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, localPlayer)
+    end
+end
+
+-- Window
+local Window = Rayfield:CreateWindow({
+    Name = "Auto clicker--BY NOT_IITIAN",
+    LoadingTitle = "Decked Clicker Loading...",
+    LoadingSubtitle = "Ultra Optimized Version",
+    ConfigurationSaving = { Enabled = false },
+    KeySystem = false,
+})
+
+local MainTab = Window:CreateTab("Main", 4483362458)
+local SettingsTab = Window:CreateTab("Settings", 4483362458)
+
+-- Main Controls
+MainTab:CreateSection("Clicker Control")
+
+local ClickerToggle = MainTab:CreateToggle({
+    Name = "Enable Auto Clicker",
+    CurrentValue = false,
+    Callback = function(Value) settingsData.Running = Value end,
+})
+
+MainTab:CreateKeybind({
+    Name = "Toggle Keybind",
+    CurrentKeybind = "F",
+    Callback = function(Keybind) ClickerToggle:Set(not settingsData.Running) end,
+})
+
+MainTab:CreateSection("Click Interval (Type Values)")
+
+MainTab:CreateInput({
+    Name = "Hours", PlaceholderText = "0", NumbersOnly = true, CurrentValue = "0",
+    Callback = function(Text) settingsData.Hours = tonumber(Text) or 0 end,
+})
+
+MainTab:CreateInput({
+    Name = "Minutes", PlaceholderText = "0", NumbersOnly = true, CurrentValue = "0",
+    Callback = function(Text) settingsData.Mins = tonumber(Text) or 0 end,
+})
+
+MainTab:CreateInput({
+    Name = "Seconds", PlaceholderText = "0", NumbersOnly = true, CurrentValue = "0",
+    Callback = function(Text) settingsData.Secs = tonumber(Text) or 0 end,
+})
+
+MainTab:CreateInput({
+    Name = "Milliseconds", PlaceholderText = "10", NumbersOnly = true, CurrentValue = "10",
+    Callback = function(Text) settingsData.Millisecs = tonumber(Text) or 10 end,
+})
+
+-- Settings & Utilities
+SettingsTab:CreateSection("Server & Utilities")
+
+SettingsTab:CreateToggle({
+    Name = "Anti-AFK", CurrentValue = false,
+    Callback = function(Value) settingsData.AntiAFK = Value end,
+})
+
+SettingsTab:CreateButton({
+    Name = "Join Lowest Player Server",
+    Callback = function() JoinLowestPlayerServer() end,
+})
+
+SettingsTab:CreateButton({
+    Name = "Rejoin Server",
+    Callback = function() RejoinGame() end,
+})
+
+-- Emergency Kill Switch (X Key)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.X then
+        settingsData.ScriptActive = false
+        Rayfield:Destroy()
+    end
+end)
+
+-- Zero-Lag Hyper-Optimized Click Loop (Optimized local caching to prevent micro-stutters)
+local lastClickTick = 0
+RunService.RenderStepped:Connect(function()
+    if not settingsData.ScriptActive or not settingsData.Running then return end
+    
+    local currentTime = tick()
+    local currentDelay = GetTotalDelay()
+    
+    if currentTime - lastClickTick >= currentDelay then
+        lastClickTick = currentTime
+        local mouseLocation = UserInputService:GetMouseLocation()
+        VirtualInputManager:SendMouseButtonEvent(mouseLocation.X, mouseLocation.Y, 0, true, game, 1)
+        VirtualInputManager:SendMouseButtonEvent(mouseLocation.X, mouseLocation.Y, 0, false, game, 1)
+    end
+end)
+
+-- Anti-AFK
+local VirtualUser = game:GetService("VirtualUser")
+localPlayer.Idled:Connect(function()
+    if settingsData.ScriptActive and settingsData.AntiAFK then
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+    end
+end)
