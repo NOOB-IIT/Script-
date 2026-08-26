@@ -1,0 +1,654 @@
+-- [[ RED HUB - ADVANCED ESP, AADHAAR LIVERY & RGB INTRO ]] --
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Purana GUI Clean Up
+local playerGui = (gethui and gethui()) or LocalPlayer:WaitForChild("PlayerGui")
+if playerGui:FindFirstChild("RedHubGui") then
+    playerGui.RedHubGui:Destroy()
+end
+
+-- 1. Main ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RedHubGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = playerGui
+
+-- ==========================================
+-- CINEMATIC INTRO ANIMATION
+-- ==========================================
+local IntroFrame = Instance.new("Frame")
+IntroFrame.Size = UDim2.new(1, 0, 1, 0)
+IntroFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+IntroFrame.BackgroundTransparency = 0
+IntroFrame.ZIndex = 999
+IntroFrame.Parent = ScreenGui
+
+local IntroText = Instance.new("TextLabel")
+IntroText.Size = UDim2.new(1, 0, 1, 0)
+IntroText.Text = "Script Created by NOT_IITIAN"
+IntroText.Font = Enum.Font.GothamBlack
+IntroText.TextSize = 35
+IntroText.TextColor3 = Color3.fromRGB(255, 40, 40)
+IntroText.BackgroundTransparency = 1
+IntroText.TextTransparency = 1
+IntroText.ZIndex = 1000
+IntroText.Parent = IntroFrame
+
+local IntroGlow = Instance.new("UIStroke")
+IntroGlow.Color = Color3.fromRGB(255, 255, 255)
+IntroGlow.Thickness = 1
+IntroGlow.Transparency = 1
+IntroGlow.Parent = IntroText
+
+-- 2. Main Frame (Hidden initially for Intro)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Starting size 0 for pop animation
+MainFrame.Position = UDim2.new(0.5, -215, 0.5, -175)
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
+
+-- ==========================================
+-- RGB BORDER LIGHTS LOGIC
+-- ==========================================
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(255, 255, 255)
+MainStroke.Thickness = 3
+MainStroke.Parent = MainFrame
+
+local RgbGradient = Instance.new("UIGradient")
+RgbGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+    ColorSequenceKeypoint.new(0.16, Color3.fromRGB(255, 127, 0)),
+    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 255, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 0)),
+    ColorSequenceKeypoint.new(0.66, Color3.fromRGB(0, 0, 255)),
+    ColorSequenceKeypoint.new(0.83, Color3.fromRGB(139, 0, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+})
+RgbGradient.Parent = MainStroke
+
+RunService.RenderStepped:Connect(function()
+    if MainFrame.Visible then
+        RgbGradient.Rotation = (RgbGradient.Rotation + 2) % 360 -- RGB Spinning Effect
+    end
+end)
+
+-- Top Bar
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 14)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 200, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Text = "RED HUB"
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 22
+Title.TextColor3 = Color3.fromRGB(255, 30, 30)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.BackgroundTransparency = 1
+Title.Parent = TopBar
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 28, 0, 28)
+MinBtn.Position = UDim2.new(1, -68, 0, 6)
+MinBtn.Text = "-"
+MinBtn.Font = Enum.Font.SourceSansBold
+MinBtn.TextSize = 20
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MinBtn.Parent = TopBar
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -34, 0, 6)
+CloseBtn.Text = "X"
+CloseBtn.Font = Enum.Font.SourceSansBold
+CloseBtn.TextSize = 16
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+CloseBtn.Parent = TopBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+-- Input Box Frame
+local InputFrame = Instance.new("Frame")
+InputFrame.Size = UDim2.new(0.9, 0, 0, 36)
+InputFrame.Position = UDim2.new(0.05, 0, 0, 50)
+InputFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+InputFrame.ZIndex = 5
+InputFrame.Parent = MainFrame
+Instance.new("UICorner", InputFrame).CornerRadius = UDim.new(0, 6)
+
+local NameInput = Instance.new("TextBox")
+NameInput.Size = UDim2.new(0.85, 0, 1, 0)
+NameInput.Position = UDim2.new(0, 8, 0, 0)
+NameInput.PlaceholderText = "Type player Name"
+NameInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+NameInput.Text = ""
+NameInput.TextColor3 = Color3.fromRGB(0, 0, 0)
+NameInput.Font = Enum.Font.SourceSansBold
+NameInput.TextSize = 14
+NameInput.BackgroundTransparency = 1
+NameInput.TextXAlignment = Enum.TextXAlignment.Left
+NameInput.ZIndex = 6
+NameInput.Parent = InputFrame
+
+local DropdownToggle = Instance.new("TextButton")
+DropdownToggle.Size = UDim2.new(0.12, 0, 0.8, 0)
+DropdownToggle.Position = UDim2.new(0.87, 0, 0.1, 0)
+DropdownToggle.Text = "^"
+DropdownToggle.Font = Enum.Font.SourceSansBold
+DropdownToggle.TextSize = 18
+DropdownToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+DropdownToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+DropdownToggle.ZIndex = 6
+DropdownToggle.Parent = InputFrame
+Instance.new("UICorner", DropdownToggle).CornerRadius = UDim.new(0, 5)
+
+-- Player Dropdown Scroll
+local PlayerScroll = Instance.new("ScrollingFrame")
+PlayerScroll.Size = UDim2.new(0.9, 0, 0, 130)
+PlayerScroll.Position = UDim2.new(0.05, 0, 0, 88)
+PlayerScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+PlayerScroll.Visible = false
+PlayerScroll.ZIndex = 100
+PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerScroll.Parent = MainFrame
+Instance.new("UICorner", PlayerScroll).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", PlayerScroll).Color = Color3.fromRGB(80, 80, 80)
+local DropLayout = Instance.new("UIListLayout")
+DropLayout.SortOrder = Enum.SortOrder.LayoutOrder
+DropLayout.Parent = PlayerScroll
+
+-- Action Buttons
+local FriendsBtn = Instance.new("TextButton")
+FriendsBtn.Size = UDim2.new(0.43, 0, 0, 34)
+FriendsBtn.Position = UDim2.new(0.05, 0, 0, 92)
+FriendsBtn.Text = "Get Friends"
+FriendsBtn.Font = Enum.Font.SourceSansBold
+FriendsBtn.TextSize = 14
+FriendsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FriendsBtn.BackgroundColor3 = Color3.fromRGB(220, 30, 30)
+FriendsBtn.ZIndex = 2
+FriendsBtn.Parent = MainFrame
+Instance.new("UICorner", FriendsBtn).CornerRadius = UDim.new(0, 6)
+
+local ServerBioBtn = Instance.new("TextButton")
+ServerBioBtn.Size = UDim2.new(0.43, 0, 0, 34)
+ServerBioBtn.Position = UDim2.new(0.52, 0, 0, 92)
+ServerBioBtn.Text = "Server Biodata"
+ServerBioBtn.Font = Enum.Font.SourceSansBold
+ServerBioBtn.TextSize = 14
+ServerBioBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ServerBioBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+ServerBioBtn.ZIndex = 2
+ServerBioBtn.Parent = MainFrame
+Instance.new("UICorner", ServerBioBtn).CornerRadius = UDim.new(0, 6)
+
+-- Display Results Scroll Frame
+local DisplayScroll = Instance.new("ScrollingFrame")
+DisplayScroll.Size = UDim2.new(0.9, 0, 0, 125)
+DisplayScroll.Position = UDim2.new(0.05, 0, 0, 132)
+DisplayScroll.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+DisplayScroll.BorderSizePixel = 0
+DisplayScroll.ZIndex = 1
+DisplayScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+DisplayScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+DisplayScroll.Parent = MainFrame
+Instance.new("UICorner", DisplayScroll).CornerRadius = UDim.new(0, 6)
+local DispLayout = Instance.new("UIListLayout")
+DispLayout.SortOrder = Enum.SortOrder.LayoutOrder
+DispLayout.Padding = UDim.new(0, 4)
+DispLayout.Parent = DisplayScroll
+
+-- Toggle ESP Button
+local ToggleEspBtn = Instance.new("TextButton")
+ToggleEspBtn.Size = UDim2.new(0.43, 0, 0, 28)
+ToggleEspBtn.Position = UDim2.new(0.05, 0, 0, 265)
+ToggleEspBtn.Text = "Toggle ESP: OFF"
+ToggleEspBtn.Font = Enum.Font.SourceSansBold
+ToggleEspBtn.TextSize = 13
+ToggleEspBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleEspBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+ToggleEspBtn.Parent = MainFrame
+Instance.new("UICorner", ToggleEspBtn).CornerRadius = UDim.new(0, 5)
+
+-- Discord Copy Button
+local DiscordBtn = Instance.new("TextButton")
+DiscordBtn.Size = UDim2.new(0.43, 0, 0, 28)
+DiscordBtn.Position = UDim2.new(0.52, 0, 0, 265)
+DiscordBtn.Text = "Copy Discord Link"
+DiscordBtn.Font = Enum.Font.SourceSansBold
+DiscordBtn.TextSize = 13
+DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+DiscordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+DiscordBtn.Parent = MainFrame
+Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 5)
+
+local Footer = Instance.new("TextLabel")
+Footer.Size = UDim2.new(0.9, 0, 0, 20)
+Footer.Position = UDim2.new(0.05, 0, 0, 305)
+Footer.Text = "Owner-: INDIANGAMER6975(NOT_IITIAN)"
+Footer.Font = Enum.Font.SourceSansBold
+Footer.TextSize = 10
+Footer.TextColor3 = Color3.fromRGB(180, 180, 180)
+Footer.BackgroundTransparency = 1
+Footer.Parent = MainFrame
+
+-- REDBUS RGB Button
+local RedbusBtn = Instance.new("TextButton")
+RedbusBtn.Size = UDim2.new(0, 110, 0, 36)
+RedbusBtn.Position = UDim2.new(1, -120, 1, -45)
+RedbusBtn.Text = "REDBUS"
+RedbusBtn.Font = Enum.Font.SourceSansBold
+RedbusBtn.TextSize = 15
+RedbusBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+RedbusBtn.Visible = false
+RedbusBtn.Parent = ScreenGui
+Instance.new("UICorner", RedbusBtn).CornerRadius = UDim.new(0, 6)
+local RedbusStroke = Instance.new("UIStroke")
+RedbusStroke.Thickness = 2.5
+RedbusStroke.Parent = RedbusBtn
+
+RunService.RenderStepped:Connect(function()
+    local hue = (tick() % 3) / 3
+    local color = Color3.fromHSV(hue, 1, 1)
+    RedbusBtn.TextColor3 = color
+    RedbusStroke.Color = color
+end)
+
+-- ==========================================
+-- REALISTIC AADHAAR CARD MODAL
+-- ==========================================
+local BioFrame = Instance.new("Frame")
+BioFrame.Size = UDim2.new(0.92, 0, 0, 210)
+BioFrame.Position = UDim2.new(0.04, 0, 0.12, 0)
+BioFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+BioFrame.Visible = false
+BioFrame.ZIndex = 200
+BioFrame.Parent = MainFrame
+Instance.new("UICorner", BioFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", BioFrame).Color = Color3.fromRGB(180, 180, 180)
+
+local BioHeader = Instance.new("Frame")
+BioHeader.Size = UDim2.new(1, 0, 0, 46)
+BioHeader.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+BioHeader.ZIndex = 201
+BioHeader.Parent = BioFrame
+
+local GovtText = Instance.new("TextLabel")
+GovtText.Size = UDim2.new(1, 0, 1, 0)
+GovtText.Text = "भारत सरकार | GOVERNMENT OF ROBLOX"
+GovtText.Font = Enum.Font.ArialBold
+GovtText.TextSize = 12
+GovtText.TextColor3 = Color3.fromRGB(0, 0, 0)
+GovtText.BackgroundTransparency = 1
+GovtText.ZIndex = 202
+GovtText.Parent = BioHeader
+
+local FlagStrip = Instance.new("Frame")
+FlagStrip.Size = UDim2.new(1, 0, 0, 4)
+FlagStrip.Position = UDim2.new(0, 0, 1, -4)
+FlagStrip.BorderSizePixel = 0
+FlagStrip.ZIndex = 202
+FlagStrip.Parent = BioHeader
+local UIGradientStrip = Instance.new("UIGradient")
+UIGradientStrip.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 153, 51)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(19, 136, 8))
+}
+UIGradientStrip.Parent = FlagStrip
+
+local BioClose = Instance.new("TextButton")
+BioClose.Size = UDim2.new(0, 22, 0, 22)
+BioClose.Position = UDim2.new(1, -26, 0, 8)
+BioClose.Text = "X"
+BioClose.Font = Enum.Font.SourceSansBold
+BioClose.TextSize = 13
+BioClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+BioClose.BackgroundColor3 = Color3.fromRGB(220, 30, 30)
+BioClose.ZIndex = 204
+BioClose.Parent = BioHeader
+Instance.new("UICorner", BioClose).CornerRadius = UDim.new(0, 11)
+
+local BottomStrip = Instance.new("Frame")
+BottomStrip.Size = UDim2.new(1, 0, 0, 26)
+BottomStrip.Position = UDim2.new(0, 0, 1, -26)
+BottomStrip.BackgroundColor3 = Color3.fromRGB(210, 35, 35)
+BottomStrip.ZIndex = 201
+BottomStrip.Parent = BioFrame
+Instance.new("UICorner", BottomStrip).CornerRadius = UDim.new(0, 8)
+
+local SloganText = Instance.new("TextLabel")
+SloganText.Size = UDim2.new(1, 0, 1, 0)
+SloganText.Text = "Mera Roblox, Meri Pehchaan"
+SloganText.Font = Enum.Font.SourceSansItalic
+SloganText.TextSize = 13
+SloganText.TextColor3 = Color3.fromRGB(255, 255, 255)
+SloganText.BackgroundTransparency = 1
+SloganText.ZIndex = 202
+SloganText.Parent = BottomStrip
+
+local AvatarImg = Instance.new("ImageLabel")
+AvatarImg.Size = UDim2.new(0, 75, 0, 85)
+AvatarImg.Position = UDim2.new(0, 12, 0, 54)
+AvatarImg.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+AvatarImg.ZIndex = 202
+AvatarImg.Parent = BioFrame
+Instance.new("UIStroke", AvatarImg).Color = Color3.fromRGB(160, 160, 160)
+
+local BioInfo = Instance.new("TextLabel")
+BioInfo.Size = UDim2.new(0, 260, 0, 95)
+BioInfo.Position = UDim2.new(0, 98, 0, 52)
+BioInfo.TextXAlignment = Enum.TextXAlignment.Left
+BioInfo.TextYAlignment = Enum.TextYAlignment.Top
+BioInfo.Font = Enum.Font.SourceSansBold
+BioInfo.TextSize = 12
+BioInfo.TextColor3 = Color3.fromRGB(20, 20, 20)
+BioInfo.BackgroundTransparency = 1
+BioInfo.ZIndex = 202
+BioInfo.Parent = BioFrame
+
+local AadhaarNoLabel = Instance.new("TextLabel")
+AadhaarNoLabel.Size = UDim2.new(1, 0, 0, 20)
+AadhaarNoLabel.Position = UDim2.new(0, 0, 1, -50)
+AadhaarNoLabel.Text = "XXXX XXXX [ROBLOX ID]"
+AadhaarNoLabel.Font = Enum.Font.SourceSansBold
+AadhaarNoLabel.TextSize = 15
+AadhaarNoLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+AadhaarNoLabel.BackgroundTransparency = 1
+AadhaarNoLabel.ZIndex = 202
+AadhaarNoLabel.Parent = BioFrame
+
+BioClose.MouseButton1Click:Connect(function()
+    BioFrame.Visible = false
+end)
+
+local function showBiodata(targetPlayer, extraDetail)
+    local success, thumb = pcall(function()
+        return Players:GetUserThumbnailAsync(targetPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    end)
+    if success then AvatarImg.Image = thumb end
+    
+    local accCreation = os.date("%d %b %Y", os.time() - (targetPlayer.AccountAge * 86400))
+    local years = math.floor(targetPlayer.AccountAge / 365)
+    local days = targetPlayer.AccountAge % 365
+    
+    BioInfo.Text = "Name: " .. targetPlayer.DisplayName .. "\n" ..
+                   "Username: @" .. targetPlayer.Name .. "\n" ..
+                   "DOB / Created: " .. accCreation .. "\n" ..
+                   "Account Age: " .. years .. " Yrs, " .. days .. " Days\n" ..
+                   "Status: " .. (extraDetail or "Server Member")
+                   
+    AadhaarNoLabel.Text = "ID: XXXX XXXX " .. tostring(targetPlayer.UserId):sub(1, 4)
+    BioFrame.Visible = true
+end
+
+-- ==========================================
+-- DYNAMIC MULTI-COLOR WIRE ESP LOGIC
+-- ==========================================
+local espEnabled = false
+local espObjects = {}
+local ESPColors = {
+    Color3.fromRGB(255, 40, 40),   -- Red
+    Color3.fromRGB(40, 255, 40),   -- Green
+    Color3.fromRGB(40, 160, 255),  -- Blue
+    Color3.fromRGB(255, 240, 40),  -- Yellow
+    Color3.fromRGB(255, 50, 255),  -- Magenta
+    Color3.fromRGB(40, 255, 240),  -- Cyan
+    Color3.fromRGB(255, 140, 40)   -- Orange
+}
+
+local function clearESP()
+    for _, obj in ipairs(espObjects) do
+        if obj.Line then pcall(function() obj.Line:Remove() end) end
+        if obj.Bill then pcall(function() obj.Bill:Destroy() end) end
+    end
+    espObjects = {}
+end
+
+local function rebuildESP()
+    clearESP()
+    if not espEnabled then return end
+    
+    local searchName = NameInput.Text:lower():gsub("%s+", "")
+    if searchName == "" then return end
+    
+    local targetP = nil
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Name:lower() == searchName or p.DisplayName:lower() == searchName then
+            targetP = p
+            break
+        end
+    end
+    
+    if not targetP or not targetP.Character or not targetP.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local friendsList = {}
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= targetP and other.Character and other.Character:FindFirstChild("HumanoidRootPart") then
+            local success, isFrnd = pcall(function() return targetP:IsFriendsWith(other.UserId) end)
+            if success and isFrnd then
+                table.insert(friendsList, other)
+            end
+        end
+    end
+    
+    for i, friend in ipairs(friendsList) do
+        local color = ESPColors[((i - 1) % #ESPColors) + 1]
+        
+        local line = nil
+        if Drawing and Drawing.new then
+            line = Drawing.new("Line")
+            line.Thickness = 2
+            line.Color = color
+            line.Visible = false
+        end
+        
+        local bGui = Instance.new("BillboardGui")
+        bGui.Size = UDim2.new(0, 160, 0, 40)
+        bGui.AlwaysOnTop = true
+        bGui.Adornee = friend.Character:FindFirstChild("Head") or friend.Character.HumanoidRootPart
+        bGui.Parent = friend.Character
+        
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.TextColor3 = color
+        txt.Font = Enum.Font.SourceSansBold
+        txt.TextSize = 13
+        txt.TextStrokeTransparency = 0
+        txt.Parent = bGui
+        
+        table.insert(espObjects, {
+            TargetHRP = targetP.Character.HumanoidRootPart,
+            FriendHRP = friend.Character.HumanoidRootPart,
+            Line = line,
+            Bill = bGui,
+            TextLabel = txt,
+            Friend = friend
+        })
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not espEnabled then return end
+    local Camera = workspace.CurrentCamera
+    for _, item in ipairs(espObjects) do
+        if item.TargetHRP and item.FriendHRP and item.TargetHRP.Parent and item.FriendHRP.Parent then
+            if item.Line then
+                local p1, vis1 = Camera:WorldToViewportPoint(item.TargetHRP.Position)
+                local p2, vis2 = Camera:WorldToViewportPoint(item.FriendHRP.Position)
+                
+                if p1.Z > 0 and p2.Z > 0 then
+                    item.Line.From = Vector2.new(p1.X, p1.Y)
+                    item.Line.To = Vector2.new(p2.X, p2.Y)
+                    item.Line.Visible = true
+                else
+                    item.Line.Visible = false
+                end
+            end
+            
+            local dist = math.floor((item.TargetHRP.Position - item.FriendHRP.Position).Magnitude)
+            item.TextLabel.Text = item.Friend.DisplayName .. "\n[" .. dist .. "m]"
+        else
+            if item.Line then item.Line.Visible = false end
+        end
+    end
+end)
+
+ToggleEspBtn.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    if espEnabled then
+        ToggleEspBtn.Text = "Toggle ESP: ON"
+        ToggleEspBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+        rebuildESP()
+    else
+        ToggleEspBtn.Text = "Toggle ESP: OFF"
+        ToggleEspBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+        clearESP()
+    end
+end)
+
+local function updatePlayerDropdown()
+    for _, item in pairs(PlayerScroll:GetChildren()) do
+        if item:IsA("TextButton") then item:Destroy() end
+    end
+    
+    local plist = Players:GetPlayers()
+    table.sort(plist, function(a, b) return a.DisplayName:lower() < b.DisplayName:lower() end)
+    
+    for _, p in ipairs(plist) do
+        local pBtn = Instance.new("TextButton")
+        pBtn.Size = UDim2.new(1, 0, 0, 26)
+        pBtn.Text = "  " .. p.DisplayName .. " (@" .. p.Name .. ")"
+        pBtn.Font = Enum.Font.SourceSansSemibold
+        pBtn.TextSize = 14
+        pBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        pBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+        pBtn.TextXAlignment = Enum.TextXAlignment.Left
+        pBtn.ZIndex = 101
+        pBtn.Parent = PlayerScroll
+        
+        pBtn.MouseButton1Click:Connect(function()
+            NameInput.Text = p.Name
+            PlayerScroll.Visible = false
+            if espEnabled then rebuildESP() end
+        end)
+    end
+end
+
+DropdownToggle.MouseButton1Click:Connect(function()
+    PlayerScroll.Visible = not PlayerScroll.Visible
+    if PlayerScroll.Visible then updatePlayerDropdown() end
+end)
+
+FriendsBtn.MouseButton1Click:Connect(function()
+    local searchName = NameInput.Text:lower():gsub("%s+", "")
+    if searchName == "" then return end
+    
+    local targetP = nil
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Name:lower() == searchName or p.DisplayName:lower() == searchName then
+            targetP = p
+            break
+        end
+    end
+    if not targetP then return end
+
+    FriendsBtn.BackgroundColor3 = Color3.fromRGB(40, 200, 40)
+    task.delay(5, function() FriendsBtn.BackgroundColor3 = Color3.fromRGB(220, 30, 30) end)
+    
+    for _, c in pairs(DisplayScroll:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
+    end
+    
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= targetP then
+            local success, isFrnd = pcall(function() return targetP:IsFriendsWith(other.UserId) end)
+            if success and isFrnd then
+                local fBtn = Instance.new("TextButton")
+                fBtn.Size = UDim2.new(1, 0, 0, 28)
+                fBtn.Text = " 🟢 " .. other.DisplayName .. " (@" .. other.Name .. ")"
+                fBtn.Font = Enum.Font.SourceSansBold
+                fBtn.TextSize = 13
+                fBtn.TextColor3 = Color3.fromRGB(0, 255, 200)
+                fBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+                fBtn.TextXAlignment = Enum.TextXAlignment.Left
+                fBtn.Parent = DisplayScroll
+                
+                fBtn.MouseButton1Click:Connect(function() showBiodata(other, "Verified Server Friend") end)
+            end
+        end
+    end
+    if espEnabled then rebuildESP() end
+end)
+
+ServerBioBtn.MouseButton1Click:Connect(function()
+    for _, c in pairs(DisplayScroll:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
+    end
+    for _, p in pairs(Players:GetPlayers()) do
+        local bBtn = Instance.new("TextButton")
+        bBtn.Size = UDim2.new(1, 0, 0, 28)
+        bBtn.Text = " 👤 " .. p.DisplayName .. " (@" .. p.Name .. ") [Biodata]"
+        bBtn.Font = Enum.Font.SourceSansBold
+        bBtn.TextSize = 13
+        bBtn.TextColor3 = Color3.fromRGB(255, 170, 0)
+        bBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        bBtn.TextXAlignment = Enum.TextXAlignment.Left
+        bBtn.Parent = DisplayScroll
+        
+        bBtn.MouseButton1Click:Connect(function() showBiodata(p, "Server Member") end)
+    end
+end)
+
+MinBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false RedbusBtn.Visible = true end)
+RedbusBtn.MouseButton1Click:Connect(function() RedbusBtn.Visible = false MainFrame.Visible = true end)
+CloseBtn.MouseButton1Click:Connect(function() clearESP() ScreenGui:Destroy() end)
+
+DiscordBtn.MouseButton1Click:Connect(function()
+    if setclipboard then
+        pcall(function() setclipboard("https://discord.gg/qeX8PBX4C") end)
+        DiscordBtn.Text = "Copied to Clipboard!"
+        task.wait(2)
+        DiscordBtn.Text = "Copy Discord Link"
+    end
+end)
+
+-- ==========================================
+-- PLAY INTRO ANIMATION & REVEAL MAIN UI
+-- ==========================================
+task.spawn(function()
+    -- Fade In Text
+    TweenService:Create(IntroText, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+    TweenService:Create(IntroGlow, TweenInfo.new(1.2), {Transparency = 0}):Play()
+    task.wait(2.5)
+    
+    -- Fade Out Text & Background
+    TweenService:Create(IntroText, TweenInfo.new(1), {TextTransparency = 1}):Play()
+    TweenService:Create(IntroGlow, TweenInfo.new(1), {Transparency = 1}):Play()
+    TweenService:Create(IntroFrame, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
+    task.wait(1)
+    
+    IntroFrame:Destroy()
+    
+    -- Pop-in Animation for Main UI
+    MainFrame.Visible = true
+    TweenService:Create(MainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 430, 0, 350)}):Play()
+end)
