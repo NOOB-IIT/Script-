@@ -1,7 +1,10 @@
 local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
--- 1. TITLE HOOK (Purana naam "seilamano hub" detect karke override karega)
+-- ==========================================
+-- 1. TITLE HOOK (Purane Text ko Intercept Karna)
+-- ==========================================
 local oldIndex
 oldIndex = hookmetamethod(game, "__newindex", function(self, key, value)
     if not checkcaller() then return oldIndex(self, key, value) end
@@ -13,88 +16,120 @@ oldIndex = hookmetamethod(game, "__newindex", function(self, key, value)
     return oldIndex(self, key, value)
 end)
 
--- 2. NAYA CUSTOM MINIMIZE BUTTON (Aapki taraf se)
-local redToggleGui = Instance.new("ScreenGui")
-redToggleGui.Name = "RedCustomToggle"
-redToggleGui.Parent = CoreGui
-redToggleGui.DisplayOrder = 99999
+-- ==========================================
+-- 2. 5-SECOND INTRO ANIMATION 
+-- ==========================================
+local introGui = Instance.new("ScreenGui")
+introGui.Name = "RedHubIntro"
+introGui.Parent = CoreGui
+introGui.DisplayOrder = 999999
 
-local customBtn = Instance.new("TextButton")
-customBtn.Size = UDim2.new(0, 55, 0, 55)
-customBtn.Position = UDim2.new(0.1, 0, 0.1, 0)
-customBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-customBtn.Text = "RED"
-customBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-customBtn.Font = Enum.Font.GothamBlack
-customBtn.TextScaled = true
-customBtn.BorderSizePixel = 3
-customBtn.Parent = redToggleGui
+local background = Instance.new("Frame")
+background.Size = UDim2.new(1, 0, 1, 0)
+background.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+background.Parent = introGui
 
--- RGB Glowing Border Animation
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(1, 0, 1, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "RED HUB"
+titleText.TextColor3 = Color3.fromRGB(255, 0, 0)
+titleText.TextSize = 120
+titleText.Font = Enum.Font.GothamBlack
+titleText.TextTransparency = 1
+titleText.Parent = background
+
+local subText = Instance.new("TextLabel")
+subText.Size = UDim2.new(1, 0, 1, 0)
+subText.Position = UDim2.new(0, 0, 0, 80)
+subText.BackgroundTransparency = 1
+subText.Text = "Created by NOT_IITIAN"
+subText.TextColor3 = Color3.fromRGB(255, 255, 255)
+subText.TextSize = 45
+subText.Font = Enum.Font.GothamBold
+subText.TextTransparency = 1
+subText.Parent = background
+
+-- Timeline Animation
+TweenService:Create(titleText, TweenInfo.new(1), {TextTransparency = 0}):Play()
+task.wait(2)
+TweenService:Create(subText, TweenInfo.new(1), {TextTransparency = 0}):Play()
+task.wait(3)
+
+TweenService:Create(background, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
+TweenService:Create(titleText, TweenInfo.new(1), {TextTransparency = 1}):Play()
+TweenService:Create(subText, TweenInfo.new(1), {TextTransparency = 1}):Play()
+task.wait(1)
+introGui:Destroy()
+
+-- ==========================================
+-- 3. "STICKER OVER STICKER" OVERLAY LOGIC
+-- ==========================================
 task.spawn(function()
     local hue = 0
     while task.wait(0.05) do
+        -- RGB Hue calculation for border
         hue = hue + 0.02
         if hue > 1 then hue = 0 end
-        customBtn.BorderColor3 = Color3.fromHSV(hue, 1, 1)
-    end
-end)
+        local rgbColor = Color3.fromHSV(hue, 1, 1)
 
--- Naye Button ko Draggable Banane ka Logic
-local dragging, dragInput, dragStart, startPos
-customBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = customBtn.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
-    end
-end)
-customBtn.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        customBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
--- 3. PURANE BUTTON KO GAYAB KARNA AUR NAYE SE LINK KARNA
-task.spawn(function()
-    local hubMainFrame = nil
-    
-    -- Jab naya button click ho, toh hub ko hide/show kare
-    customBtn.MouseButton1Click:Connect(function()
-        if hubMainFrame then
-            hubMainFrame.Visible = not hubMainFrame.Visible
+        -- RGB effect ko un stickers par update karo jo pehle se ban chuke hain
+        for _, overlay in pairs(CoreGui:GetDescendants()) do
+            if overlay.Name == "RedStickerOverlay" and overlay:IsA("Frame") then
+                overlay.BorderColor3 = rgbColor
+            end
         end
-    end)
-    
-    while task.wait(1) do
+
+        -- Original hub aur uske blue button ko dhundho
         for _, gui in pairs(CoreGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Name ~= "RedCustomToggle" then
+            if gui:IsA("ScreenGui") and gui.Name ~= "RedHubIntro" then
                 local isOurHub = false
                 
-                -- Check karna ki ye original hub ka GUI hai ya nahi (RED HUB text se)
                 for _, child in pairs(gui:GetDescendants()) do
                     if child:IsA("TextLabel") and child.Text == "RED HUB" then
                         isOurHub = true
-                        -- Bada frame (jo main menu hota hai) usko target karna
-                        if child.Parent and child.Parent.Size.Y.Offset > 100 then
-                            hubMainFrame = child.Parent
-                        end
                     end
                 end
                 
-                -- Agar original hub mil gaya, toh uske purane blue button ko hide kar do
+                -- Agar hub mil gaya, toh floating minimize button find karo
                 if isOurHub then
                     for _, child in pairs(gui:GetDescendants()) do
-                        -- Floating buttons generally 30 se 80 pixels ke hote hain
-                        if (child:IsA("ImageButton") or child:IsA("ImageLabel")) and child.Size.X.Offset > 30 and child.Size.X.Offset < 80 then
-                            child.Visible = false -- Purana button gayab
+                        -- Button size 35 se 75 pixels ke beech hoti hai usually
+                        if (child:IsA("ImageButton") or child:IsA("TextButton") or child:IsA("ImageLabel")) and child.Size.X.Offset > 35 and child.Size.X.Offset < 75 then
+                            
+                            -- Agar abhi tak humne apna overlay (sticker) nahi lagaya hai
+                            if not child:FindFirstChild("RedStickerOverlay") then
+                                
+                                -- 1. Original Button ki visual identity hide karo (Par usko click/drag ke liye active rakho)
+                                child.BackgroundTransparency = 1
+                                if child:IsA("ImageButton") or child:IsA("ImageLabel") then
+                                    child.ImageTransparency = 1 
+                                end
+                                if child:IsA("TextButton") then
+                                    child.Text = ""
+                                end
+
+                                -- 2. Naya RED Sticker create karo as a child (takih sath me move kare)
+                                local sticker = Instance.new("Frame")
+                                sticker.Name = "RedStickerOverlay"
+                                sticker.Size = UDim2.new(1, 0, 1, 0) -- Original button ko pura cover karega
+                                sticker.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+                                sticker.BorderSizePixel = 3
+                                sticker.BorderColor3 = rgbColor
+                                sticker.Active = false -- IMPORTANT: Taki click aar-paar (pass-through) hoke niche wale original button par lage
+                                
+                                local txt = Instance.new("TextLabel")
+                                txt.Size = UDim2.new(1, 0, 1, 0)
+                                txt.BackgroundTransparency = 1
+                                txt.Text = "RED"
+                                txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                txt.Font = Enum.Font.GothamBlack
+                                txt.TextScaled = true
+                                txt.Active = false
+                                txt.Parent = sticker
+                                
+                                sticker.Parent = child -- Sticker ko original button ke andar daal diya
+                            end
                         end
                     end
                 end
