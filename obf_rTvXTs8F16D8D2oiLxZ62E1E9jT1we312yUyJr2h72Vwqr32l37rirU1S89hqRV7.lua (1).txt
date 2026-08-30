@@ -68,7 +68,7 @@ oldIndex = hookmetamethod(game, "__newindex", function(self, key, value)
     if tostring(key) == "Text" then
         -- Photo ke hisaab se purana title
         if tostring(value) == "YT: Xploonir" then 
-            value = "RED HUB -- Database { old }"
+            value = "RED HUB -- Creepy"
         end
     end
     return oldIndex(self, key, value)
