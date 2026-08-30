@@ -1,0 +1,457 @@
+--!strict
+-- PATH: StarterPlayer.StarterPlayerScripts.TeleportClient (LocalScript)
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local remotes = ReplicatedStorage:WaitForChild("TeleportRemotes")
+local getLocationsFunction = remotes:WaitForChild("GetLocations") :: RemoteFunction
+local teleportRequestEvent = remotes:WaitForChild("TeleportRequest") :: RemoteEvent
+local streamReadyEvent = remotes:WaitForChild("StreamReady") :: RemoteEvent
+
+-- ============ SOUND IDS - inhe apni pasand ki id se replace karo ============
+local SOUND_IDS = {
+	Click = "rbxassetid://0",
+	Whoosh = "rbxassetid://0",
+	Arrive = "rbxassetid://0",
+}
+
+local soundFolder = Instance.new("Folder")
+soundFolder.Name = "TeleportSounds"
+soundFolder.Parent = SoundService
+
+local function makeSound(id: string, volume: number)
+	local s = Instance.new("Sound")
+	s.SoundId = id
+	s.Volume = volume
+	s.Parent = soundFolder
+	return s
+end
+
+local clickSound = makeSound(SOUND_IDS.Click, 0.5)
+local whooshSound = makeSound(SOUND_IDS.Whoosh, 0.6)
+local arriveSound = makeSound(SOUND_IDS.Arrive, 0.6)
+
+local function playSound(s: Sound)
+	if s.SoundId ~= "" and s.SoundId ~= "rbxassetid://0" then
+		s:Play()
+	end
+end
+
+-- ============ THEME ============
+local ACCENT = Color3.fromRGB(88, 166, 255)
+local BG_DARK = Color3.fromRGB(20, 20, 24)
+local BG_CARD = Color3.fromRGB(32, 32, 38)
+local BG_CARD_HOVER = Color3.fromRGB(44, 44, 52)
+local TEXT_WHITE = Color3.fromRGB(255, 255, 255)
+local TEXT_GRAY = Color3.fromRGB(160, 160, 170)
+
+local function addCorner(inst: Instance, radius: number)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = inst
+	return c
+end
+
+local function addStroke(inst: Instance, color: Color3, thickness: number)
+	local s = Instance.new("UIStroke")
+	s.Color = color
+	s.Thickness = thickness
+	s.Parent = inst
+	return s
+end
+
+local function addShadow(parent: GuiObject)
+	local shadow = Instance.new("Frame")
+	shadow.Name = "Shadow"
+	shadow.Size = UDim2.new(1, 16, 1, 16)
+	shadow.Position = UDim2.new(0, -8, 0, -4)
+	shadow.BackgroundColor3 = Color3.new(0, 0, 0)
+	shadow.BackgroundTransparency = 0.6
+	shadow.ZIndex = parent.ZIndex - 1
+	shadow.Parent = parent.Parent
+	addCorner(shadow, 16)
+	return shadow
+end
+
+-- ===================== FADE / LOADING SCREEN =====================
+local fadeGui = Instance.new("ScreenGui")
+fadeGui.Name = "TeleportFade"
+fadeGui.IgnoreGuiInset = true
+fadeGui.DisplayOrder = 100
+fadeGui.Parent = playerGui
+
+local fadeFrame = Instance.new("Frame")
+fadeFrame.Size = UDim2.fromScale(1, 1)
+fadeFrame.BackgroundColor3 = BG_DARK
+fadeFrame.BackgroundTransparency = 1
+fadeFrame.Parent = fadeGui
+
+local fadeGradient = Instance.new("UIGradient")
+fadeGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 10, 14)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 26, 34)),
+})
+fadeGradient.Rotation = 90
+fadeGradient.Parent = fadeFrame
+
+local loadingLabel = Instance.new("TextLabel")
+loadingLabel.Size = UDim2.new(0, 320, 0, 40)
+loadingLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+loadingLabel.Position = UDim2.new(0.5, 0, 0.5, -30)
+loadingLabel.BackgroundTransparency = 1
+loadingLabel.TextColor3 = TEXT_WHITE
+loadingLabel.TextTransparency = 1
+loadingLabel.Font = Enum.Font.GothamBold
+loadingLabel.TextSize = 22
+loadingLabel.Text = "Teleporting"
+loadingLabel.Parent = fadeFrame
+
+local dotsTask: thread? = nil
+local function startDots()
+	dotsTask = task.spawn(function()
+		local dots = {"", ".", "..", "..."}
+		local i = 1
+		while true do
+			loadingLabel.Text = "Teleporting" .. dots[i]
+			i = (i % #dots) + 1
+			task.wait(0.35)
+		end
+	end)
+end
+local function stopDots()
+	if dotsTask then
+		task.cancel(dotsTask)
+		dotsTask = nil
+	end
+end
+
+local barBack = Instance.new("Frame")
+barBack.Size = UDim2.new(0, 320, 0, 10)
+barBack.AnchorPoint = Vector2.new(0.5, 0.5)
+barBack.Position = UDim2.new(0.5, 0, 0.5, 10)
+barBack.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
+barBack.BackgroundTransparency = 1
+barBack.Parent = fadeFrame
+addCorner(barBack, 6)
+
+local barFill = Instance.new("Frame")
+barFill.Size = UDim2.new(0, 0, 1, 0)
+barFill.BackgroundColor3 = ACCENT
+barFill.BackgroundTransparency = 1
+barFill.Parent = barBack
+addCorner(barFill, 6)
+
+local barGradient = Instance.new("UIGradient")
+barGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(88, 166, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 110, 255)),
+})
+barGradient.Parent = barFill
+
+local percentLabel = Instance.new("TextLabel")
+percentLabel.Size = UDim2.new(0, 320, 0, 20)
+percentLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+percentLabel.Position = UDim2.new(0.5, 0, 0.5, 34)
+percentLabel.BackgroundTransparency = 1
+percentLabel.TextColor3 = TEXT_GRAY
+percentLabel.TextTransparency = 1
+percentLabel.Font = Enum.Font.Gotham
+percentLabel.TextSize = 14
+percentLabel.Text = "0%"
+percentLabel.Parent = fadeFrame
+
+local progressThread: thread? = nil
+local function startFakeProgress()
+	if progressThread then task.cancel(progressThread) end
+	progressThread = task.spawn(function()
+		local progress = 0
+		barFill.Size = UDim2.new(0, 0, 1, 0)
+		while progress < 90 do
+			progress += math.random(3, 8)
+			progress = math.min(progress, 90)
+			barFill.Size = UDim2.new(progress / 100, 0, 1, 0)
+			percentLabel.Text = math.floor(progress) .. "%"
+			task.wait(math.random(8, 16) / 100)
+		end
+	end)
+end
+
+local function finishProgress()
+	if progressThread then
+		task.cancel(progressThread)
+		progressThread = nil
+	end
+	local tween = TweenService:Create(barFill, TweenInfo.new(0.2), { Size = UDim2.new(1, 0, 1, 0) })
+	tween:Play()
+	percentLabel.Text = "100%"
+end
+
+local function fadeOut()
+	playSound(whooshSound)
+	startDots()
+	startFakeProgress()
+	local t1 = TweenService:Create(fadeFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { BackgroundTransparency = 0 })
+	local t2 = TweenService:Create(loadingLabel, TweenInfo.new(0.35), { TextTransparency = 0 })
+	local t3 = TweenService:Create(barBack, TweenInfo.new(0.35), { BackgroundTransparency = 0 })
+	local t4 = TweenService:Create(barFill, TweenInfo.new(0.35), { BackgroundTransparency = 0 })
+	local t5 = TweenService:Create(percentLabel, TweenInfo.new(0.35), { TextTransparency = 0 })
+	t1:Play(); t2:Play(); t3:Play(); t4:Play(); t5:Play()
+	t1.Completed:Wait()
+end
+
+local function fadeIn()
+	finishProgress()
+	task.wait(0.15)
+	stopDots()
+	playSound(arriveSound)
+	TweenService:Create(fadeFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(loadingLabel, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+	TweenService:Create(barBack, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(barFill, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(percentLabel, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+end
+
+streamReadyEvent.OnClientEvent:Connect(fadeIn)
+
+-- ===================== LOCATION PICKER GUI =====================
+local mainGui = Instance.new("ScreenGui")
+mainGui.Name = "TeleportMenu"
+mainGui.ResetOnSpawn = false
+mainGui.Parent = playerGui
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 140, 0, 44)
+toggleButton.Position = UDim2.new(1, -160, 1, -64)
+toggleButton.BackgroundColor3 = BG_CARD
+toggleButton.AutoButtonColor = false
+toggleButton.Text = ""
+toggleButton.ZIndex = 2
+toggleButton.Parent = mainGui
+addCorner(toggleButton, 12)
+addStroke(toggleButton, Color3.fromRGB(60, 60, 70), 1)
+addShadow(toggleButton)
+
+local toggleLabel = Instance.new("TextLabel")
+toggleLabel.Size = UDim2.fromScale(1, 1)
+toggleLabel.BackgroundTransparency = 1
+toggleLabel.TextColor3 = TEXT_WHITE
+toggleLabel.Font = Enum.Font.GothamBold
+toggleLabel.TextSize = 16
+toggleLabel.Text = "🗺  Teleport"
+toggleLabel.Parent = toggleButton
+
+toggleButton.MouseEnter:Connect(function()
+	TweenService:Create(toggleButton, TweenInfo.new(0.15), { BackgroundColor3 = BG_CARD_HOVER, Size = UDim2.new(0, 146, 0, 47) }):Play()
+end)
+toggleButton.MouseLeave:Connect(function()
+	TweenService:Create(toggleButton, TweenInfo.new(0.15), { BackgroundColor3 = BG_CARD, Size = UDim2.new(0, 140, 0, 44) }):Play()
+end)
+
+local listFrame = Instance.new("Frame")
+listFrame.Size = UDim2.new(0, 440, 0, 400)
+listFrame.Position = UDim2.fromScale(0.5, 0.5)
+listFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+listFrame.BackgroundColor3 = BG_DARK
+listFrame.Visible = false
+listFrame.ClipsDescendants = true
+listFrame.Parent = mainGui
+addCorner(listFrame, 16)
+addStroke(listFrame, Color3.fromRGB(55, 55, 65), 1)
+addShadow(listFrame)
+
+local panelGradient = Instance.new("UIGradient")
+panelGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(26, 26, 32)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 16, 20)),
+})
+panelGradient.Rotation = 90
+panelGradient.Parent = listFrame
+
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 56)
+titleBar.BackgroundTransparency = 1
+titleBar.Parent = listFrame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -100, 1, 0)
+title.Position = UDim2.new(0, 18, 0, 0)
+title.BackgroundTransparency = 1
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Text = "Choose a Location"
+title.TextColor3 = TEXT_WHITE
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.Parent = titleBar
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 34, 0, 34)
+closeButton.Position = UDim2.new(1, -50, 0.5, -17)
+closeButton.BackgroundColor3 = Color3.fromRGB(48, 48, 56)
+closeButton.TextColor3 = TEXT_WHITE
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 16
+closeButton.AutoButtonColor = false
+closeButton.Text = "✕"
+closeButton.Parent = titleBar
+addCorner(closeButton, 10)
+
+closeButton.MouseEnter:Connect(function()
+	TweenService:Create(closeButton, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(200, 60, 60) }):Play()
+end)
+closeButton.MouseLeave:Connect(function()
+	TweenService:Create(closeButton, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(48, 48, 56) }):Play()
+end)
+
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, -36, 0, 36)
+searchBox.Position = UDim2.new(0, 18, 0, 56)
+searchBox.BackgroundColor3 = Color3.fromRGB(38, 38, 45)
+searchBox.TextColor3 = TEXT_WHITE
+searchBox.PlaceholderText = "Search location..."
+searchBox.PlaceholderColor3 = TEXT_GRAY
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 14
+searchBox.ClearTextOnFocus = false
+searchBox.Text = ""
+searchBox.Parent = listFrame
+addCorner(searchBox, 10)
+
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, -36, 1, -108)
+scrollFrame.Position = UDim2.new(0, 18, 0, 102)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.ScrollBarThickness = 5
+scrollFrame.ScrollBarImageColor3 = ACCENT
+scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollFrame.Parent = listFrame
+
+local gridLayout = Instance.new("UIGridLayout")
+gridLayout.CellSize = UDim2.new(0, 122, 0, 100)
+gridLayout.CellPadding = UDim2.new(0, 10, 0, 10)
+gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+gridLayout.Parent = scrollFrame
+
+local isOpen = false
+local function setOpen(open: boolean)
+	isOpen = open
+	if open then
+		listFrame.Visible = true
+		listFrame.Size = UDim2.new(0, 440, 0, 0)
+		TweenService:Create(listFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 440, 0, 400),
+		}):Play()
+	else
+		local tween = TweenService:Create(listFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Size = UDim2.new(0, 440, 0, 0),
+		})
+		tween:Play()
+		tween.Completed:Connect(function()
+			if not isOpen then
+				listFrame.Visible = false
+			end
+		end)
+	end
+end
+
+toggleButton.MouseButton1Click:Connect(function()
+	playSound(clickSound)
+	setOpen(not isOpen)
+end)
+closeButton.MouseButton1Click:Connect(function()
+	playSound(clickSound)
+	setOpen(false)
+end)
+
+local locationButtons: {[string]: TextButton} = {}
+
+local function populateLocations()
+	local locations = getLocationsFunction:InvokeServer()
+	for _, loc in ipairs(locations) do
+		local btn = Instance.new("TextButton")
+		btn.BackgroundColor3 = BG_CARD
+		btn.AutoButtonColor = false
+		btn.Text = ""
+		btn.Parent = scrollFrame
+		addCorner(btn, 12)
+		local stroke = addStroke(btn, loc.IsCurrent and ACCENT or Color3.fromRGB(55, 55, 63), loc.IsCurrent and 2 or 1)
+
+		local icon = Instance.new("ImageLabel")
+		icon.Size = UDim2.new(1, -10, 0, 58)
+		icon.Position = UDim2.new(0, 5, 0, 5)
+		icon.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
+		icon.Image = loc.Image or ""
+		icon.ScaleType = Enum.ScaleType.Crop
+		icon.Parent = btn
+		addCorner(icon, 8)
+
+		if loc.IsCurrent then
+			local badge = Instance.new("TextLabel")
+			badge.Size = UDim2.new(0, 20, 0, 20)
+			badge.Position = UDim2.new(1, -26, 0, 10)
+			badge.BackgroundColor3 = ACCENT
+			badge.Text = "📍"
+			badge.TextSize = 12
+			badge.Parent = btn
+			addCorner(badge, 10)
+		end
+
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(1, -6, 0, 18)
+		label.Position = UDim2.new(0, 3, 0, 65)
+		label.BackgroundTransparency = 1
+		label.TextColor3 = TEXT_WHITE
+		label.Font = Enum.Font.GothamBold
+		label.TextSize = 12
+		label.TextTruncate = Enum.TextTruncate.AtEnd
+		label.Text = loc.Name
+		label.Parent = btn
+
+		if loc.Description and loc.Description ~= "" then
+			local subLabel = Instance.new("TextLabel")
+			subLabel.Size = UDim2.new(1, -6, 0, 14)
+			subLabel.Position = UDim2.new(0, 3, 0, 82)
+			subLabel.BackgroundTransparency = 1
+			subLabel.TextColor3 = TEXT_GRAY
+			subLabel.Font = Enum.Font.Gotham
+			subLabel.TextSize = 10
+			subLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			subLabel.Text = loc.Description
+			subLabel.Parent = btn
+		end
+
+		btn.MouseEnter:Connect(function()
+			TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = BG_CARD_HOVER }):Play()
+			TweenService:Create(stroke, TweenInfo.new(0.15), { Color = ACCENT }):Play()
+		end)
+		btn.MouseLeave:Connect(function()
+			TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = BG_CARD }):Play()
+			TweenService:Create(stroke, TweenInfo.new(0.15), { Color = loc.IsCurrent and ACCENT or Color3.fromRGB(55, 55, 63) }):Play()
+		end)
+
+		btn.MouseButton1Click:Connect(function()
+			if loc.IsCurrent then return end
+			playSound(clickSound)
+			setOpen(false)
+			fadeOut()
+			teleportRequestEvent:FireServer(loc.Name)
+		end)
+
+		locationButtons[loc.Name:lower()] = btn
+	end
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local query = searchBox.Text:lower()
+	for name, btn in pairs(locationButtons) do
+		btn.Visible = query == "" or name:find(query, 1, true) ~= nil
+	end
+end)
+
+populateLocations()
