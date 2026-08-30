@@ -1,0 +1,32 @@
+--!strict
+-- PATH: ReplicatedStorage.Locations (ModuleScript)
+-- Har location me Description optional hai - GUI me naam ke neeche chhota subtitle dikhega.
+
+local Locations = {
+	{
+		Name = "Spawn Village",
+		CFrame = CFrame.new(0, 5, 0),
+		Image = "rbxassetid://0",
+		Description = "Starting area",
+	},
+	{
+		Name = "Desert Outpost",
+		CFrame = CFrame.new(250, 6, -80),
+		Image = "rbxassetid://0",
+		Description = "Sandy trading post",
+	},
+	{
+		Name = "Ice Castle",
+		CFrame = CFrame.new(-400, 25, 300),
+		Image = "rbxassetid://0",
+		Description = "Frozen kingdom",
+	},
+	{
+		Name = "Sky Arena",
+		CFrame = CFrame.new(0, 500, 0),
+		Image = "rbxassetid://0",
+		Description = "High altitude battleground",
+	},
+}
+
+return Locations
