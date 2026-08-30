@@ -1,0 +1,152 @@
+--!strict
+-- PATH: ServerScriptService.TeleportServer (Script)
+-- Studio me "Enable Studio Access to API Services" ON hona chahiye (Home > Game Settings > Security).
+-- Aur place ek baar publish hona chahiye (File > Publish to Roblox) taaki require() Play mode me chale.
+
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocationStore = DataStoreService:GetDataStore("PlayerLastLocation_v1")
+local Locations = require(ReplicatedStorage:WaitForChild("Locations"))
+
+local remotesFolder = Instance.new("Folder")
+remotesFolder.Name = "TeleportRemotes"
+remotesFolder.Parent = ReplicatedStorage
+
+local getLocationsFunction = Instance.new("RemoteFunction")
+getLocationsFunction.Name = "GetLocations"
+getLocationsFunction.Parent = remotesFolder
+
+local teleportRequestEvent = Instance.new("RemoteEvent")
+teleportRequestEvent.Name = "TeleportRequest"
+teleportRequestEvent.Parent = remotesFolder
+
+local streamReadyEvent = Instance.new("RemoteEvent")
+streamReadyEvent.Name = "StreamReady"
+streamReadyEvent.Parent = remotesFolder
+
+local CURRENT_LOCATION_RADIUS = 15 -- studs - isse kareeb ho toh "current" badge dikhega
+local TELEPORT_COOLDOWN = 1.5
+
+local lastTeleportAt: {[Player]: number} = {}
+
+getLocationsFunction.OnServerInvoke = function(player: Player)
+	local playerPos: Vector3? = nil
+	local character = player.Character
+	if character then
+		local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if hrp then
+			playerPos = hrp.Position
+		end
+	end
+
+	local list = {}
+	for _, loc in ipairs(Locations) do
+		local isCurrent = false
+		if playerPos then
+			isCurrent = (playerPos - loc.CFrame.Position).Magnitude <= CURRENT_LOCATION_RADIUS
+		end
+		table.insert(list, {
+			Name = loc.Name,
+			Image = loc.Image,
+			Description = loc.Description or "",
+			IsCurrent = isCurrent,
+		})
+	end
+	return list
+end
+
+local function findLocationByName(name: string)
+	for _, loc in ipairs(Locations) do
+		if loc.Name == name then
+			return loc
+		end
+	end
+	return nil
+end
+
+local function saveLastLocation(player: Player, cf: CFrame)
+	local pos = cf.Position
+	local ok, err = pcall(function()
+		LocationStore:SetAsync("Player_" .. player.UserId, {
+			x = pos.X, y = pos.Y, z = pos.Z,
+			rx = cf.LookVector.X, ry = cf.LookVector.Y, rz = cf.LookVector.Z,
+		})
+	end)
+	if not ok then
+		warn("[TeleportServer] Save failed for " .. player.Name .. ": " .. tostring(err))
+	end
+end
+
+local function loadLastLocation(player: Player): CFrame?
+	local ok, data = pcall(function()
+		return LocationStore:GetAsync("Player_" .. player.UserId)
+	end)
+	if ok and data then
+		return CFrame.new(Vector3.new(data.x, data.y, data.z), Vector3.new(data.x, data.y, data.z) + Vector3.new(data.rx, data.ry, data.rz))
+	end
+	return nil
+end
+
+local function teleportCharacter(player: Player, targetCFrame: CFrame)
+	local character = player.Character
+	if not character then return end
+	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not hrp then return end
+
+	hrp.Anchored = true
+
+	pcall(function()
+		player:RequestStreamAroundAsync(targetCFrame.Position, 8)
+	end)
+
+	character:PivotTo(targetCFrame)
+	task.wait(0.15)
+
+	hrp.Anchored = false
+	saveLastLocation(player, targetCFrame)
+
+	streamReadyEvent:FireClient(player)
+end
+
+teleportRequestEvent.OnServerEvent:Connect(function(player: Player, locationName: unknown)
+	if typeof(locationName) ~= "string" then return end
+
+	local now = os.clock()
+	if lastTeleportAt[player] and now - lastTeleportAt[player] < TELEPORT_COOLDOWN then
+		return
+	end
+	lastTeleportAt[player] = now
+
+	local loc = findLocationByName(locationName)
+	if not loc then return end
+	teleportCharacter(player, loc.CFrame)
+end)
+
+Players.PlayerAdded:Connect(function(player: Player)
+	player.CharacterAdded:Connect(function(character)
+		local hrp = character:WaitForChild("HumanoidRootPart") :: BasePart
+		local saved = loadLastLocation(player)
+		if saved then
+			hrp.Anchored = true
+			pcall(function()
+				player:RequestStreamAroundAsync(saved.Position, 8)
+			end)
+			character:PivotTo(saved)
+			task.wait(0.15)
+			hrp.Anchored = false
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player: Player)
+	local character = player.Character
+	if character then
+		local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if hrp then
+			saveLastLocation(player, hrp.CFrame)
+		end
+	end
+	lastTeleportAt[player] = nil
+end)
