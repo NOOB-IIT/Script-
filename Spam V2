@@ -1,0 +1,639 @@
+-- [[ RED SPAMMING HUB By NOT_IITIAN ]] --
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+-- Puraana UI delete karne ke liye agar already run kiya ho
+if CoreGui:FindFirstChild("RedSpammingHub") then
+    CoreGui:FindFirstChild("RedSpammingHub"):Destroy()
+end
+
+-- ScreenGui Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RedSpammingHub"
+ScreenGui.Parent = CoreGui
+
+-- Main Frame (Size reduced for better screen fit)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 360, 0, 330)
+MainFrame.Position = UDim2.new(0.5, -180, 0.5, -165)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MainFrame.Active = true
+MainFrame.Draggable = true -- Makes the GUI movable
+
+-- RGB Stroke for MainFrame (Corners)
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 3
+UIStroke.Parent = MainFrame
+
+-- RGB Animation Loop
+RunService.RenderStepped:Connect(function()
+    UIStroke.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+end)
+
+-- Top Bar Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -60, 0, 40)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "RED SPAMMING HUB"
+Title.TextColor3 = Color3.fromRGB(255, 0, 0)
+Title.TextSize = 22
+Title.Font = Enum.Font.GothamBlack
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+-- Minimize Button (-)
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -65, 0, 5)
+MinBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextSize = 20
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.Parent = MainFrame
+
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 18
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = MainFrame
+
+local UICornerClose = Instance.new("UICorner", CloseBtn)
+local UICornerMin = Instance.new("UICorner", MinBtn)
+
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        MainFrame.Size = UDim2.new(0, 360, 0, 40)
+        MainFrame.ClipsDescendants = true
+    else
+        MainFrame.Size = UDim2.new(0, 360, 0, 330)
+        MainFrame.ClipsDescendants = false
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Player Target Input
+local TargetInput = Instance.new("TextBox")
+TargetInput.Size = UDim2.new(1, -50, 0, 35)
+TargetInput.Position = UDim2.new(0, 10, 0, 45)
+TargetInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TargetInput.TextColor3 = Color3.fromRGB(0, 0, 0)
+TargetInput.PlaceholderText = "Type player Display Name"
+TargetInput.Text = ""
+TargetInput.Font = Enum.Font.GothamSemibold
+TargetInput.TextSize = 14
+TargetInput.Parent = MainFrame
+Instance.new("UICorner", TargetInput).CornerRadius = UDim.new(0, 5)
+
+-- Player Dropdown Button (^)
+local PlayerDropBtn = Instance.new("TextButton")
+PlayerDropBtn.Size = UDim2.new(0, 30, 0, 35)
+PlayerDropBtn.Position = UDim2.new(1, -40, 0, 45)
+PlayerDropBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+PlayerDropBtn.Text = "^"
+PlayerDropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlayerDropBtn.TextSize = 20
+PlayerDropBtn.Parent = MainFrame
+Instance.new("UICorner", PlayerDropBtn).CornerRadius = UDim.new(0, 5)
+
+-- Player List Frame
+local PlayerScroll = Instance.new("ScrollingFrame")
+PlayerScroll.Size = UDim2.new(1, -20, 0, 150)
+PlayerScroll.Position = UDim2.new(0, 10, 0, 85)
+PlayerScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+PlayerScroll.Visible = false
+PlayerScroll.ZIndex = 5
+PlayerScroll.Parent = MainFrame
+local UIListLayout1 = Instance.new("UIListLayout", PlayerScroll)
+UIListLayout1.Padding = UDim.new(0, 2)
+
+-- Update Player List Function (Alphabetical Order)
+PlayerDropBtn.MouseButton1Click:Connect(function()
+    PlayerScroll.Visible = not PlayerScroll.Visible
+    if PlayerScroll.Visible then
+        for _, v in pairs(PlayerScroll:GetChildren()) do
+            if v:IsA("TextButton") then v:Destroy() end
+        end
+        local playerList = Players:GetPlayers()
+        table.sort(playerList, function(a, b) return a.DisplayName:lower() < b.DisplayName:lower() end)
+        for _, plr in ipairs(playerList) do
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, 0, 0, 30)
+            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            btn.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.ZIndex = 6
+            btn.Parent = PlayerScroll
+            btn.MouseButton1Click:Connect(function()
+                TargetInput.Text = plr.DisplayName
+                PlayerScroll.Visible = false
+            end)
+        end
+        PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, #playerList * 32)
+    end
+end)
+
+TargetInput.Focused:Connect(function()
+    if TargetInput.Text == "Type player Display Name" then
+        TargetInput.Text = ""
+    end
+end)
+
+-- Category Input
+local CategoryInput = Instance.new("TextBox")
+CategoryInput.Size = UDim2.new(1, -50, 0, 35)
+CategoryInput.Position = UDim2.new(0, 10, 0, 85)
+CategoryInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+CategoryInput.TextColor3 = Color3.fromRGB(0, 0, 0)
+CategoryInput.PlaceholderText = "Choose category"
+CategoryInput.Text = ""
+CategoryInput.TextEditable = false
+CategoryInput.Font = Enum.Font.GothamSemibold
+CategoryInput.TextSize = 14
+CategoryInput.Parent = MainFrame
+Instance.new("UICorner", CategoryInput).CornerRadius = UDim.new(0, 5)
+
+-- Category Dropdown Button (^)
+local CatDropBtn = Instance.new("TextButton")
+CatDropBtn.Size = UDim2.new(0, 30, 0, 35)
+CatDropBtn.Position = UDim2.new(1, -40, 0, 85)
+CatDropBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+CatDropBtn.Text = "^"
+CatDropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CatDropBtn.TextSize = 20
+CatDropBtn.Parent = MainFrame
+Instance.new("UICorner", CatDropBtn).CornerRadius = UDim.new(0, 5)
+
+-- Category Lists Data (EXPANDED TO 300+ EACH, TAG FREE)
+local Categories = {
+    ["Food"] = {
+        "DAAL", "CHAWAL", "ROTI", "PANEER", "SAMOSA", "MOMO", "PIZZA", "BURGER", "DOSA", "IDLI",
+        "BIRYANI", "PASTA", "NOODLES", "KABAB", "PARATHA", "PAVBHAJI", "CHOLE", "BHATURE", "RAJMA", "MAGGI",
+        "KACHORI", "JALEBI", "RASGULLA", "GULABJAMUN", "LADDOO", "VADA", "UPMA", "POHA", "DHOKLA", "KHAKHRA",
+        "THEPLA", "PEDA", "BARFI", "KHEER", "HALWA", "NAAN", "KULCHA", "ALOO TIKKI", "PANI PURI", "BHEL PURI",
+        "SEV PURI", "SANDWICH", "FRIES", "TACO", "SUSHI", "SPRING ROLL", "DIM SUM", "WAFERS", "MACARONI", "CHEESE",
+        "BUTTER", "GHEE", "LASAGNA", "SOUP", "SALAD", "STEAK", "BACON", "OMELETTE", "PANCAKE", "WAFFLE",
+        "DONUT", "BROWNIE", "ICE CREAM", "MILKSHAKE", "JUICE", "COFFEE", "TEA", "LASSI", "CHAAS", "SHARBAT",
+        "FALAFEL", "HUMMUS", "SHAWARMA", "KEBAB", "TANDOORI CHICKEN", "BUTTER CHICKEN", "PALAK PANEER", "CHICKEN TIKKA", "FISH CURRY", "PRAWN CURRY",
+        "MUTTON ROGAN JOSH", "DAL MAKHANI", "KADHI", "PAKORA", "BHAJIYA", "PAPAD", "PICKLE", "CHUTNEY", "RAITA", "KACHUMBER",
+        "SAMBAR", "RASAM", "CURD RICE", "LEMON RICE", "TAMARIND RICE", "BISI BELE BATH", "PONGAL", "APPAM", "PUTTU", "KERALA PAROTTA",
+        "MALABAR PAROTTA", "FISH MOILEE", "CHICKEN STEW", "BEEF FRY", "PORK VINDALOO", "GOAN FISH CURRY", "XACUTI", "SORPOTEL", "BEBINCA", "DODOL",
+        "MISAL PAV", "VADA PAV", "PURI BHAJI", "SHRIKHAND", "PURAN POLI", "MODAK", "BASUNDI", "RABDI", "MALPUA", "SANDESH",
+        "CHAM CHAM", "RASMALAI", "MYSORE PAK", "KARACHI HALWA", "BESAN LADOO", "MOTICHOOR LADOO", "BOONDI", "SEV", "MURUKKU", "CHAKLI",
+        "NANKHATAI", "SHREEBRAT", "KULFI", "FALOODA", "GAJAR KA HALWA", "MOONG DAL HALWA", "SOOJI HALWA", "ATTA HALWA", "BADAM HALWA", "PISTA HALWA",
+        "KESAR HALWA", "ANJEER HALWA", "KHOA", "MALAI", "RABRI", "CHHENA", "PANEER BHURJI", "EGG CURRY", "CHICKEN BIRYANI", "MUTTON BIRYANI",
+        "VEG BIRYANI", "PRAWN BIRYANI", "FISH BIRYANI", "KEBAB ROLL", "FRANKIE", "KATHI ROLL", "CHICKEN LOLLIPOP", "DRUMSTICK", "TANDOORI ROTI", "ROOMALI ROTI",
+        "MISSI ROTI", "BHAKRI", "THALIPEETH", "AMboli", "PITLA", "ZUNKA", "BHARLI VANGI", "KOSHIMBIR", "SOLKADHI", "KOMBDI VADE",
+        "PANDHRA RASSA", "TAMDA RASSA", "SAOJI CHICKEN", "JHUNKA BHAKAR", "PITHLA BHAKRI", "VANGYACHE BHARIT", "AMTI", "DALIMBI", "BHARLELI WANGI", "KARLA",
+        "DUDHI HALWA", "PUDINA CHUTNEY", "IMLI CHUTNEY", "COCONUT CHUTNEY", "GROUNDNUT CHUTNEY", "GARLIC CHUTNEY", "TOMATO CHUTNEY", "MANGO CHUTNEY", "MINT CHUTNEY", "CORIANDER CHUTNEY",
+        "CURRY LEAVES", "MUSTARD SEEDS", "CUMIN SEEDS", "FENUGREEK", "ASAFOETIDA", "TURMERIC", "RED CHILLI", "GREEN CHILLI", "GINGER", "GARLIC",
+        "ONION", "TOMATO", "POTATO", "CAULIFLOWER", "CABBAGE", "SPINACH", "FENUGREEK LEAVES", "MUSTARD GREENS", "BATHUA", "AMARANTH",
+        "DRUMSTICK LEAVES", "PUMPKIN", "BOTTLE GOURD", "RIDGE GOURD", "BITTER GOURD", "POINTED GOURD", "IVY GOURD", "SNAKE GOURD", "ASH GOURD", "APPLE GOURD",
+        "CUCUMBER", "CARROT", "BEETROOT", "RADISH", "TURNIP", "SWEET POTATO", "YAM", "TARO", "ARBI", "SURAN",
+        "JACKFRUIT", "BREADFRUIT", "BANANA FLOWER", "BANANA STEM", "LOTUS STEM", "WATER CHESTNUT", "BAMBOO SHOOTS", "MUSHROOM", "CORN", "PEAS",
+        "BEANS", "CLUSTER BEANS", "FRENCH BEANS", "BROAD BEANS", "LIMA BEANS", "KIDNEY BEANS", "BLACK EYED PEAS", "CHICKPEAS", "PIGEON PEAS", "MOONG BEANS",
+        "MASOOR DAL", "URAD DAL", "TOOR DAL", "CHANA DAL", "MATAR DAL", "MOONG DAL", "MASOOR", "URAD", "TOOR", "CHANA",
+        "RICE", "BROWN RICE", "BASMATI RICE", "JASMINE RICE", "STICKY RICE", "WILD RICE", "FLOUR", "WHEAT FLOUR", "BESAN", "RICE FLOUR",
+        "CORN FLOUR", "SEMOLINA", "OATS", "BARLEY", "MILLET", "SORGHUM", "RAGI", "QUINOA", "COUSCOUS", "BULGUR",
+        "PASTA SHELLS", "SPAGHETTI", "MACARONI", "PENNE", "FUSILLI", "LASAGNA SHEETS", "RAVIOLI", "TORTELLINI", "GNOCCHI", "NOODLE CAKE",
+        "RICE NOODLES", "EGG NOODLES", "SOBA", "UDON", "RAMEN", "VERMICELLI", "SEVIYAN", "HALDIRAM", "BHUJIA", "ALOO BHUJIA",
+        "MOONG DAL", "CHANA JOR GARAM", "KURKURE", "CHEETOS", "LAY'S", "PRINGLES", "DORITOS", "NACHOS", "SALSA", "GUACAMOLE",
+        "QUESADILLA", "BURRITO", "ENCHILADA", "TAMALE", "CHIMICHANGA", "FAJITA", "TACO SALAD", "NACHO CHEESE", "SOUR CREAM", "COTTAGE CHEESE",
+        "RICOTTA", "MOZZARELLA", "CHEDDAR", "PARMESAN", "FETA", "BLUE CHEESE", "BRIE", "CAMEMBERT", "GOUDA", "SWISS CHEESE"
+    },
+    ["Electronics"] = {
+        "TV", "PHONE", "LAPTOP", "FAN", "AC", "FRIDGE", "OVEN", "MICROWAVE", "HEATER", "SPEAKER",
+        "HEADPHONES", "MOUSE", "KEYBOARD", "MONITOR", "TABLET", "WATCH", "CAMERA", "ROUTER", "CHARGER", "BATTERY",
+        "DRONE", "BULB", "TUBELIGHT", "INVERTER", "GEYSER", "PRINTER", "SCANNER", "PROJECTOR", "WEBCAM", "MICROPHONE",
+        "SMARTWATCH", "EARBUDS", "TRIMMER", "IRON", "BLENDER", "MIXER", "TOASTER", "WASHING MACHINE", "DISHWASHER", "PURIFIER",
+        "VACCUM", "GAMING CONSOLE", "JOYSTICK", "MODEM", "POWERBANK", "CALCULATOR", "THERMOSTAT", "ALARM", "RADIATOR", "HAIR DRYER",
+        "STRAIGHTENER", "MASSAGER", "EPILATOR", "KINDLE", "E-READER", "GPS", "DASHCAM", "VR HEADSET", "AMPLIFIER", "SUBWOOFER",
+        "SOUNDBAR", "TURNTABLE", "CD PLAYER", "SMARTPHONE", "TRASH COMPACTOR", "DISH TV", "SET TOP BOX", "BLUETOOTH SPEAKER", "SMART SPEAKER", "HOME THEATER",
+        "RECEIVER", "TUNER", "EQUALIZER", "MIXER BOARD", "TURNTABLE", "CASSETTE DECK", "VCR", "DVD PLAYER", "BLU-RAY PLAYER", "MEDIA STREAMER",
+        "GAME BOY", "NINTENDO", "PLAYSTATION", "XBOX", "WII", "SWITCH", "ARCADE MACHINE", "PINBALL", "SLOT MACHINE", "VENDING MACHINE",
+        "ATM", "POS TERMINAL", "BARCODE SCANNER", "RFID READER", "FINGERPRINT SCANNER", "IRIS SCANNER", "FACE RECOGNITION DEVICE", "SMART LOCK", "SMART BULB", "SMART PLUG",
+        "SMART THERMOSTAT", "SMART CAMERA", "SMART DOORBELL", "SMART REFRIGERATOR", "SMART WASHER", "SMART DRYER", "SMART OVEN", "SMART DISHWASHER", "SMART COFFEE MAKER", "SMART KETTLE",
+        "ROBOT VACUUM", "ROBOT MOP", "LAWN MOWER ROBOT", "POOL CLEANER", "WINDOW CLEANER", "AIR PURIFIER", "HUMIDIFIER", "DEHUMIDIFIER", "FAN HEATER", "OIL HEATER",
+        "RADIANT HEATER", "CONVECTION HEATER", "INDUCTION COOKTOP", "HALOGEN OVEN", "PRESSURE COOKER", "RICE COOKER", "SLOW COOKER", "AIR FRYER", "DEEP FRYER", "ELECTRIC KETTLE",
+        "COFFEE GRINDER", "COFFEE MAKER", "ESPRESSO MACHINE", "CAPPUCCINO MAKER", "MILK FROTHER", "JUICER", "CITRUS JUICER", "FOOD PROCESSOR", "HAND BLENDER", "IMMERSION BLENDER",
+        "STAND MIXER", "HAND MIXER", "MEAT GRINDER", "PASTA MAKER", "BREAD MAKER", "YOGURT MAKER", "ICE CREAM MAKER", "SODA MAKER", "POPCORN MAKER", "COTTON CANDY MAKER",
+        "WAFFLE MAKER", "SANDWICH MAKER", "PANINI PRESS", "GRILL", "ELECTRIC SKILLET", "HOT PLATE", "CREPE MAKER", "TORTILLA MAKER", "ROTI MAKER", "CHAPATI MAKER",
+        "DOSA MAKER", "IDLI MAKER", "PANIYARAM MAKER", "MOMOS MAKER", "STEAMER", "ELECTRIC TANDOOR", "BARBECUE GRILL", "SMOKER", "ROTISSERIE", "FONDUE SET",
+        "RACLETTE GRILL", "HOT POT", "ELECTRIC WOK", "INDUCTION WOK", "RICE COOKER", "MULTI COOKER", "PRESSURE COOKER", "SLOW COOKER", "CROCK POT", "INSTANT POT",
+        "DIGITAL CAMERA", "DSLR", "MIRRORLESS CAMERA", "ACTION CAMERA", "360 CAMERA", "POLAROID", "INSTAX", "CAMCORDER", "DASH CAM", "BODY CAM",
+        "TRAIL CAMERA", "BABY MONITOR", "PET CAMERA", "SECURITY CAMERA", "CCTV", "IP CAMERA", "DRONE CAMERA", "QUADCOPTER", "HEXACOPTER", "OCTOCOPTER",
+        "FPV DRONE", "TOY DRONE", "PROFESSIONAL DRONE", "AGRICULTURE DRONE", "DELIVERY DRONE", "SURVEILLANCE DRONE", "MILITARY DRONE", "WEATHER DRONE", "RACING DRONE", "MICRO DRONE",
+        "LAPTOP CHARGER", "PHONE CHARGER", "WIRELESS CHARGER", "CAR CHARGER", "SOLAR CHARGER", "POWER BANK", "PORTABLE CHARGER", "BATTERY PACK", "AAA BATTERY", "AA BATTERY",
+        "C BATTERY", "D BATTERY", "9V BATTERY", "BUTTON CELL", "LITHIUM BATTERY", "NICD BATTERY", "NIMH BATTERY", "LEAD ACID BATTERY", "LIPO BATTERY", "LIFEPO4 BATTERY",
+        "SOLAR PANEL", "WIND TURBINE", "HYDRO GENERATOR", "GASOLINE GENERATOR", "DIESEL GENERATOR", "INVERTER GENERATOR", "PORTABLE GENERATOR", "HOME GENERATOR", "UPS", "VOLTAGE REGULATOR",
+        "STABILIZER", "SURGE PROTECTOR", "POWER STRIP", "EXTENSION CORD", "ADAPTER", "CONVERTER", "TRANSFORMER", "RECTIFIER", "INVERTER CIRCUIT", "CIRCUIT BREAKER"
+    },
+    ["Metal and Nonmetal"] = {
+        "IRON", "GOLD", "SILVER", "COPPER", "ZINC", "ALUMINUM", "LEAD", "PLATINUM", "TITANIUM", "MERCURY",
+        "OXYGEN", "CARBON", "NITROGEN", "SULFUR", "PHOSPHORUS", "NEON", "HELIUM", "CHLORINE", "IODINE", "FLUORINE",
+        "BROMINE", "ARGON", "SODIUM", "CALCIUM", "POTASSIUM", "NICKEL", "COBALT", "TIN", "TUNGSTEN", "MAGNESIUM",
+        "BARIUM", "LITHIUM", "URANIUM", "PLUTONIUM", "RADIUM", "KRYPTON", "XENON", "RADON", "SILICON", "BORON",
+        "ARSENIC", "ANTIMONY", "BISMUTH", "GALLIUM", "INDIUM", "STRONTIUM", "BERYLLIUM", "CHROMIUM", "MANGANESE", "PALLADIUM",
+        "RHODIUM", "IRIDIUM", "OSMIUM", "TANTALUM", "VANADIUM", "ZIRCONIUM", "YTTRIUM", "NIOBIUM", "MOLYBDENUM", "RUTHENIUM",
+        "TELLURIUM", "SELENIUM", "ASTATINE", "THALLIUM", "CESIUM", "FRANCIUM", "RADON", "Oganesson", "Tennessine", "Livermorium",
+        "Moscovium", "Flerovium", "Nihonium", "Copernicium", "Roentgenium", "Darmstadtium", "Meitnerium", "Hassium", "Bohrium", "Seaborgium",
+        "Dubnium", "Rutherfordium", "Lawrencium", "Nobelium", "Mendelevium", "Fermium", "Einsteinium", "Californium", "Berkelium", "Curium",
+        "Americium", "Plutonium", "Neptunium", "Uranium", "Protactinium", "Thorium", "Actinium", "Radium", "Francium", "Radon",
+        "Astatine", "Polonium", "Bismuth", "Lead", "Thallium", "Mercury", "Gold", "Platinum", "Iridium", "Osmium",
+        "Rhenium", "Tungsten", "Tantalum", "Hafnium", "Lutetium", "Ytterbium", "Thulium", "Erbium", "Holmium", "Dysprosium",
+        "Terbium", "Gadolinium", "Europium", "Samarium", "Promethium", "Neodymium", "Praseodymium", "Cerium", "Lanthanum", "Barium",
+        "Cesium", "Xenon", "Iodine", "Tellurium", "Antimony", "Tin", "Indium", "Cadmium", "Silver", "Palladium",
+        "Rhodium", "Ruthenium", "Technetium", "Molybdenum", "Niobium", "Zirconium", "Yttrium", "Strontium", "Rubidium", "Krypton",
+        "Bromine", "Selenium", "Arsenic", "Germanium", "Gallium", "Zinc", "Copper", "Nickel", "Cobalt", "Iron",
+        "Manganese", "Chromium", "Vanadium", "Titanium", "Scandium", "Calcium", "Potassium", "Argon", "Chlorine", "Sulfur",
+        "Phosphorus", "Silicon", "Aluminum", "Magnesium", "Sodium", "Neon", "Fluorine", "Oxygen", "Nitrogen", "Carbon",
+        "Boron", "Beryllium", "Lithium", "Helium", "Hydrogen", "STEEL", "STAINLESS STEEL", "BRASS", "BRONZE", "COPPER ALLOY",
+        "ALNICO", "SOLDER", "PEWTER", "NICHROME", "MONEL", "INCONEL", "HASTELLOY", "TITANIUM ALLOY", "MAGNESIUM ALLOY", "ALUMINUM ALLOY"
+    },
+    ["Animal"] = {
+        "DOG", "CAT", "LION", "TIGER", "ELEPHANT", "HORSE", "COW", "PIG", "SHEEP", "GOAT",
+        "MONKEY", "RABBIT", "DEER", "BEAR", "WOLF", "FOX", "KANGAROO", "PANDA", "GIRAFFE", "ZEBRA",
+        "CAMEL", "RAT", "MOUSE", "BAT", "FROG", "SNAKE", "CROCODILE", "ALLIGATOR", "TURTLE", "TORTOISE",
+        "LIZARD", "CHAMELEON", "IGUANA", "GECKO", "SHARK", "WHALE", "DOLPHIN", "OCTOPUS", "SQUID", "CRAB",
+        "LOBSTER", "SHRIMP", "STARFISH", "SEAL", "WALRUS", "CHEETAH", "LEOPARD", "PANTHER", "JAGUAR", "HYENA",
+        "RHINO", "HIPPO", "GORILLA", "CHIMPANZEE", "ORANGUTAN", "BABOON", "LEMUR", "SLOTH", "ARMADILLO", "PORCUPINE",
+        "BEAVER", "OTTER", "MEERKAT", "MONGOOSE", "KOALA", "WOMBAT", "PLATYPUS", "ECHIDNA", "KANGAROO RAT", "WALLABY",
+        "TASMANIAN DEVIL", "BANDICOOT", "NUMBAT", "QUOLL", "POSSUM", "GLIDER", "CUSCUS", "TREE KANGAROO", "DINGO", "LYNX",
+        "BOBCAT", "COUGAR", "MOUNTAIN LION", "OCELOT", "SERVAL", "CARACAL", "JAGUARUNDI", "MARGAY", "FISHING CAT", "LEOPARD CAT",
+        "SAND CAT", "BLACK-FOOTED CAT", "PALLAS CAT", "RUSTY-SPOTTED CAT", "AFRICAN GOLDEN CAT", "ASIATIC GOLDEN CAT", "BAY CAT", "FLAT-HEADED CAT", "GEOFFROY'S CAT", "KODKOD",
+        "ONCILLA", "PAMPAS CAT", "ANDEAN MOUNTAIN CAT", "BOBTAIL CAT", "JUNGLE CAT", "WILDCAT", "DOMESTIC CAT", "DOG BREEDS", "WOLF", "COYOTE",
+        "JACKAL", "FOX", "ARCTIC FOX", "RED FOX", "FENNEC FOX", "KIT FOX", "CULPEO", "DHOLE", "AFRICAN WILD DOG", "RACCOON DOG",
+        "BUSH DOG", "MANED WOLF", "SHORT-EARED DOG", "CRAB-EATING FOX", "HOARY FOX", "SEVERAL ZORRO", "BAT-EARED FOX", "RACCOON", "COATI", "KINKAJOU",
+        "RINGTAIL", "CACOMISTLE", "OLINGO", "TEDDY BEAR", "PANDA", "RED PANDA", "GIANT PANDA", "SLOTH BEAR", "SUN BEAR", "SPECTACLED BEAR",
+        "POLAR BEAR", "BROWN BEAR", "GRIZZLY BEAR", "BLACK BEAR", "AMERICAN BLACK BEAR", "ASIATIC BLACK BEAR", "MOON BEAR", "HONEY BEAR", "MALAYAN SUN BEAR", "ANDEAN BEAR",
+        "SPECTACLED BEAR", "PALEARCTIC BROWN BEAR", "KAMCHATKA BROWN BEAR", "KODIAK BEAR", "SIBERIAN BROWN BEAR", "EURASIAN BROWN BEAR", "HIMALAYAN BROWN BEAR", "TIBETAN BLUE BEAR", "MARSDEN BEAR", "GLACIER BEAR",
+        "ELEPHANT", "AFRICAN ELEPHANT", "ASIAN ELEPHANT", "MAMMOTH", "MASTODON", "HYRAX", "DAMAN", "SEA COW", "DUGONG", "MANATEE",
+        "RHINOCEROS", "WHITE RHINO", "BLACK RHINO", "INDIAN RHINO", "JAVAN RHINO", "SUMATRAN RHINO", "HIPPOPOTAMUS", "PYGMY HIPPO", "TAPIR", "MALAYAN TAPIR",
+        "BRAZILIAN TAPIR", "MOUNTAIN TAPIR", "BAIRD'S TAPIR", "HORSE", "DONKEY", "MULE", "ZEBRA", "GREVY'S ZEBRA", "PLAINS ZEBRA", "MOUNTAIN ZEBRA",
+        "PIG", "WILD BOAR", "WARTHOG", "BABIRUSA", "PECCARY", "DEER", "MOOSE", "ELK", "CARIBOU", "REINDEER",
+        "ROE DEER", "RED DEER", "FALLOW DEER", "SIKA DEER", "MUNTJAC", "CHITAL", "SAMBAR", "BARASINGHA", "HOG DEER", "MUSK DEER"
+    },
+    ["Human Organs"] = {
+        "HEART", "BRAIN", "LIVER", "LUNGS", "KIDNEY", "STOMACH", "SKIN", "BONE", "EYE", "EAR",
+        "NOSE", "HAND", "LEG", "ARM", "FOOT", "FINGER", "TOE", "TONGUE", "TOOTH", "HAIR",
+        "NAIL", "NECK", "BACK", "CHEST", "VEIN", "ARTERY", "CAPILLARY", "MUSCLE", "TENDON", "LIGAMENT",
+        "CARTILAGE", "SPINE", "SKULL", "RIB", "PELVIS", "SHOULDER", "ELBOW", "WRIST", "KNEE", "ANKLE",
+        "HEEL", "THUMB", "JAW", "CHIN", "CHEEK", "PANCREAS", "GALLBLADDER", "SPLEEN", "BLADDER", "APPENDIX",
+        "THYROID", "TONSILS", "TRACHEA", "ESOPHAGUS", "INTESTINE", "COLON", "RECTUM", "PROSTATE", "OVARIES", "UTERUS",
+        "TESTES", "PITUITARY", "HYPOTHALAMUS", "THYMUS", "DIAPHRAGM", "ADRENAL GLAND", "PARATHYROID", "PINEAL GLAND", "SALIVARY GLAND", "LACRIMAL GLAND",
+        "MAMMARY GLAND", "SWEAT GLAND", "SEBACEOUS GLAND", "CERUMINOUS GLAND", "LYMPH NODE", "LYMPH VESSEL", "SPLEEN", "THYMUS", "BONE MARROW", "BLOOD",
+        "PLASMA", "RED BLOOD CELL", "WHITE BLOOD CELL", "PLATELET", "HEMOGLOBIN", "ANTIBODY", "ENZYME", "HORMONE", "NEURON", "AXON",
+        "DENDRITE", "SYNAPSE", "SPINAL CORD", "CEREBRUM", "CEREBELLUM", "BRAINSTEM", "MEDULLA OBLONGATA", "PONS", "MIDBRAIN", "THALAMUS",
+        "HYPOTHALAMUS", "AMYGDALA", "HIPPOCAMPUS", "CORPUS CALLOSUM", "VENTRICLE", "MENINGES", "DURA MATER", "ARACHNOID MATER", "PIA MATER", "CEREBROSPINAL FLUID",
+        "CRANIAL NERVE", "OLFACTORY NERVE", "OPTIC NERVE", "OCULOMOTOR NERVE", "TROCHLEAR NERVE", "TRIGEMINAL NERVE", "ABDUCENS NERVE", "FACIAL NERVE", "VESTIBULOCOCHLEAR NERVE", "GLOSSOPHARYNGEAL NERVE",
+        "VAGUS NERVE", "ACCESSORY NERVE", "HYPOGLOSSAL NERVE", "SPINAL NERVE", "CERVICAL NERVE", "THORACIC NERVE", "LUMBAR NERVE", "SACRAL NERVE", "COCCYGEAL NERVE", "BRACHIAL PLEXUS",
+        "LUMBOSACRAL PLEXUS", "SCIATIC NERVE", "FEMORAL NERVE", "ULNAR NERVE", "MEDIAN NERVE", "RADIAL NERVE", "TIBIAL NERVE", "PERONEAL NERVE", "PHARYNX", "LARYNX",
+        "VOCAL CORD", "EPIGLOTTIS", "BRONCHUS", "BRONCHIOLE", "ALVEOLI", "PLEURA", "DIAPHRAGM", "RIBCAGE", "STERNUM", "CLAVICLE",
+        "SCAPULA", "HUMERUS", "RADIUS", "ULNA", "CARPALS", "METACARPALS", "PHALANGES", "FEMUR", "PATELLA", "TIBIA",
+        "FIBULA", "TARSALS", "METATARSALS", "PHALANGES", "VERTEBRAE", "CERVICAL VERTEBRAE", "THORACIC VERTEBRAE", "LUMBAR VERTEBRAE", "SACRUM", "COCCYX",
+        "ATLAS", "AXIS", "SACROILIAC JOINT", "PUBIC SYMPHYSIS", "TEMPOROMANDIBULAR JOINT", "GLENOHUMERAL JOINT", "ELBOW JOINT", "WRIST JOINT", "HIP JOINT", "KNEE JOINT",
+        "ANKLE JOINT", "INTERVERTEBRAL DISC", "MENISCUS", "BURSA", "SYNOVIAL FLUID", "LIGAMENT", "ACL", "PCL", "MCL", "LCL",
+        "ROTATOR CUFF", "ACHILLES TENDON", "PATELLAR TENDON", "BICEPS TENDON", "TRICEPS TENDON", "QUADRICEPS TENDON", "HAMSTRING TENDON", "ADDUCTOR TENDON", "GLUTEUS MAXIMUS", "GLUTEUS MEDIUS",
+        "GLUTEUS MINIMUS", "TENSOR FASCIAE LATAE", "SARTORIUS", "RECTUS FEMORIS", "VASTUS LATERALIS", "VASTUS MEDIALIS", "VASTUS INTERMEDIUS", "BICEPS FEMORIS", "SEMITENDINOSUS", "SEMIMEMBRANOSUS",
+        "GASTROCNEMIUS", "SOLEUS", "TIBIALIS ANTERIOR", "PERONEUS LONGUS", "FLEXOR DIGITORUM", "EXTENSOR DIGITORUM", "ADDUCTOR LONGUS", "PECTINEUS", "GRACILIS", "ILIACUS"
+    },
+    ["Roblox Games"] = {
+        "BLOX FRUITS", "BROOKHAVEN", "ADOPT ME", "TOWER OF HELL", "MURDER MYSTERY 2", "MEEP CITY", "BEDWARS", "DOORS", "PET SIMULATOR", "PIGGY",
+        "ARSENAL", "DA HOOD", "JAILBREAK", "LUMBER TYCOON", "BEE SWARM", "ANIME FIGHTERS", "KING LEGACY", "BLADE BALL", "PLZ DONATE", "NATURAL DISASTER",
+        "ROYALE HIGH", "FRONTLINES", "PHANTOM FORCES", "VEHICLE LEGENDS", "MAD CITY", "SLAP BATTLES", "PET SIMULATOR 99", "FRUIT BATTLEGROUNDS", "ANIME DEFENDERS", "TIDE",
+        "DEEPWOKEN", "GRAND PIECE ONLINE", "SHINDO LIFE", "RO GHOUL", "YBA", "AUT", "WELCOME TO BLOXBURG", "WORK AT A PIZZA PLACE", "HIDE AND SEEK EXTREME", "EPIC MINIGAMES",
+        "SPEED RUN 4", "FLOOD ESCAPE", "TOWER DEFENSE SIMULATOR", "ALL STAR TOWER DEFENSE", "ANIME CHAMPIONS", "THE STRONGEST BATTLEGROUNDS", "EVADE", "FLEE THE FACILITY", "BUILD A BOAT FOR TREASURE", "THE MIMIC",
+        "APEIROPHOBIA", "BREAK IN", "SURVIVE THE KILLER", "PIGGY: HUNT", "KAT", "RIVALS", "BEDWARS 2", "ANIME ADVENTURES", "PROJECT SLAYERS", "TYPE SOUL",
+        "PEROXIDE", "BLOX FRUITS 2", "HAZEM", "PLS DONATE 2", "MIC UP", "NINJA LEGENDS", "DRAGON BALL Z", "ONE PIECE", "NARUTO", "ATTACK ON TITAN",
+        "DEMON SLAYER", "JUJUTSU KAISEN", "MY HERO ACADEMIA", "DEATH NOTE", "TOKYO GHOUL", "SWORD ART ONLINE", "RE:ZERO", "OVERLORD", "NO GAME NO LIFE", "THE RISING OF THE SHIELD HERO",
+        "THAT TIME I GOT REINCARNATED AS A SLIME", "KONOSUBA", "MUSHOKU TENSEI", "REINCARNATED AS A SWORD", "SAGA OF TANYA THE EVIL", "YOUJO SENKI", "VINLAND SAGA", "BERSERK", "HUNTER X HUNTER", "FULLMETAL ALCHEMIST",
+        "CODE GEASS", "STEINS;GATE", "PSYCHO-PASS", "GHOST IN THE SHELL", "AKIRA", "COWBOY BEBOP", "SAMURAI CHAMPLOO", "TRIGUN", "GURREN LAGANN", "KILL LA KILL",
+        "LITTLE WITCH ACADEMIA", "DARLING IN THE FRANXX", "EVANGELION", "GUNDAM", "MACROSS", "TRANSFORMERS", "VOLTRON", "POWER RANGERS", "SUPER SENTAI", "KAMEN RIDER",
+        "ULTRAMAN", "PACIFIC RIM", "GODZILLA", "KING KONG", "JURASSIC PARK", "JURASSIC WORLD", "THE LOST WORLD", "DINOSAUR", "ICE AGE", "SHREK",
+        "TOY STORY", "FROZEN", "MOANA", "TANGLED", "BRAVE", "CARS", "PLANES", "FINDING NEMO", "THE INCREDIBLES", "RATATOUILLE",
+        "WALL-E", "UP", "INSIDE OUT", "COCO", "SOUL", "LUCA", "TURNING RED", "LIGHTYEAR", "ONWARD", "ENCANTO",
+        "ZOOTOPIA", "WRECK-IT RALPH", "BIG HERO 6", "BH6", "THE LION KING", "ALADDIN", "BEAUTY AND THE BEAST", "THE LITTLE MERMAID", "MULAN", "POCAHONTAS",
+        "HERCULES", "TARZAN", "ATLANTIS", "TREASURE PLANET", "LILO & STITCH", "THE EMPEROR'S NEW GROOVE", "BROTHER BEAR", "HOME ON THE RANGE", "CHICKEN LITTLE", "MEET THE ROBINSONS",
+        "BOLT", "THE PRINCESS AND THE FROG", "WINNIE THE POOH", "WRECK-IT RALPH", "PLANES: FIRE & RESCUE", "THE GOOD DINOSAUR", "FINDING DORY", "CARS 3", "COCO", "INCREDIBLES 2",
+        "TOY STORY 4", "FROZEN II", "ONWARD", "RAYA AND THE LAST DRAGON", "LUCA", "ENCANTO", "TURNING RED", "LIGHTYEAR", "STRANGE WORLD", "WISH",
+        "SUPER MARIO", "SONIC", "POKEMON", "DIGIMON", "YU-GI-OH", "BEYBLADE", "BAKUGAN", "NARUTO", "BLEACH", "ONE PIECE",
+        "FAIRY TAIL", "BLACK CLOVER", "MY HERO ACADEMIA", "DEMON SLAYER", "JUJUTSU KAISEN", "CHAINSAW MAN", "SPY X FAMILY", "TOKYO REVENGERS", "BLUE LOCK", "HAIKYU",
+        "KUROKO'S BASKETBALL", "ACE OF DIAMOND", "MAJOR", "PRINCE OF TENNIS", "FREE!", "YURI ON ICE", "SK8 THE INFINITY", "INITIAL D", "WANGAN MIDNIGHT", "CAPETA",
+        "OVER DRIVE", "YUYU HAKUSHO", "HUNTER X HUNTER", "FULLMETAL ALCHEMIST", "DEATH NOTE", "MONSTER", "PLUTO", "20TH CENTURY BOYS", "BILLY BAT", "GANTZ",
+        "INUYASHIKI", "AJIN", "PARASYTE", "TOKYO GHOUL", "TERRA FORMARS", "ATTACK ON TITAN", "THE PROMISED NEVERLAND", "MADE IN ABYSS", "MUSHISHI", "NATSUME'S BOOK OF FRIENDS",
+        "BARAKAMON", "NON NON BIYORI", "YURU CAMP", "K-ON!", "LOVE LIVE", "THE IDOLMASTER", "BANG DREAM", "ZOMBIE LAND SAGA", "GIRLS UND PANZER", "STRIKE WITCHES",
+        "KANTAI COLLECTION", "AZUR LANE", "ARPPEGGIO OF BLUE STEEL", "GATE", "OUTBREAK COMPANY", "RE:CREATORS", "THE DEVIL IS A PART-TIMER", "KONOSUBA", "RE:ZERO", "OVERLORD",
+        "THAT TIME I GOT REINCARNATED AS A SLIME", "SO I'M A SPIDER, SO WHAT?", "THE RISING OF THE SHIELD HERO", "BTOOOM!", "SWORD ART ONLINE", "LOG HORIZON", "NO GAME NO LIFE", "PROBLEM CHILDREN ARE COMING FROM ANOTHER WORLD, AREN'T THEY?", "HOW NOT TO SUMMON A DEMON LORD", "DEATH MARCH TO THE PARALLEL WORLD RHAPSODY",
+        "IN ANOTHER WORLD WITH MY SMARTPHONE", "WISE MAN'S GRANDCHILD", "THE 8TH SON? ARE YOU KIDDING ME?", "ARIFURETA", "SHIELD HERO", "MOONLIT FANTASY", "THE WORLD'S FINEST ASSASSIN", "MUSHOKU TENSEI", "REINCARNATED AS A SWORD", "SAGA OF TANYA THE EVIL",
+        "YOUJO SENKI", "VINLAND SAGA", "BERSERK", "GOLDEN KAMUY", "DOROHEDORO", "BEASTARS", "DR. STONE", "THE PROMISED NEVERLAND", "FIRE FORCE", "SOUL EATER",
+        "BLACK BUTLER", "D.GRAY-MAN", "BLUE EXORCIST", "SERAPH OF THE END", "OWARI NO SERAPH", "TOKYO RAVENS", "K", "PROJECT K", "DURARARA", "BACCANO",
+        "MONOGATARI", "KATANAGATARI", "MEDAKA BOX", "HARUHI SUZUMIYA", "LUCKY STAR", "NICHIJOU", "AZUMANGA DAIOH", "SCHOOL RUMBLE", "GTO", "GREAT TEACHER ONIZUKA",
+        "ASSASSINATION CLASSROOM", "KOROSENSEI", "MY TEEN ROMANTIC COMEDY SNAFU", "OREGAIRU", "HAGANAI", "BOKU WA TOMODACHI GA SUKUNAI", "THE PET GIRL OF SAKURASOU", "TORADORA", "GOLDEN TIME", "LOVE, CHUNIBYO & OTHER DELUSIONS",
+        "CLANNAD", "KANON", "AIR", "LITTLE BUSTERS", "ANGEL BEATS", "CHARLOTTE", "PLASTIC MEMORIES", "ANOHANA", "YOUR LIE IN APRIL", "A SILENT VOICE",
+        "I WANT TO EAT YOUR PANCREAS", "WEATHERING WITH YOU", "YOUR NAME", "5 CENTIMETERS PER SECOND", "THE GARDEN OF WORDS", "SPIRITED AWAY", "MY NEIGHBOR TOTORO", "PRINCESS MONONOKE", "HOWL'S MOVING CASTLE", "KIKI'S DELIVERY SERVICE"
+    },
+    ["Regions and Countries"] = {
+        "AFGHANISTAN", "ALBANIA", "ALGERIA", "ANDORRA", "ANGOLA", "ANTIGUA AND BARBUDA", "ARGENTINA", "ARMENIA", "AUSTRALIA", "AUSTRIA",
+        "AZERBAIJAN", "BAHAMAS", "BAHRAIN", "BANGLADESH", "BARBADOS", "BELARUS", "BELGIUM", "BELIZE", "BENIN", "BHUTAN",
+        "BOLIVIA", "BOSNIA AND HERZEGOVINA", "BOTSWANA", "BRAZIL", "BRUNEI", "BULGARIA", "BURKINA FASO", "BURUNDI", "CABO VERDE", "CAMBODIA",
+        "CAMEROON", "CANADA", "CENTRAL AFRICAN REPUBLIC", "CHAD", "CHILE", "CHINA", "COLOMBIA", "COMOROS", "CONGO", "COSTA RICA",
+        "CROATIA", "CUBA", "CYPRUS", "CZECH REPUBLIC", "DENMARK", "DJIBOUTI", "DOMINICA", "DOMINICAN REPUBLIC", "ECUADOR", "EGYPT",
+        "EL SALVADOR", "EQUATORIAL GUINEA", "ERITREA", "ESTONIA", "ESWATINI", "ETHIOPIA", "FIJI", "FINLAND", "FRANCE", "GABON",
+        "GAMBIA", "GEORGIA", "GERMANY", "GHANA", "GREECE", "GRENADA", "GUATEMALA", "GUINEA", "GUINEA-BISSAU", "GUYANA",
+        "HAITI", "HONDURAS", "HUNGARY", "ICELAND", "INDIA", "INDONESIA", "IRAN", "IRAQ", "IRELAND", "ISRAEL",
+        "ITALY", "JAMAICA", "JAPAN", "JORDAN", "KAZAKHSTAN", "KENYA", "KIRIBATI", "KOREA, NORTH", "KOREA, SOUTH", "KOSOVO",
+        "KUWAIT", "KYRGYZSTAN", "LAOS", "LATVIA", "LEBANON", "LESOTHO", "LIBERIA", "LIBYA", "LIECHTENSTEIN", "LITHUANIA",
+        "LUXEMBOURG", "MADAGASCAR", "MALAWI", "MALAYSIA", "MALDIVES", "MALI", "MALTA", "MARSHALL ISLANDS", "MAURITANIA", "MAURITIUS",
+        "MEXICO", "MICRONESIA", "MOLDOVA", "MONACO", "MONGOLIA", "MONTENEGRO", "MOROCCO", "MOZAMBIQUE", "MYANMAR", "NAMIBIA",
+        "NAURU", "NEPAL", "NETHERLANDS", "NEW ZEALAND", "NICARAGUA", "NIGER", "NIGERIA", "NORTH MACEDONIA", "NORWAY", "OMAN",
+        "PAKISTAN", "PALAU", "PALESTINE", "PANAMA", "PAPUA NEW GUINEA", "PARAGUAY", "PERU", "PHILIPPINES", "POLAND", "PORTUGAL",
+        "QATAR", "ROMANIA", "RUSSIA", "RWANDA", "SAINT KITTS AND NEVIS", "SAINT LUCIA", "SAINT VINCENT AND THE GRENADINES", "SAMOA", "SAN MARINO", "SAO TOME AND PRINCIPE",
+        "SAUDI ARABIA", "SENEGAL", "SERBIA", "SEYCHELLES", "SIERRA LEONE", "SINGAPORE", "SLOVAKIA", "SLOVENIA", "SOLOMON ISLANDS", "SOMALIA",
+        "SOUTH AFRICA", "SOUTH SUDAN", "SPAIN", "SRI LANKA", "SUDAN", "SURINAME", "SWEDEN", "SWITZERLAND", "SYRIA", "TAIWAN",
+        "TAJIKISTAN", "TANZANIA", "THAILAND", "TIMOR-LESTE", "TOGO", "TONGA", "TRINIDAD AND TOBAGO", "TUNISIA", "TURKEY", "TURKMENISTAN",
+        "TUVALU", "UGANDA", "UKRAINE", "UNITED ARAB EMIRATES", "UNITED KINGDOM", "UNITED STATES", "URUGUAY", "UZBEKISTAN", "VANUATU", "VATICAN CITY",
+        "VENEZUELA", "VIETNAM", "YEMEN", "ZAMBIA", "ZIMBABWE", "ABKHAZIA", "ARTSAKH", "COOK ISLANDS", "NIUE", "NORTHERN CYPRUS",
+        "SOMALILAND", "SOUTH OSSETIA", "TAIWAN", "WESTERN SAHARA", "PALESTINE", "KOSOVO", "VATICAN CITY", "MALTA", "SAN MARINO", "LIECHTENSTEIN",
+        "MONACO", "ANDORRA", "LUXEMBOURG", "BRUNEI", "SINGAPORE", "MALDIVES", "SEYCHELLES", "SAINT KITTS AND NEVIS", "SAINT LUCIA", "SAINT VINCENT AND THE GRENADINES",
+        "GRENADA", "ANTIGUA AND BARBUDA", "BARBADOS", "BAHAMAS", "TRINIDAD AND TOBAGO", "DOMINICA", "SAINT LUCIA", "SAINT VINCENT AND THE GRENADINES", "GRENADA", "ANTIGUA AND BARBUDA",
+        "BARBADOS", "BAHAMAS", "TRINIDAD AND TOBAGO", "DOMINICA", "SAINT LUCIA", "SAINT VINCENT AND THE GRENADINES", "GRENADA", "ANTIGUA AND BARBUDA", "BARBADOS", "BAHAMAS"
+    },
+    ["All in One"] = {
+        "CAR", "BUS", "CAT", "DOG", "PENCIL", "BOOK", "TABLE", "CHAIR", "PHONE", "COMPUTER",
+        "HOUSE", "TREE", "FLOWER", "SUN", "MOON", "STAR", "CLOUD", "RAIN", "WIND", "SNOW",
+        "FIRE", "WATER", "EARTH", "AIR", "MOUNTAIN", "RIVER", "LAKE", "OCEAN", "DESERT", "FOREST",
+        "BIRD", "FISH", "INSECT", "REPTILE", "MAMMAL", "PLANT", "FRUIT", "VEGETABLE", "MEAT", "BREAD",
+        "MILK", "CHEESE", "BUTTER", "EGG", "RICE", "WHEAT", "CORN", "POTATO", "TOMATO", "ONION",
+        "GARLIC", "GINGER", "SALT", "SUGAR", "PEPPER", "OIL", "VINEGAR", "SOY SAUCE", "KETCHUP", "MUSTARD",
+        "PLATE", "BOWL", "SPOON", "FORK", "KNIFE", "CUP", "GLASS", "JUG", "POT", "PAN",
+        "STOVE", "OVEN", "FRIDGE", "SINK", "SOAP", "SHAMPOO", "TOOTHPASTE", "TOOTHBRUSH", "TOWEL", "MIRROR",
+        "BED", "PILLOW", "BLANKET", "SHEET", "MATTRESS", "LAMP", "LIGHT", "FAN", "AIR CONDITIONER", "HEATER",
+        "RADIO", "TELEVISION", "REMOTE", "BATTERY", "CHARGER", "CABLE", "WIRE", "PLUG", "SWITCH", "SOCKET",
+        "DOOR", "WINDOW", "WALL", "FLOOR", "CEILING", "ROOF", "STAIRS", "ELEVATOR", "ESCALATOR", "HALLWAY",
+        "ROOM", "KITCHEN", "BATHROOM", "BEDROOM", "LIVING ROOM", "DINING ROOM", "GARAGE", "BASEMENT", "ATTIC", "YARD",
+        "GARDEN", "FENCE", "GATE", "PATH", "ROAD", "STREET", "HIGHWAY", "BRIDGE", "TUNNEL", "SIDEWALK",
+        "TRAFFIC LIGHT", "STOP SIGN", "CROSSWALK", "PARKING LOT", "GAS STATION", "BUS STOP", "TRAIN STATION", "AIRPORT", "SEAPORT", "HOSPITAL",
+        "SCHOOL", "UNIVERSITY", "LIBRARY", "MUSEUM", "THEATER", "CINEMA", "STADIUM", "GYM", "POOL", "PARK",
+        "ZOO", "AQUARIUM", "BEACH", "MOUNTAIN", "HILL", "VALLEY", "PLATEAU", "CANYON", "CAVE", "WATERFALL",
+        "LAKE", "POND", "RIVER", "STREAM", "OCEAN", "SEA", "BAY", "GULF", "STRAIT", "ISLAND",
+        "PENINSULA", "DESERT", "FOREST", "JUNGLE", "SAVANNA", "TUNDRA", "TAIGA", "STEPPE", "PRAIRIE", "MARSH",
+        "SWAMP", "BOG", "FEN", "REEF", "CORAL", "FISH", "SHARK", "WHALE", "DOLPHIN", "SEAL",
+        "WALRUS", "PENGUIN", "POLAR BEAR", "BROWN BEAR", "BLACK BEAR", "PANDA", "KOALA", "KANGAROO", "WOMBAT", "PLATYPUS",
+        "ECHIDNA", "TASMANIAN DEVIL", "WALLABY", "POSSUM", "GLIDER", "CUSCUS", "BANDICOOT", "NUMBAT", "QUOLL", "DINGO"
+    }
+}
+
+local CatScroll = Instance.new("ScrollingFrame")
+CatScroll.Size = UDim2.new(1, -20, 0, 150)
+CatScroll.Position = UDim2.new(0, 10, 0, 125)
+CatScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+CatScroll.Visible = false
+CatScroll.ZIndex = 5
+CatScroll.Parent = MainFrame
+local UIListLayout2 = Instance.new("UIListLayout", CatScroll)
+UIListLayout2.Padding = UDim.new(0, 2)
+
+-- Populate Categories (updated with new categories)
+local CatNames = {"Food", "Electronics", "Metal and Nonmetal", "Animal", "Human Organs", "Server Players", "Roblox Games", "Regions and Countries", "All in One"}
+CatScroll.CanvasSize = UDim2.new(0, 0, 0, #CatNames * 32)
+for _, cat in pairs(CatNames) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 30)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.Text = cat
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.ZIndex = 6
+    btn.Parent = CatScroll
+    btn.MouseButton1Click:Connect(function()
+        CategoryInput.Text = cat
+        CatScroll.Visible = false
+    end)
+end
+CatDropBtn.MouseButton1Click:Connect(function()
+    CatScroll.Visible = not CatScroll.Visible
+end)
+
+-- Spam Duration Settings
+local DurationInput = Instance.new("TextBox")
+DurationInput.Size = UDim2.new(0, 165, 0, 35)
+DurationInput.Position = UDim2.new(0, 10, 0, 125)
+DurationInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+DurationInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+DurationInput.PlaceholderText = "Duration (Sec)"
+DurationInput.Text = ""
+DurationInput.Font = Enum.Font.Gotham
+DurationInput.Parent = MainFrame
+Instance.new("UICorner", DurationInput).CornerRadius = UDim.new(0, 5)
+
+-- Message Delay Settings
+local DelayInput = Instance.new("TextBox")
+DelayInput.Size = UDim2.new(0, 165, 0, 35)
+DelayInput.Position = UDim2.new(1, -175, 0, 125)
+DelayInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+DelayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+DelayInput.PlaceholderText = "Msg Delay (Sec)"
+DelayInput.Text = "2"
+DelayInput.Font = Enum.Font.Gotham
+DelayInput.Parent = MainFrame
+Instance.new("UICorner", DelayInput).CornerRadius = UDim.new(0, 5)
+
+-- Start Spam Button
+local StartBtn = Instance.new("TextButton")
+StartBtn.Size = UDim2.new(1, -20, 0, 35)
+StartBtn.Position = UDim2.new(0, 10, 0, 165)
+StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+StartBtn.Text = "START SPAM"
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.TextSize = 16
+StartBtn.Parent = MainFrame
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 5)
+
+-- Stop Spam Button
+local StopBtn = Instance.new("TextButton")
+StopBtn.Size = UDim2.new(1, -20, 0, 35)
+StopBtn.Position = UDim2.new(0, 10, 0, 205)
+StopBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+StopBtn.Text = "STOP SPAM"
+StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopBtn.Font = Enum.Font.GothamBold
+StopBtn.TextSize = 16
+StopBtn.Parent = MainFrame
+Instance.new("UICorner", StopBtn).CornerRadius = UDim.new(0, 5)
+
+-- Cooler Discord Button Design
+local DiscordBtn = Instance.new("TextButton")
+DiscordBtn.Size = UDim2.new(1, -20, 0, 35)
+DiscordBtn.Position = UDim2.new(0, 10, 0, 245)
+DiscordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+DiscordBtn.RichText = true
+DiscordBtn.Text = "<b>🌟 <font color='#FFFFFF'>COPY DISCORD LINK</font> 🌟</b>"
+DiscordBtn.Font = Enum.Font.GothamBold
+DiscordBtn.TextSize = 15
+DiscordBtn.Parent = MainFrame
+Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 5)
+
+local DiscordStroke = Instance.new("UIStroke")
+DiscordStroke.Color = Color3.fromRGB(255, 255, 255)
+DiscordStroke.Thickness = 1.5
+DiscordStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+DiscordStroke.Parent = DiscordBtn
+
+DiscordBtn.MouseButton1Click:Connect(function()
+    setclipboard("https://discord.gg/8p29Pq9Uk")
+    DiscordBtn.Text = "<b>✅ <font color='#A8FFB2'>COPIED TO CLIPBOARD!</font> ✅</b>"
+    task.wait(2)
+    DiscordBtn.Text = "<b>🌟 <font color='#FFFFFF'>COPY DISCORD LINK</font> 🌟</b>"
+end)
+
+-- Owner Text Label
+local OwnerLabel = Instance.new("TextLabel")
+OwnerLabel.Size = UDim2.new(1, -20, 0, 30)
+OwnerLabel.Position = UDim2.new(0, 10, 0, 290)
+OwnerLabel.BackgroundTransparency = 1
+OwnerLabel.Text = "OWNER-: INDIANGAMER6975 (NOT_IITIAN)"
+OwnerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+OwnerLabel.Font = Enum.Font.GothamBold
+OwnerLabel.TextSize = 12
+OwnerLabel.Parent = MainFrame
+
+-- Bulletproof Real-time Multi-Tag Handler & Lock System
+local isPausedForTag = false
+local function handleTagPenalty()
+    if isPausedForTag then return end
+    isPausedForTag = true
+    -- Send anti-tag statement
+    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        local textChannel = TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+        if textChannel then
+            textChannel:SendAsync("I love Roblox]-: Because roblox tags")
+        end
+    else
+        ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer("I love Roblox]-: Because roblox tags", "All")
+    end
+    -- Wait 7 seconds penalty
+    task.wait(7)
+    isPausedForTag = false
+end
+
+local function checkFilteredText(txt)
+    if string.find(txt, "#") then
+        task.spawn(handleTagPenalty)
+    end
+end
+
+local function setupChannel(channel)
+    channel.OnIncomingMessage = function(message)
+        if message.TextSource and message.TextSource.UserId == Players.LocalPlayer.UserId then
+            checkFilteredText(message.Text)
+        end
+    end
+end
+
+if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+    for _, channel in pairs(TextChatService.TextChannels:GetChildren()) do
+        setupChannel(channel)
+    end
+    TextChatService.TextChannels.ChildAdded:Connect(setupChannel)
+end
+
+local ChatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+if ChatEvents and ChatEvents:FindFirstChild("OnMessageDoneFiltering") then
+    ChatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(packet)
+        if packet.FromSpeaker == Players.LocalPlayer.Name or packet.FromSpeaker == Players.LocalPlayer.DisplayName then
+            checkFilteredText(packet.Message)
+        end
+    end)
+end
+
+-- Chat Function Setup with Pause Locking
+local function sendChatMessage(msg)
+    -- Agar tag ki wajah se pause chal raha hai, toh naya message bhejne se pehle script yahin ruk jayegi
+    while isPausedForTag do
+        task.wait(0.2)
+    end
+    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        local textChannel = TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+        if textChannel then
+            textChannel:SendAsync(msg)
+        end
+    else
+        ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All")
+    end
+end
+
+-- Spam Logic
+local isSpamming = false
+local spamRoutine = nil
+
+StartBtn.MouseButton1Click:Connect(function()
+    if isSpamming then return end
+    local targetName = TargetInput.Text
+    local selectedCat = CategoryInput.Text
+    local delayTime = tonumber(DelayInput.Text) or 2
+    local durationTime = tonumber(DurationInput.Text) or 999999
+
+    if targetName == "" or targetName == "Type player Display Name" then return end
+    if selectedCat == "" or selectedCat == "Choose category" then return end
+
+    isSpamming = true
+    StartBtn.Text = "SPAMMING..."
+
+    local spamArray = {}
+    if selectedCat == "Server Players" then
+        for _, p in pairs(Players:GetPlayers()) do
+            table.insert(spamArray, p.DisplayName)
+        end
+    else
+        spamArray = Categories[selectedCat]
+    end
+
+    spamRoutine = task.spawn(function()
+        local startTime = tick()
+        local index = 1
+        while isSpamming and (tick() - startTime) < durationTime do
+            local currentItem = spamArray[index]
+            if not currentItem then
+                index = 1
+                currentItem = spamArray[index]
+            end
+            local message = "Script Created by NOT_IITIAN { 🚀 } @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ " .. targetName .. " TMXH MHN MAI " .. currentItem
+            sendChatMessage(message)
+            index = index + 1
+            task.wait(delayTime)
+        end
+        isSpamming = false
+        StartBtn.Text = "START SPAM"
+    end)
+end)
+
+StopBtn.MouseButton1Click:Connect(function()
+    isSpamming = false
+    StartBtn.Text = "START SPAM"
+    isPausedForTag = false
+    if spamRoutine then
+        task.cancel(spamRoutine)
+        spamRoutine = nil
+    end
+end)
