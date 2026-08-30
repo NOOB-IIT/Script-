@@ -1,0 +1,237 @@
+-- Server-Side Anti-Fly Engine with Integrated Scare UI & Kick
+-- Place this Script inside ServerScriptService
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+--------------------------------------------------------------------------------
+-- CONFIGURATION & WHITELIST
+--------------------------------------------------------------------------------
+local WHITELISTED_IDS = {
+	game.CreatorId, -- Game Owner (Automatically Exempted)
+	-- Yahan additional Admin UserIDs add kar sakte hain (e.g., 12345678)
+}
+
+local MAX_HOVER_TIME = 2.5       -- Seconds in air before executing scare
+local RAY_CAST_DEPTH = 10        -- Distance in studs to scan for ground
+local MAX_VERTICAL_SPEED = 50    -- Unnatural upward speed limit
+
+local playerFlyBuffer = {}
+
+--------------------------------------------------------------------------------
+-- HELPER FUNCTIONS
+--------------------------------------------------------------------------------
+local function isWhitelisted(player)
+	if player.UserId == game.CreatorId then return true end
+	for _, id in ipairs(WHITELISTED_IDS) do
+		if player.UserId == id then return true end
+	end
+	return false
+end
+
+-- Constructs and executes your exact Realm-Scare UI & Sound script
+local function executeScareSequence(player)
+	if player:GetAttribute("IsFlyPunished") then return end
+	player:SetAttribute("IsFlyPunished", true)
+
+	-- Instantly freeze character position
+	if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+		player.Character.HumanoidRootPart.Anchored = true
+	end
+
+	local playerGui = player:FindFirstChild("PlayerGui")
+	if playerGui then
+		local realmscare = Instance.new("ScreenGui")
+		realmscare.Name = "realm-scare"
+		realmscare.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		realmscare.ResetOnSpawn = false
+
+		local ImageLabel = Instance.new("ImageLabel")
+		ImageLabel.Parent = realmscare
+		ImageLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		ImageLabel.BorderColor3 = Color3.fromRGB(27, 42, 53)
+		ImageLabel.Position = UDim2.new(0, 0, -0.0335968398, 0)
+		ImageLabel.Size = UDim2.new(1, 0, 1.03359687, 0)
+		ImageLabel.Image = "rbxassetid://6719801986"
+
+		local framefrrfr = Instance.new("Frame")
+		framefrrfr.Name = "framefrrfr"
+		framefrrfr.Parent = ImageLabel
+		framefrrfr.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+		framefrrfr.BorderColor3 = Color3.fromRGB(27, 42, 53)
+		framefrrfr.BorderSizePixel = 0
+		framefrrfr.Position = UDim2.new(-0.000821621623, 0, 0.814750969, 0)
+		framefrrfr.Size = UDim2.new(0.338442117, 0, 0.19506079, 0)
+
+		local PercentageBar = Instance.new("ImageLabel")
+		PercentageBar.Name = "PercentageBar"
+		PercentageBar.Parent = framefrrfr
+		PercentageBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		PercentageBar.BackgroundTransparency = 1.000
+		PercentageBar.BorderColor3 = Color3.fromRGB(27, 42, 53)
+		PercentageBar.Position = UDim2.new(0.0326975472, 0, 0.577336967, 0)
+		PercentageBar.Size = UDim2.new(0.934604824, 0, 0.295081973, 0)
+		PercentageBar.Image = "rbxassetid://3570695787"
+		PercentageBar.ImageColor3 = Color3.fromRGB(0, 145, 255)
+		PercentageBar.ScaleType = Enum.ScaleType.Slice
+		PercentageBar.SliceCenter = Rect.new(100, 100, 100, 100)
+		PercentageBar.SliceScale = 0.120
+
+		local Label = Instance.new("TextLabel")
+		Label.Name = "Label"
+		Label.Parent = PercentageBar
+		Label.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		Label.BackgroundTransparency = 1.000
+		Label.BorderColor3 = Color3.fromRGB(27, 42, 53)
+		Label.Size = UDim2.new(1, 0, 1, 0)
+		Label.Font = Enum.Font.SourceSans
+		Label.Text = "100%"
+		Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+		Label.TextScaled = true
+		Label.TextSize = 14.000
+		Label.TextWrapped = true
+
+		local Frame = Instance.new("ImageLabel")
+		Frame.Name = "Frame"
+		Frame.Parent = framefrrfr
+		Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		Frame.BackgroundTransparency = 1.000
+		Frame.BorderColor3 = Color3.fromRGB(27, 42, 53)
+		Frame.Position = UDim2.new(-0.204075292, 0, -0.198473275, 0)
+		Frame.Size = UDim2.new(0.525885582, 0, 0.368852466, 0)
+		Frame.Image = "rbxassetid://6719801986"
+		Frame.ImageColor3 = Color3.fromRGB(35, 35, 35)
+		Frame.ScaleType = Enum.ScaleType.Slice
+		Frame.SliceCenter = Rect.new(100, 100, 100, 100)
+		Frame.SliceScale = 0.120
+
+		local TextLabel = Instance.new("TextLabel")
+		TextLabel.Parent = Frame
+		TextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		TextLabel.BackgroundTransparency = 1.000
+		TextLabel.BorderColor3 = Color3.fromRGB(27, 42, 53)
+		TextLabel.Position = UDim2.new(0.383419693, 0, 0, 0)
+		TextLabel.Size = UDim2.new(0.616580307, 0, 0.577777803, 0)
+		TextLabel.Font = Enum.Font.SourceSans
+		TextLabel.Text = "Loading..."
+		TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		TextLabel.TextScaled = true
+		TextLabel.TextSize = 14.000
+		TextLabel.TextWrapped = true
+
+		local TextLabel_2 = Instance.new("TextLabel")
+		TextLabel_2.Parent = ImageLabel
+		TextLabel_2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		TextLabel_2.BackgroundTransparency = 1.000
+		TextLabel_2.BorderColor3 = Color3.fromRGB(27, 42, 53)
+		TextLabel_2.Position = UDim2.new(-0.00198846636, 0, 0.846784174, 0)
+		TextLabel_2.Size = UDim2.new(0.339608967, 0, 0.0428137034, 0)
+		TextLabel_2.Font = Enum.Font.SourceSans
+		TextLabel_2.Text = "Now joining tubers realm.."
+		TextLabel_2.TextColor3 = Color3.fromRGB(255, 255, 255)
+		TextLabel_2.TextScaled = true
+		TextLabel_2.TextSize = 14.000
+		TextLabel_2.TextWrapped = true
+
+		local TextLabel_3 = Instance.new("TextLabel")
+		TextLabel_3.Parent = ImageLabel
+		TextLabel_3.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		TextLabel_3.BackgroundTransparency = 1.000
+		TextLabel_3.BorderColor3 = Color3.fromRGB(27, 42, 53)
+		TextLabel_3.Position = UDim2.new(0.0562912859, 0, 0.899411678, 0)
+		TextLabel_3.Size = UDim2.new(0.223557532, 0, 0.0245394632, 0)
+		TextLabel_3.Font = Enum.Font.SourceSansItalic
+		TextLabel_3.Text = "A place of pure homeless joy.."
+		TextLabel_3.TextColor3 = Color3.fromRGB(255, 255, 255)
+		TextLabel_3.TextScaled = true
+		TextLabel_3.TextSize = 14.000
+		TextLabel_3.TextWrapped = true
+
+		-- Embedded Client Sound Execution Script
+		local soundScript = Instance.new("LocalScript")
+		soundScript.Name = "RGEBY_fake_script"
+		soundScript.Source = [[
+			local tubers93 = Instance.new("Sound")
+			tubers93.Parent = game:GetService("Workspace")
+			tubers93.SoundId = "http://www.roblox.com/asset/?id=6129291390"
+			tubers93.Playing = true
+			tubers93.Looped = false
+			tubers93.Volume = 100000000000000000000000000
+			tubers93.Pitch = 1
+			task.wait(6)
+		]]
+		soundScript.Parent = ImageLabel
+
+		realmscare.Parent = playerGui
+	end
+
+	-- Wait 6 seconds for scare sound/UI execution, then terminate connection
+	task.wait(6)
+	player:Kick("Troller got Trolled , HAHA Noob")
+end
+
+--------------------------------------------------------------------------------
+-- MAIN ANTI-FLY HEURISTIC LOOP
+--------------------------------------------------------------------------------
+Players.PlayerRemoving:Connect(function(player)
+	playerFlyBuffer[player] = nil
+end)
+
+while task.wait(0.25) do
+	for _, player in ipairs(Players:GetPlayers()) do
+		-- Owner & Whitelist Check
+		if isWhitelisted(player) then continue end
+		if player:GetAttribute("IsFlyPunished") then continue end
+
+		local character = player.Character
+		if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid") then
+			local humanoid = character.Humanoid
+			local rootPart = character.HumanoidRootPart
+
+			-- Innocent Exclusions: Swimming, Sitting, Climbing, Death, Ragdoll
+			local state = humanoid:GetState()
+			if humanoid.Health <= 0 
+				or humanoid.Sit 
+				or state == Enum.HumanoidStateType.Swimming 
+				or state == Enum.HumanoidStateType.Climbing
+				or state == Enum.HumanoidStateType.PlatformStanding then
+				playerFlyBuffer[player] = 0
+				continue
+			end
+
+			-- Raycast Check for Ground Detection
+			local raycastParams = RaycastParams.new()
+			raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+			raycastParams.FilterDescendantsInstances = {character}
+
+			local rayDown = Workspace:Raycast(rootPart.Position, Vector3.new(0, -RAY_CAST_DEPTH, 0), raycastParams)
+
+			if rayDown then
+				-- Player is grounded
+				playerFlyBuffer[player] = math.max(0, (playerFlyBuffer[player] or 0) - 0.5)
+			else
+				local velocityY = rootPart.AssemblyLinearVelocity.Y
+
+				-- Natural Falling Check (Gravity velocity < -15)
+				if velocityY < -15 and state == Enum.HumanoidStateType.Freefall then
+					-- Legit Fall: Reset buffer
+					playerFlyBuffer[player] = math.max(0, (playerFlyBuffer[player] or 0) - 0.5)
+				else
+					-- Suspicious airborne hovering or rapid climbing
+					if velocityY > MAX_VERTICAL_SPEED then
+						playerFlyBuffer[player] = (playerFlyBuffer[player] or 0) + 1.0
+					else
+						playerFlyBuffer[player] = (playerFlyBuffer[player] or 0) + 0.25
+					end
+				end
+
+				-- Trigger Punishment sequence
+				if (playerFlyBuffer[player] or 0) >= MAX_HOVER_TIME then
+					task.spawn(function()
+						executeScareSequence(player)
+					end)
+				end
+			end
+		end
+	end
+end
