@@ -85,11 +85,11 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 3. WORD REPLACER HOOK (100% FIX)
+-- 3. WORD REPLACER HOOK (UPDATED LIST)
 -- ==========================================
--- Order set kiya gaya hai, lambe sentences pehle aayenge
 local replacements = {
     {"Lola Hub on Topa", "RED HUB on Top"},
+    {"Lola Hub no Topo", "RED HUB"},
     {"Lola Studios", "RED HUB Studios"},
     {"Lola studios", "RED HUB studios"},
     {"Lola Hub", "RED HUB"},
@@ -102,7 +102,6 @@ oldIndex = hookmetamethod(game, "__newindex", function(self, key, value)
     if tostring(key) == "Text" and type(value) == "string" then
         local newValue = value
         for _, pair in ipairs(replacements) do
-            -- pair[1] hai purana word, pair[2] hai naya word
             newValue = string.gsub(newValue, pair[1], pair[2])
         end
         return oldIndex(self, key, newValue)
@@ -111,7 +110,7 @@ oldIndex = hookmetamethod(game, "__newindex", function(self, key, value)
 end)
 
 -- ==========================================
--- 4. DISCORD LINK BYPASS (UPDATED LINK)
+-- 4. DISCORD LINK BYPASS
 -- ==========================================
 local myDiscord = "https://discord.gg/SeJARBTMHY"
 
