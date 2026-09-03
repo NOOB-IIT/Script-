@@ -93,10 +93,11 @@ end)
 -- ==========================================
 local replacements = {
     ["Lola Hub"] = "RED HUB",
-    ["Lola studios"] = "RED HUB studios",
+    ["Lola studios"] = "RED HUB Studios",
     ["Niri"] = "NOT_IITIAN",
     ["lola hub"] = "RED HUB", -- Small letters backup
     ["niri"] = "NOT_IITIAN"
+    ["dc"] = "https://discord.gg/vR2JtjVXTb"
 }
 
 local oldIndex
