@@ -37,7 +37,7 @@ sg:Destroy()
 -- 2. WORD REPLACER HOOK (Naye Words)
 -- ==========================================
 local replacements = {
-    {"GOONER HUB v2", "RED HUB V2"},
+    {"Gooner Hub v2", "RED HUB V2"},
     {"DG181", "NOT_IITIAN"}
 }
 
