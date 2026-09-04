@@ -1,0 +1,629 @@
+--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+--[[
+	ULTRA-ROBUST DELTA ODM GEAR (FINAL SPECIAL EDITION - SYMMETRIC TOP CONTROLS)
+	- Re-aligned UI: Q & E placed at the exact same top Y-level (top-left & top-right).
+	- Eject/Reload: Positioned nicely alongside the secondary action controls.
+	- Includes Burst Surprise Feature & Cosmetic Blades.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
+
+local player = Players.LocalPlayer
+if not player then return end
+
+local function runODM()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 10)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	local camera = Workspace.CurrentCamera or Workspace.ActiveCamera
+
+	if not humanoidRootPart or not humanoid then return end
+
+	---------------------------------------------------
+	-- CONFIGURATIONS
+	---------------------------------------------------
+	local maxDistance = 13000     
+	local basePullStrength = 18.0     
+	local minCableLength = 3      
+	local maxCableLength = 13000  
+	local maxSwingSpeed = 650     
+	local cableThickness = 0.35
+
+	local baseReelFast = 160    
+	local baseReelSlack = -160  
+	local sideSwingForce = 180   
+
+	local maxRollAngle = math.rad(28)  
+	local maxPitchAngle = math.rad(22) 
+	local tiltLerpSpeed = 12          
+
+	local defaultFOV = (camera and camera.FieldOfView) or 70
+	local fovMax = 110
+	local fovSpeedStart = 40
+	local fovSpeedMax = 350
+	local fovLerpSpeed = 6
+
+	local swingModeEnabled = true
+
+	---------------------------------------------------
+	-- AUDIO MANAGER
+	---------------------------------------------------
+	local soundFolder = humanoidRootPart:FindFirstChild("ODM_Audio")
+	if not soundFolder then
+		soundFolder = Instance.new("Folder")
+		soundFolder.Name = "ODM_Audio"
+		soundFolder.Parent = humanoidRootPart
+	end
+
+	local function createSafeSound(name, id, volume, looped)
+		local snd = soundFolder:FindFirstChild(name) or Instance.new("Sound")
+		snd.Name = name
+		snd.SoundId = id
+		snd.Volume = volume or 1
+		snd.Looped = looped or false
+		snd.Parent = soundFolder
+		return snd
+	end
+
+	local sfxShoot = createSafeSound("GrappleShoot", "rbxassetid://12222200", 0.8, false)
+	local sfxGasBoost = createSafeSound("GasBoost", "rbxassetid://12222084", 1.0, false)
+	local sfxWind = createSafeSound("WindLoop", "rbxassetid://1010883431", 0, true)
+	local sfxSlash = createSafeSound("SlashSFX", "rbxassetid://12222216", 1.0, false)
+	local sfxEject = createSafeSound("EjectSFX", "rbxassetid://12222208", 0.9, false)
+	
+	pcall(function() sfxWind:Play() end)
+
+	local function playSafe(snd)
+		pcall(function()
+			snd.TimePosition = 0
+			snd:Play()
+		end)
+	end
+
+	---------------------------------------------------
+	-- 3D GEAR BUILDER
+	---------------------------------------------------
+	if character:FindFirstChild("ODM_Gear_Model") then
+		character.ODM_Gear_Model:Destroy()
+	end
+	
+	local gearFolder = Instance.new("Folder")
+	gearFolder.Name = "ODM_Gear_Model"
+	gearFolder.Parent = character
+
+	local hasBladesEquipped = true
+
+	local function createPart(name, size, cframeOffset, color, material, parentPart, shape)
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Size = size
+		part.Color = color
+		part.Material = material or Enum.Material.SmoothPlastic
+		part.CanCollide = false
+		part.Massless = true
+		if shape then part.Shape = shape end
+
+		local targetPart = parentPart or humanoidRootPart
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = targetPart
+		weld.Part1 = part
+		
+		part.CFrame = targetPart.CFrame * cframeOffset
+		weld.Parent = part
+		part.Parent = gearFolder
+		return part
+	end
+
+	local metalColor = Color3.fromRGB(70, 75, 80)
+	local darkMetal = Color3.fromRGB(30, 30, 35)
+	local gasColor = Color3.fromRGB(200, 205, 210)
+	local bladeColor = Color3.fromRGB(220, 225, 230)
+
+	createPart("LeftScabbard", Vector3.new(0.45, 0.65, 2.1), CFrame.new(-1.05, -0.65, 0.05) * CFrame.Angles(0, math.rad(-3), 0), metalColor)
+	createPart("LeftGas1", Vector3.new(0.35, 0.35, 1.9), CFrame.new(-1.05, -0.38, 0.05), gasColor, Enum.Material.SmoothPlastic, nil, Enum.PartType.Cylinder)
+	createPart("LeftGas2", Vector3.new(0.35, 0.35, 1.9), CFrame.new(-1.05, -0.92, 0.05), gasColor, Enum.Material.SmoothPlastic, nil, Enum.PartType.Cylinder)
+
+	createPart("RightScabbard", Vector3.new(0.45, 0.65, 2.1), CFrame.new(1.05, -0.65, 0.05) * CFrame.Angles(0, math.rad(3), 0), metalColor)
+	createPart("RightGas1", Vector3.new(0.35, 0.35, 1.9), CFrame.new(1.05, -0.38, 0.05), gasColor, Enum.Material.SmoothPlastic, nil, Enum.PartType.Cylinder)
+	createPart("RightGas2", Vector3.new(0.35, 0.35, 1.9), CFrame.new(1.05, -0.92, 0.05), gasColor, Enum.Material.SmoothPlastic, nil, Enum.PartType.Cylinder)
+
+	createPart("RearFan", Vector3.new(1.1, 0.7, 0.55), CFrame.new(0, -0.5, 0.75), darkMetal)
+
+	local leftArm = character:FindFirstChild("Left Arm") or character:FindFirstChild("LeftUpperArm")
+	local rightArm = character:FindFirstChild("Right Arm") or character:FindFirstChild("RightUpperArm")
+
+	local leftBladePart, rightBladePart
+
+	if leftArm and rightArm then
+		createPart("LeftHandleMain", Vector3.new(0.18, 0.7, 0.18), CFrame.new(0, -0.8, 0) * CFrame.Angles(math.rad(90), 0, 0), darkMetal, nil, leftArm)
+		createPart("LeftHandleGuard", Vector3.new(0.08, 0.3, 0.35), CFrame.new(0, -0.6, -0.15), metalColor, nil, leftArm)
+
+		createPart("RightHandleMain", Vector3.new(0.18, 0.7, 0.18), CFrame.new(0, -0.8, 0) * CFrame.Angles(math.rad(90), 0, 0), darkMetal, nil, rightArm)
+		createPart("RightHandleGuard", Vector3.new(0.08, 0.3, 0.35), CFrame.new(0, -0.6, -0.15), metalColor, nil, rightArm)
+
+		leftBladePart = createPart("LeftBlade", Vector3.new(0.06, 0.22, 2.8), CFrame.new(0, -0.8, -1.4), bladeColor, Enum.Material.Metal, leftArm)
+		rightBladePart = createPart("RightBlade", Vector3.new(0.06, 0.22, 2.8), CFrame.new(0, -0.8, -1.4), bladeColor, Enum.Material.Metal, rightArm)
+	end
+
+	---------------------------------------------------
+	-- GUI SETUP
+	---------------------------------------------------
+	local playerGui = player:WaitForChild("PlayerGui", 10)
+	if not playerGui then return end
+
+	if playerGui:FindFirstChild("ODMMobileGui") then
+		playerGui.ODMMobileGui:Destroy()
+	end
+
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "ODMMobileGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.Parent = playerGui
+
+	local reticle = Instance.new("Frame")
+	reticle.Name = "Reticle"
+	reticle.Size = UDim2.new(0, 6, 0, 6)
+	reticle.AnchorPoint = Vector2.new(0.5, 0.5)
+	reticle.Position = UDim2.new(0.5, 0, 0.5, 0)
+	reticle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	reticle.BackgroundTransparency = 0.1
+	reticle.BorderSizePixel = 0
+	reticle.Parent = screenGui
+
+	local reticleCorner = Instance.new("UICorner")
+	reticleCorner.CornerRadius = UDim.new(1, 0)
+	reticleCorner.Parent = reticle
+
+	local keyContainer = Instance.new("Folder")
+	keyContainer.Name = "KeyContainer"
+	keyContainer.Parent = screenGui
+
+	local function createMobileButton(name, text, size, position, onPress, onRelease)
+		local btn = Instance.new("TextButton")
+		btn.Name = name
+		btn.Size = size
+		btn.Position = position
+		btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		btn.BackgroundTransparency = 0.3
+		btn.Text = text
+		btn.TextColor3 = Color3.new(1, 1, 1)
+		btn.Font = Enum.Font.SourceSansBold
+		btn.TextSize = 16
+		btn.Parent = keyContainer
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.3, 0)
+		corner.Parent = btn
+
+		btn.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+				if onPress then onPress() end
+			end
+		end)
+
+		btn.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+				if onRelease then onRelease() end
+			end
+		end)
+
+		return btn
+	end
+
+	---------------------------------------------------
+	-- RAYCAST TARGETING
+	---------------------------------------------------
+	local left = { active = false }
+	local right = { active = false }
+	local isActionBusy = false
+	local isAttacking = false
+
+	local function getExactCrosshairTarget()
+		camera = Workspace.CurrentCamera or Workspace.ActiveCamera
+		if not camera then return nil, nil end
+
+		local origin = camera.CFrame.Position
+		local direction = camera.CFrame.LookVector
+
+		local params = RaycastParams.new()
+		params.FilterDescendantsInstances = { character, gearFolder, camera }
+		params.FilterType = Enum.RaycastFilterType.Blacklist
+		params.IgnoreWater = true
+
+		local result = Workspace:Raycast(origin, direction * maxDistance, params)
+		if result and result.Position then
+			return result.Position, result.Instance
+		end
+
+		return nil, nil
+	end
+
+	---------------------------------------------------
+	-- HOOK MANAGEMENT
+	---------------------------------------------------
+	local function release(side)
+		local data = (side == "left") and left or right
+		if not data then return end
+
+		if data.beam then pcall(function() data.beam:Destroy() end) data.beam = nil end
+		if data.attach0 then pcall(function() data.attach0:Destroy() end) data.attach0 = nil end
+		if data.attach1 then pcall(function() data.attach1:Destroy() end) data.attach1 = nil end
+		if data.anchor then pcall(function() data.anchor:Destroy() end) data.anchor = nil end
+
+		data.active = false
+	end
+
+	local function fire(side)
+		local data = (side == "left") and left or right
+
+		release(side)
+
+		local hitPos, hitPart = getExactCrosshairTarget()
+		if not hitPos then return end
+
+		playSafe(sfxShoot)
+
+		local anchor = Instance.new("Part")
+		anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.Transparency = 1
+		anchor.Position = hitPos
+		anchor.Parent = Workspace
+
+		if hitPart and hitPart.Anchored == false then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = anchor
+			weld.Part1 = hitPart
+			weld.Parent = anchor
+		end
+
+		data.anchor = anchor
+		data.attach1 = Instance.new("Attachment", data.anchor)
+
+		local attach0 = Instance.new("Attachment")
+		attach0.Position = (side == "left") and Vector3.new(-1.05, -0.65, 0) or Vector3.new(1.05, -0.65, 0)
+		attach0.Parent = humanoidRootPart
+
+		local beam = Instance.new("Beam")
+		beam.Attachment0 = attach0
+		beam.Attachment1 = data.attach1
+		beam.Width0 = cableThickness
+		beam.Width1 = cableThickness
+		beam.FaceCamera = true
+		beam.LightEmission = 0.8
+		beam.Color = ColorSequence.new((side == "left") and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(60, 160, 255))
+		beam.Parent = humanoidRootPart
+
+		data.beam = beam
+		data.attach0 = attach0
+		data.length = (humanoidRootPart.Position - hitPos).Magnitude
+		data.active = true
+	end
+
+	---------------------------------------------------
+	-- PURELY COSMETIC SLASH
+	---------------------------------------------------
+	local function triggerSlashAttack()
+		if isAttacking or not hasBladesEquipped then return end
+		isAttacking = true
+		playSafe(sfxSlash)
+
+		task.delay(0.35, function()
+			isAttacking = false
+		end)
+	end
+
+	---------------------------------------------------
+	-- BURST SURPRISE ACTION
+	---------------------------------------------------
+	local function triggerSpecialSurprise()
+		if isActionBusy then return end
+		isActionBusy = true
+
+		playSafe(sfxGasBoost)
+
+		local burstEffect = Instance.new("ParticleEmitter")
+		burstEffect.Texture = "rbxassetid://243660364"
+		burstEffect.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 2), NumberSequenceKeypoint.new(1, 0)})
+		burstEffect.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1)})
+		burstEffect.Lifetime = NumberRange.new(0.3, 0.6)
+		burstEffect.Rate = 120
+		burstEffect.Speed = NumberRange.new(15, 30)
+		burstEffect.Parent = humanoidRootPart
+
+		local lookVector = camera.CFrame.LookVector
+		humanoidRootPart.AssemblyLinearVelocity = lookVector * 280 + Vector3.new(0, 45, 0)
+
+		task.delay(0.5, function()
+			burstEffect.Enabled = false
+			Debris:AddItem(burstEffect, 1)
+			isActionBusy = false
+		end)
+	end
+
+	---------------------------------------------------
+	-- SWORD-EXCLUSIVE FORWARD SLIDE
+	---------------------------------------------------
+	local function triggerSlideAction()
+		if isActionBusy or not hasBladesEquipped then return end
+		isActionBusy = true
+
+		playSafe(sfxSlash)
+
+		local isGrounded = humanoid.FloorMaterial ~= Enum.Material.Air or humanoidRootPart.Velocity.Y == 0
+
+		if isGrounded then
+			humanoid.Sit = true
+
+			local forwardDir = humanoidRootPart.CFrame.LookVector
+			humanoidRootPart.AssemblyLinearVelocity = (forwardDir * 90) + Vector3.new(0, 2, 0)
+
+			local originalFriction = humanoidRootPart.CustomPhysicalProperties
+			humanoidRootPart.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+
+			task.delay(0.9, function()
+				if humanoidRootPart and humanoidRootPart.Parent then
+					humanoid.Sit = false
+					humanoidRootPart.CustomPhysicalProperties = originalFriction
+
+					playSafe(sfxGasBoost)
+					local launchVerticalVel = math.sqrt(2 * Workspace.Gravity * 28)
+
+					local currentForward = humanoidRootPart.CFrame.LookVector
+					humanoidRootPart.AssemblyLinearVelocity = (currentForward * 55) + Vector3.new(0, launchVerticalVel, 0)
+				end
+				isActionBusy = false
+			end)
+		else
+			local forwardDir = humanoidRootPart.CFrame.LookVector
+			humanoidRootPart:ApplyImpulse(forwardDir * 850)
+			task.delay(0.3, function()
+				isActionBusy = false
+			end)
+		end
+	end
+
+	local function spawnEjectedBlade(bladePart)
+		if not bladePart or not bladePart.Parent then return end
+		local cframe = bladePart.CFrame
+		
+		local droppedPart = Instance.new("Part")
+		droppedPart.Size = bladePart.Size
+		droppedPart.Color = bladePart.Color
+		droppedPart.Material = bladePart.Material
+		droppedPart.CFrame = cframe
+		droppedPart.CanCollide = true
+		droppedPart.Parent = Workspace
+
+		droppedPart.AssemblyLinearVelocity = humanoidRootPart.AssemblyLinearVelocity + (humanoidRootPart.CFrame.RightVector * math.random(-15, 15)) + Vector3.new(0, 20, 0)
+		droppedPart.AssemblyAngularVelocity = Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20))
+
+		Debris:AddItem(droppedPart, 4)
+	end
+
+	---------------------------------------------------
+	-- MOBILE BUTTON LAYOUT (EXACT LEVEL TOP BUTTONS)
+	---------------------------------------------------
+	-- Q Button: Top Left
+	createMobileButton("Q_Btn", "Q", UDim2.new(0, 70, 0, 70), UDim2.new(0, 15, 0, 45), 
+		function() fire("left") end, 
+		function() release("left") end
+	)
+
+	-- E Button: Top Right (Matching exact level Y = 45 with Q)
+	createMobileButton("E_Btn", "E", UDim2.new(0, 70, 0, 70), UDim2.new(1, -85, 0, 45), 
+		function() fire("right") end, 
+		function() release("right") end
+	)
+
+	local swingBtn
+	swingBtn = createMobileButton("SwingToggle_Btn", "Swing: ON", UDim2.new(0, 120, 0, 40), UDim2.new(0.5, -60, 0, 15),
+		function()
+			swingModeEnabled = not swingModeEnabled
+			if swingModeEnabled then
+				swingBtn.Text = "Swing: ON"
+				swingBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 60)
+			else
+				swingBtn.Text = "Swing: OFF"
+				swingBtn.BackgroundColor3 = Color3.fromRGB(160, 40, 40)
+			end
+		end,
+		nil
+	)
+	swingBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 60)
+
+	createMobileButton("Slash_Btn", "Slash", UDim2.new(0, 80, 0, 80), UDim2.new(1, -180, 1, -200),
+		function() triggerSlashAttack() end,
+		nil
+	)
+
+	local slideBtn = createMobileButton("Action_Btn", "Slide", UDim2.new(0, 80, 0, 80), UDim2.new(1, -95, 1, -200), 
+		function() triggerSlideAction() end, 
+		nil
+	)
+
+	createMobileButton("Surprise_Btn", "Burst", UDim2.new(0, 80, 0, 80), UDim2.new(1, -265, 1, -200),
+		function() triggerSpecialSurprise() end,
+		nil
+	)
+
+	local toggleBtn
+	local function toggleEjectReload()
+		if hasBladesEquipped then
+			hasBladesEquipped = false
+			playSafe(sfxEject)
+
+			if leftBladePart then spawnEjectedBlade(leftBladePart) leftBladePart.Transparency = 1 end
+			if rightBladePart then spawnEjectedBlade(rightBladePart) rightBladePart.Transparency = 1 end
+
+			if toggleBtn then
+				toggleBtn.Text = "Reload"
+				toggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+			end
+			
+			if slideBtn then
+				slideBtn.BackgroundTransparency = 0.7
+			end
+		else
+			playSafe(sfxGasBoost)
+			task.wait(0.15)
+			hasBladesEquipped = true
+
+			if leftBladePart then leftBladePart.Transparency = 0 end
+			if rightBladePart then rightBladePart.Transparency = 0 end
+
+			if toggleBtn then
+				toggleBtn.Text = "Eject"
+				toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+			end
+
+			if slideBtn then
+				slideBtn.BackgroundTransparency = 0.3
+			end
+		end
+	end
+
+	-- Eject/Reload Button: Right side lower control row
+	toggleBtn = createMobileButton("EjectReload_Btn", "Eject", UDim2.new(0, 80, 0, 65), UDim2.new(1, -95, 1, -310), 
+		function() toggleEjectReload() end, 
+		nil
+	)
+
+	---------------------------------------------------
+	-- PHYSICS & SWING LOOP
+	---------------------------------------------------
+	local currentRoll, currentPitch = 0, 0
+
+	RunService.Heartbeat:Connect(function(dt)
+		if not humanoidRootPart or not humanoidRootPart.Parent or not humanoid then return end
+
+		local isGrappling = left.active or right.active
+		local moveDir = humanoid.MoveDirection
+
+		if isGrappling then
+			humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+		end
+
+		local activeCables = (left.active and 1 or 0) + (right.active and 1 or 0)
+		local speedMultiplier = (activeCables == 1) and 0.5 or 1.0
+
+		local currentPullStrength = basePullStrength * speedMultiplier
+		local currentReelFast = baseReelFast * speedMultiplier
+		local currentReelSlack = baseReelSlack * speedMultiplier
+
+		local localMove = humanoidRootPart.CFrame:VectorToObjectSpace(moveDir)
+
+		local isSwinging = false
+		if isGrappling and swingModeEnabled and localMove.Z >= -0.15 then
+			isSwinging = true
+		end
+
+		if isGrappling then
+			if localMove.Z > 0.15 then
+				for _, data in ipairs({ left, right }) do
+					if data.active then
+						data.length = math.clamp(data.length - (currentReelSlack * dt), minCableLength, maxCableLength)
+					end
+				end
+			elseif localMove.Z < -0.15 then
+				for _, data in ipairs({ left, right }) do
+					if data.active then
+						data.length = math.clamp(data.length - (currentReelFast * dt), minCableLength, maxCableLength)
+					end
+				end
+			end
+
+			if math.abs(localMove.X) > 0.15 then
+				local sideVector = humanoidRootPart.CFrame.RightVector * localMove.X
+				humanoidRootPart:ApplyImpulse(sideVector * sideSwingForce * speedMultiplier)
+			end
+		end
+
+		local rootJoint = humanoidRootPart:FindFirstChild("RootJoint")
+		if rootJoint then
+			local targetRoll = 0
+			local targetPitch = 0
+
+			if isGrappling then
+				targetRoll = -localMove.X * maxRollAngle
+				if left.active and not right.active then
+					targetRoll = targetRoll - math.rad(10)
+				elseif right.active and not left.active then
+					targetRoll = targetRoll + math.rad(10)
+				end
+
+				targetPitch = -localMove.Z * maxPitchAngle
+			end
+
+			currentRoll = currentRoll + (targetRoll - currentRoll) * math.clamp(tiltLerpSpeed * dt, 0, 1)
+			currentPitch = currentPitch + (targetPitch - currentPitch) * math.clamp(tiltLerpSpeed * dt, 0, 1)
+
+			rootJoint.C0 = CFrame.new(0, 0, 0) 
+				* CFrame.Angles(-math.pi/2 + currentPitch, 0, math.pi) 
+				* CFrame.Angles(0, 0, currentRoll)
+		end
+
+		for _, data in ipairs({ left, right }) do
+			if data.active and data.anchor then
+				local toAnchor = data.anchor.Position - humanoidRootPart.Position
+				local distance = toAnchor.Magnitude
+				local dir = toAnchor.Unit
+
+				if isSwinging then
+					if distance > data.length then
+						local vel = humanoidRootPart.AssemblyLinearVelocity
+						local velAlongCable = vel:Dot(dir)
+
+						if velAlongCable < 0 then
+							humanoidRootPart.AssemblyLinearVelocity = vel - (dir * velAlongCable)
+						end
+
+						humanoidRootPart:ApplyImpulse(dir * ((distance - data.length) * currentPullStrength))
+					else
+						data.length = distance
+					end
+				else
+					if distance > data.length then
+						humanoidRootPart:ApplyImpulse(dir * ((distance - data.length) * currentPullStrength))
+					end
+				end
+
+				local vel = humanoidRootPart.AssemblyLinearVelocity
+				if vel.Magnitude > maxSwingSpeed then
+					humanoidRootPart.AssemblyLinearVelocity = vel.Unit * maxSwingSpeed
+				end
+			end
+		end
+
+		local speed = humanoidRootPart.AssemblyLinearVelocity.Magnitude
+		local t = math.clamp((speed - fovSpeedStart) / math.max(1, (fovSpeedMax - fovSpeedStart)), 0, 1)
+		
+		pcall(function()
+			sfxWind.Volume = math.clamp(t * 1.2, 0, 1.2)
+			sfxWind.PlaybackSpeed = 0.8 + (t * 0.4)
+		end)
+
+		camera = Workspace.CurrentCamera or Workspace.ActiveCamera
+		if camera then
+			camera.FieldOfView = camera.FieldOfView + ((defaultFOV + (fovMax - defaultFOV) * t) - camera.FieldOfView) * math.clamp(fovLerpSpeed * dt, 0, 1)
+		end
+	end)
+end
+
+---------------------------------------------------
+-- INITIALIZATION & RESPAWN LISTENERS
+---------------------------------------------------
+task.defer(function()
+	pcall(runODM)
+end)
+
+player.CharacterAdded:Connect(function()
+	task.wait(0.5)
+	pcall(runODM)
+end)
