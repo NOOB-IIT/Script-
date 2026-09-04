@@ -1,0 +1,490 @@
+--[[
+    SNIPER SCOPE – AUTO FIRST PERSON + SENSITIVITY FIX
+    - Sniper haath mein aate hi first person mode
+    - Unequip par wapas previous camera mode
+    - Center transparent circle, outside black
+    - Unlimited zoom with dynamic sensitivity
+]]
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+
+-- Variables
+local aiming = false
+local currentFOV = 70
+local zoomFOV = 15
+local minFOV = 2
+local maxFOV = 70
+local tool = nil
+local zoomSpeed = 2
+local sensitivityMultiplier = 0.05
+
+-- Touch variables
+local touchStartDistance = nil
+local touchStartFOV = nil
+local dragStartPos = nil
+local isDragging = false
+
+-- Camera mode tracking
+local previousCameraMode = LocalPlayer.CameraMode or Enum.CameraMode.Classic
+local isSniperEquipped = false
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SniperScopeGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Helper to create black frames
+local function createBlackFrame(name, size, position)
+    local frame = Instance.new("Frame")
+    frame.Name = name
+    frame.Size = size
+    frame.Position = position
+    frame.BackgroundColor3 = Color3.new(0, 0, 0)
+    frame.BackgroundTransparency = 0
+    frame.BorderSizePixel = 0
+    frame.Visible = false
+    frame.ZIndex = 100
+    frame.Parent = screenGui
+    return frame
+end
+
+-- Screen dimensions
+local screenSize = Camera.ViewportSize
+local circleRadius = 175
+
+-- Black frames to cover outside circle (approx)
+local topFrame = createBlackFrame("Top", UDim2.new(1, 0, 0, screenSize.Y/2 - circleRadius), UDim2.new(0, 0, 0, 0))
+local bottomFrame = createBlackFrame("Bottom", UDim2.new(1, 0, 0, screenSize.Y/2 - circleRadius), UDim2.new(0, 0, 0.5, circleRadius))
+local leftFrame = createBlackFrame("Left", UDim2.new(0, screenSize.X/2 - circleRadius, 0, circleRadius*2), UDim2.new(0, 0, 0.5, -circleRadius))
+local rightFrame = createBlackFrame("Right", UDim2.new(0, screenSize.X/2 - circleRadius, 0, circleRadius*2), UDim2.new(0.5, circleRadius, 0.5, -circleRadius))
+
+-- Corner frames for a rounder shape
+local cornerSize = 50
+local topLeft = createBlackFrame("TopLeft", UDim2.new(0, cornerSize, 0, cornerSize), UDim2.new(0, screenSize.X/2 - circleRadius - cornerSize/2, 0, screenSize.Y/2 - circleRadius - cornerSize/2))
+local topRight = createBlackFrame("TopRight", UDim2.new(0, cornerSize, 0, cornerSize), UDim2.new(0.5, circleRadius - cornerSize/2, 0, screenSize.Y/2 - circleRadius - cornerSize/2))
+local bottomLeft = createBlackFrame("BottomLeft", UDim2.new(0, cornerSize, 0, cornerSize), UDim2.new(0, screenSize.X/2 - circleRadius - cornerSize/2, 0.5, circleRadius - cornerSize/2))
+local bottomRight = createBlackFrame("BottomRight", UDim2.new(0, cornerSize, 0, cornerSize), UDim2.new(0.5, circleRadius - cornerSize/2, 0.5, circleRadius - cornerSize/2))
+
+-- Crosshair elements
+local function createCrosshairPart(name, size, position, transparency)
+    local part = Instance.new("Frame")
+    part.Name = name
+    part.Size = size
+    part.Position = position
+    part.BackgroundColor3 = Color3.new(0, 0, 0)
+    part.BackgroundTransparency = transparency or 0.4
+    part.BorderSizePixel = 0
+    part.Visible = false
+    part.ZIndex = 200
+    part.Parent = screenGui
+    return part
+end
+
+local crosshairH = createCrosshairPart("CrosshairH", UDim2.new(0.8, 0, 0, 1), UDim2.new(0.1, 0, 0.5, -0.5), 0.4)
+local crosshairV = createCrosshairPart("CrosshairV", UDim2.new(0, 1, 0.8, 0), UDim2.new(0.5, -0.5, 0.1, 0), 0.4)
+local centerDot = createCrosshairPart("CenterDot", UDim2.new(0, 4, 0, 4), UDim2.new(0.5, -2, 0.5, -2), 0.5)
+
+local milDots = {}
+for i = -2, 2 do
+    if i ~= 0 then
+        local dotH = createCrosshairPart("DotH"..i, UDim2.new(0, 5, 0, 5), UDim2.new(0.5, -2.5 + (i * 60), 0.5, -2.5), 0.5)
+        local dotV = createCrosshairPart("DotV"..i, UDim2.new(0, 5, 0, 5), UDim2.new(0.5, -2.5, 0.5, -2.5 + (i * 60)), 0.5)
+        table.insert(milDots, dotH)
+        table.insert(milDots, dotV)
+    end
+end
+
+-- Target info label
+local targetLabel = Instance.new("TextLabel")
+targetLabel.Size = UDim2.new(0, 300, 0, 50)
+targetLabel.Position = UDim2.new(0.5, -150, 0.2, 0)
+targetLabel.BackgroundTransparency = 1
+targetLabel.TextColor3 = Color3.new(1, 1, 1)
+targetLabel.TextStrokeTransparency = 0
+targetLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+targetLabel.Font = Enum.Font.SourceSansBold
+targetLabel.TextSize = 18
+targetLabel.Text = ""
+targetLabel.Visible = false
+targetLabel.ZIndex = 300
+targetLabel.Parent = screenGui
+
+local zoomLabel = Instance.new("TextLabel")
+zoomLabel.Size = UDim2.new(0, 150, 0, 25)
+zoomLabel.Position = UDim2.new(0.5, -75, 0.65, 0)
+zoomLabel.BackgroundTransparency = 1
+zoomLabel.TextColor3 = Color3.new(1, 1, 1)
+zoomLabel.TextStrokeTransparency = 0.5
+zoomLabel.Font = Enum.Font.SourceSansBold
+zoomLabel.TextSize = 14
+zoomLabel.Text = "Zoom: 1.0x"
+zoomLabel.Visible = false
+zoomLabel.ZIndex = 300
+zoomLabel.Parent = screenGui
+
+-- AIM button
+local aimButton = Instance.new("TextButton")
+aimButton.Size = UDim2.new(0, 100, 0, 70)
+aimButton.Position = UDim2.new(1, -120, 0.5, -35)
+aimButton.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+aimButton.BackgroundTransparency = 0.3
+aimButton.BorderSizePixel = 0
+aimButton.Text = "🎯 AIM"
+aimButton.TextColor3 = Color3.new(1, 1, 1)
+aimButton.Font = Enum.Font.SourceSansBold
+aimButton.TextSize = 20
+aimButton.ZIndex = 400
+aimButton.Parent = screenGui
+
+-- Zoom buttons
+local zoomInBtn = Instance.new("TextButton")
+zoomInBtn.Size = UDim2.new(0, 50, 0, 50)
+zoomInBtn.Position = UDim2.new(0.5, -60, 0.7, -25)
+zoomInBtn.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+zoomInBtn.BackgroundTransparency = 0.3
+zoomInBtn.BorderSizePixel = 0
+zoomInBtn.Text = "+"
+zoomInBtn.TextColor3 = Color3.new(1, 1, 1)
+zoomInBtn.Font = Enum.Font.SourceSansBold
+zoomInBtn.TextSize = 25
+zoomInBtn.Visible = false
+zoomInBtn.ZIndex = 400
+zoomInBtn.Parent = screenGui
+
+local zoomOutBtn = Instance.new("TextButton")
+zoomOutBtn.Size = UDim2.new(0, 50, 0, 50)
+zoomOutBtn.Position = UDim2.new(0.5, 10, 0.7, -25)
+zoomOutBtn.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+zoomOutBtn.BackgroundTransparency = 0.3
+zoomOutBtn.BorderSizePixel = 0
+zoomOutBtn.Text = "-"
+zoomOutBtn.TextColor3 = Color3.new(1, 1, 1)
+zoomOutBtn.Font = Enum.Font.SourceSansBold
+zoomOutBtn.TextSize = 25
+zoomOutBtn.Visible = false
+zoomOutBtn.ZIndex = 400
+zoomOutBtn.Parent = screenGui
+
+-- CREATE SNIPER TOOL (FIXED: Handle naam sahi kiya)
+tool = Instance.new("Tool")
+tool.Name = "Sniper"
+tool.RequiresHandle = true
+tool.CanBeDropped = false
+
+local handle = Instance.new("Part")
+handle.Name = "Handle"  -- ⚠️ YEH ZAROORI HAI
+handle.Size = Vector3.new(0.5, 0.5, 4)
+handle.BrickColor = BrickColor.new("Dark green")
+handle.Material = Enum.Material.Metal
+handle.Anchored = false
+handle.CanCollide = false
+handle.Parent = tool
+
+local barrel = Instance.new("Part")
+barrel.Size = Vector3.new(0.2, 0.2, 3)
+barrel.BrickColor = BrickColor.new("Really black")
+barrel.Material = Enum.Material.Metal
+barrel.Anchored = false
+barrel.CanCollide = false
+barrel.Parent = tool
+
+local weld1 = Instance.new("Weld")
+weld1.Part0 = handle
+weld1.Part1 = barrel
+weld1.C0 = CFrame.new(0, 0, -3)
+weld1.Parent = handle
+
+local gunScope = Instance.new("Part")
+gunScope.Size = Vector3.new(0.4, 0.4, 1)
+gunScope.BrickColor = BrickColor.new("Black")
+gunScope.Material = Enum.Material.Metal
+gunScope.Anchored = false
+gunScope.CanCollide = false
+gunScope.Parent = tool
+
+local weld2 = Instance.new("Weld")
+weld2.Part0 = handle
+weld2.Part1 = gunScope
+weld2.C0 = CFrame.new(0, 0.4, 0)
+weld2.Parent = handle
+
+local stock = Instance.new("Part")
+stock.Size = Vector3.new(0.4, 0.6, 1.5)
+stock.BrickColor = BrickColor.new("Brown")
+stock.Material = Enum.Material.Wood
+stock.Anchored = false
+stock.CanCollide = false
+stock.Parent = tool
+
+local weld3 = Instance.new("Weld")
+weld3.Part0 = handle
+weld3.Part1 = stock
+weld3.C0 = CFrame.new(0, -0.1, 2.5)
+weld3.Parent = handle
+
+local mag = Instance.new("Part")
+mag.Size = Vector3.new(0.3, 0.8, 0.5)
+mag.BrickColor = BrickColor.new("Dark grey")
+mag.Material = Enum.Material.Metal
+mag.Anchored = false
+mag.CanCollide = false
+mag.Parent = tool
+
+local weld4 = Instance.new("Weld")
+weld4.Part0 = handle
+weld4.Part1 = mag
+weld4.C0 = CFrame.new(0, -0.5, 0)
+weld4.Parent = handle
+
+tool.Parent = LocalPlayer.Backpack
+
+-- Equip tool
+local function equipTool()
+    if Character and Humanoid and tool then
+        Humanoid:EquipTool(tool)
+    end
+end
+
+spawn(function()
+    wait(1)
+    equipTool()
+end)
+
+-- Camera mode auto switch
+tool.Equipped:Connect(function()
+    isSniperEquipped = true
+    previousCameraMode = LocalPlayer.CameraMode
+    LocalPlayer.CameraMode = Enum.CameraMode.LockFirstPerson
+    -- Optionally adjust camera to be at head for better first person
+    if Character and Character:FindFirstChild("Head") then
+        Camera.CameraSubject = Character.Head
+    end
+end)
+
+tool.Unequipped:Connect(function()
+    isSniperEquipped = false
+    if aiming then toggleAim() end -- turn off scope if was aiming
+    LocalPlayer.CameraMode = previousCameraMode
+end)
+
+-- Update zoom label
+local function updateZoomLabel()
+    local zoomMultiplier = maxFOV / Camera.FieldOfView
+    zoomLabel.Text = string.format("Zoom: %.1fx", zoomMultiplier)
+end
+
+-- Toggle aim
+local function toggleAim()
+    aiming = not aiming
+    if aiming then
+        -- Show black frames
+        topFrame.Visible = true
+        bottomFrame.Visible = true
+        leftFrame.Visible = true
+        rightFrame.Visible = true
+        topLeft.Visible = true
+        topRight.Visible = true
+        bottomLeft.Visible = true
+        bottomRight.Visible = true
+        
+        -- Show crosshair
+        crosshairH.Visible = true
+        crosshairV.Visible = true
+        centerDot.Visible = true
+        for _, dot in ipairs(milDots) do
+            dot.Visible = true
+        end
+        
+        targetLabel.Visible = false
+        zoomInBtn.Visible = true
+        zoomOutBtn.Visible = true
+        zoomLabel.Visible = true
+        currentFOV = zoomFOV
+        TweenService:Create(Camera, TweenInfo.new(0.3), {FieldOfView = zoomFOV}):Play()
+        updateZoomLabel()
+        
+        dragStartPos = nil
+        isDragging = false
+    else
+        -- Hide everything
+        topFrame.Visible = false
+        bottomFrame.Visible = false
+        leftFrame.Visible = false
+        rightFrame.Visible = false
+        topLeft.Visible = false
+        topRight.Visible = false
+        bottomLeft.Visible = false
+        bottomRight.Visible = false
+        
+        crosshairH.Visible = false
+        crosshairV.Visible = false
+        centerDot.Visible = false
+        for _, dot in ipairs(milDots) do
+            dot.Visible = false
+        end
+        
+        targetLabel.Visible = false
+        zoomInBtn.Visible = false
+        zoomOutBtn.Visible = false
+        zoomLabel.Visible = false
+        TweenService:Create(Camera, TweenInfo.new(0.3), {FieldOfView = maxFOV}):Play()
+        currentFOV = maxFOV
+        touchStartDistance = nil
+        touchStartFOV = nil
+        dragStartPos = nil
+        isDragging = false
+    end
+end
+
+-- Zoom functions
+local function zoomIn()
+    if aiming then
+        zoomFOV = math.max(minFOV, Camera.FieldOfView - zoomSpeed)
+        Camera.FieldOfView = zoomFOV
+        currentFOV = zoomFOV
+        updateZoomLabel()
+    end
+end
+
+local function zoomOut()
+    if aiming then
+        zoomFOV = math.min(maxFOV, Camera.FieldOfView + zoomSpeed)
+        Camera.FieldOfView = zoomFOV
+        currentFOV = zoomFOV
+        updateZoomLabel()
+    end
+end
+
+-- Button connections
+aimButton.Activated:Connect(toggleAim)
+zoomInBtn.Activated:Connect(zoomIn)
+zoomOutBtn.Activated:Connect(zoomOut)
+
+-- Touch handling
+UserInputService.TouchStarted:Connect(function(touch, gameProcessed)
+    if not aiming then return end
+    
+    local touches = UserInputService:GetTouches()
+    if #touches == 1 then
+        dragStartPos = touch.Position
+        isDragging = true
+    elseif #touches == 2 then
+        local pos1 = touches[1].Position
+        local pos2 = touches[2].Position
+        touchStartDistance = (pos1 - pos2).Magnitude
+        touchStartFOV = Camera.FieldOfView
+        isDragging = false
+        dragStartPos = nil
+    end
+end)
+
+UserInputService.TouchMoved:Connect(function(touch, gameProcessed)
+    if not aiming then return end
+    
+    local touches = UserInputService:GetTouches()
+    if #touches == 1 and isDragging and dragStartPos then
+        local delta = touch.Position - dragStartPos
+        dragStartPos = touch.Position
+        
+        local fovRatio = Camera.FieldOfView / maxFOV
+        local rotationScale = sensitivityMultiplier * fovRatio
+        
+        local currentCFrame = Camera.CFrame
+        local rotation = CFrame.Angles(0, -delta.X * rotationScale, 0) * CFrame.Angles(-delta.Y * rotationScale, 0, 0)
+        Camera.CFrame = currentCFrame * rotation
+    elseif #touches == 2 and touchStartDistance and touchStartFOV then
+        local pos1 = touches[1].Position
+        local pos2 = touches[2].Position
+        local newDistance = (pos1 - pos2).Magnitude
+        local scale = newDistance / touchStartDistance
+        local newFOV = math.clamp(touchStartFOV / scale, minFOV, maxFOV)
+        Camera.FieldOfView = newFOV
+        zoomFOV = newFOV
+        currentFOV = newFOV
+        updateZoomLabel()
+    end
+end)
+
+UserInputService.TouchEnded:Connect(function(touch, gameProcessed)
+    if not aiming then return end
+    
+    local touches = UserInputService:GetTouches()
+    if #touches < 2 then
+        touchStartDistance = nil
+        touchStartFOV = nil
+    end
+    if #touches == 0 then
+        isDragging = false
+        dragStartPos = nil
+    end
+end)
+
+-- Raycast for target
+local function getPlayerUnderCenter()
+    local viewportSize = Camera.ViewportSize
+    local ray = Camera:ViewportPointToRay(viewportSize.X/2, viewportSize.Y/2, 0)
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {Character}
+    
+    local result = workspace:Raycast(ray.Origin, ray.Direction * 2000, raycastParams)
+    if result and result.Instance then
+        local hitChar = result.Instance:FindFirstAncestorOfClass("Model")
+        if hitChar then
+            local hitPlayer = Players:GetPlayerFromCharacter(hitChar)
+            if hitPlayer and hitPlayer ~= LocalPlayer then
+                local distance = (Camera.CFrame.Position - result.Position).Magnitude
+                return hitPlayer, distance, result.Position
+            end
+        end
+    end
+    return nil, nil, nil
+end
+
+-- Main update
+RunService.RenderStepped:Connect(function()
+    if aiming then
+        local player, distance, hitPos = getPlayerUnderCenter()
+        if player and distance then
+            targetLabel.Visible = true
+            local hue = (tick() * 0.5) % 1
+            targetLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
+            targetLabel.Text = string.format("%s\nDistance: %.1f studs (%.1f m)", 
+                player.Name, distance, distance * 0.28)
+        else
+            targetLabel.Visible = false
+        end
+    end
+end)
+
+-- Respawn handling
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = newChar:WaitForChild("Humanoid")
+    spawn(function()
+        wait(1)
+        equipTool()
+    end)
+end)
+
+Humanoid.Died:Connect(function()
+    if aiming then
+        toggleAim()
+    end
+    Camera.FieldOfView = maxFOV
+    -- Restore camera mode on death
+    LocalPlayer.CameraMode = previousCameraMode
+end)
+
+print("Sniper ready! Auto first-person on equip, restore on unequip.")
