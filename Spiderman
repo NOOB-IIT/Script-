@@ -1,0 +1,708 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- State variables
+local autoPull = false
+local noclip = false
+local webPhysics = false
+local spiderMode = false
+local targetPos = nil
+local currentWeb = nil
+local isDragging = false
+local isMobile = UserInputService.TouchEnabled
+local musicOn = true
+local musicSound = nil
+
+-- Cleanup management
+local connections = {}
+local mainGui = nil
+local mainFrameRef = nil
+local originalAnimateScript = nil  -- Store reference to the original Animate script
+local animationTracks = {}         -- Store animation tracks for cleanup
+
+local function addConnection(conn)
+    table.insert(connections, conn)
+    return conn
+end
+
+local function cleanup()
+    -- Stop and destroy music
+    if musicSound then
+        musicSound:Stop()
+        musicSound:Destroy()
+        musicSound = nil
+    end
+
+    -- Disconnect all stored connections
+    for _, conn in ipairs(connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    connections = {}
+
+    -- Stop animation tracks
+    for _, track in pairs(animationTracks) do
+        pcall(function() track:Stop() end)
+    end
+    animationTracks = {}
+
+    -- Re-enable the original Animate script if it exists and we disabled it
+    if originalAnimateScript then
+        pcall(function()
+            originalAnimateScript.Disabled = false
+        end)
+        originalAnimateScript = nil
+    end
+
+    -- Reset AutoAnimate attribute
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            pcall(function()
+                humanoid:SetAttribute("AutoAnimate", true)
+            end)
+        end
+        -- If noclip was on, restore collision
+        if noclip then
+            for _, p in pairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.CanCollide = true
+                end
+            end
+        end
+    end
+
+    -- Destroy web if exists
+    if currentWeb then
+        currentWeb:Destroy()
+        currentWeb = nil
+    end
+
+    -- Destroy main GUI
+    if mainGui then
+        mainGui:Destroy()
+        mainGui = nil
+    end
+
+    -- Reset states
+    noclip = false
+    autoPull = false
+    webPhysics = false
+    spiderMode = false
+    targetPos = nil
+end
+
+-- Create music object
+local function createMusic()
+    if musicSound then return end
+    musicSound = Instance.new("Sound")
+    musicSound.Name = "BackgroundMusic"
+    musicSound.SoundId = "rbxassetid://9039851834" -- Sweet Merlyn music ID
+    musicSound.Looped = true
+    musicSound.Volume = 0.5
+    musicSound.Parent = player.PlayerGui
+end
+
+-- Intro animation
+local function playIntroAnimation(callback)
+    local success = pcall(function()
+        local introGui = Instance.new("ScreenGui")
+        introGui.Name = "IntroGui"
+        introGui.Parent = player.PlayerGui
+        introGui.ResetOnSpawn = false
+        introGui.ZIndex = 100
+
+        local bg = Instance.new("Frame")
+        bg.Name = "Background"
+        bg.Parent = introGui
+        bg.Size = UDim2.new(1, 0, 1, 0)
+        bg.Position = UDim2.new(0, 0, 0, 0)
+        bg.BackgroundColor3 = Color3.new(0, 0, 0)
+        bg.BorderSizePixel = 0
+
+        local text = Instance.new("TextLabel")
+        text.Name = "IntroText"
+        text.Parent = bg
+        text.Size = UDim2.new(0, 400, 0, 100)
+        text.Position = UDim2.new(0.5, -200, 0.5, -50)
+        text.Text = "RED HUB"
+        text.TextColor3 = Color3.new(1, 0, 0)
+        text.BackgroundTransparency = 1
+        text.Font = Enum.Font.GothamBlack
+        text.TextSize = 60
+
+        local glow = Instance.new("TextLabel")
+        glow.Name = "Glow"
+        glow.Parent = bg
+        glow.Size = UDim2.new(0, 400, 0, 100)
+        glow.Position = UDim2.new(0.5, -200, 0.5, -50)
+        glow.Text = "RED HUB"
+        glow.TextColor3 = Color3.new(1, 0.2, 0.2)
+        glow.BackgroundTransparency = 1
+        glow.Font = Enum.Font.GothamBlack
+        glow.TextSize = 60
+        glow.TextTransparency = 0.5
+
+        local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local scaleTween = TweenService:Create(text, tweenInfo, { TextSize = 80 })
+        local fadeTween = TweenService:Create(bg, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 })
+        local textFade = TweenService:Create(text, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 1 })
+        local glowFade = TweenService:Create(glow, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 1 })
+
+        scaleTween:Play()
+        task.wait(0.8)
+        fadeTween:Play()
+        textFade:Play()
+        glowFade:Play()
+
+        fadeTween.Completed:Connect(function()
+            introGui:Destroy()
+            if callback then callback() end
+        end)
+
+        -- Fallback
+        task.delay(4, function()
+            if introGui and introGui.Parent then
+                introGui:Destroy()
+                if callback then callback() end
+            end
+        end)
+    end)
+
+    if not success then
+        if callback then callback() end
+    end
+end
+
+local function createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "SpiderGUI"
+    screenGui.Parent = player.PlayerGui
+    screenGui.ResetOnSpawn = false
+
+    mainGui = screenGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Parent = screenGui
+    mainFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.ClipsDescendants = false
+    mainFrame.Active = true
+    if isMobile then
+        mainFrame.Size = UDim2.new(0, 200, 0, 320)
+    else
+        mainFrame.Size = UDim2.new(0, 220, 0, 340)
+    end
+    mainFrame.Position = UDim2.new(0.5, -mainFrame.Size.X.Offset/2, 0.5, -mainFrame.Size.Y.Offset/2)
+
+    mainFrameRef = mainFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = mainFrame
+
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Parent = mainFrame
+    title.Size = UDim2.new(1, -60, 0, isMobile and 40 or 50)
+    title.Position = UDim2.new(0, 30, 0, 0)
+    title.Text = "RED HUB"
+    title.TextColor3 = Color3.new(1, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = isMobile and 28 or 36
+
+    local discordBtn = Instance.new("TextButton")
+    discordBtn.Name = "DiscordLink"
+    discordBtn.Parent = mainFrame
+    discordBtn.Size = UDim2.new(1, -16, 0, isMobile and 20 or 24)
+    discordBtn.Position = UDim2.new(0, 8, 0, isMobile and 44 or 55)
+    discordBtn.Text = "Discord: https://discord.gg/ArrXWJjzaW"
+    discordBtn.BackgroundTransparency = 1
+    discordBtn.TextColor3 = Color3.new(0.7, 0.7, 0.7)
+    discordBtn.Font = Enum.Font.Gotham
+    discordBtn.TextSize = isMobile and 12 or 14
+    discordBtn.BorderSizePixel = 0
+    discordBtn.AutoButtonColor = true
+    discordBtn.MouseButton1Click:Connect(function()
+        setclipboard("https://discord.gg/ArrXWJjzaW")
+    end)
+
+    local btnMinimize = Instance.new("TextButton")
+    btnMinimize.Name = "Minimize"
+    btnMinimize.Parent = mainFrame
+    btnMinimize.Size = UDim2.new(0, 30, 0, 30)
+    btnMinimize.Position = UDim2.new(1, -35, 0, 5)
+    btnMinimize.Text = "–"
+    btnMinimize.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    btnMinimize.TextColor3 = Color3.new(1, 1, 1)
+    btnMinimize.Font = Enum.Font.GothamBold
+    btnMinimize.TextSize = 20
+    btnMinimize.BorderSizePixel = 0
+    btnMinimize.ZIndex = 10
+
+    local btnClose = Instance.new("TextButton")
+    btnClose.Name = "Close"
+    btnClose.Parent = mainFrame
+    btnClose.Size = UDim2.new(0, 30, 0, 30)
+    btnClose.Position = UDim2.new(1, -35, 0, 40)
+    btnClose.Text = "×"
+    btnClose.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    btnClose.TextColor3 = Color3.new(1, 1, 1)
+    btnClose.Font = Enum.Font.GothamBold
+    btnClose.TextSize = 20
+    btnClose.BorderSizePixel = 0
+    btnClose.ZIndex = 10
+
+    local confirmFrame = Instance.new("Frame")
+    confirmFrame.Name = "ConfirmFrame"
+    confirmFrame.Parent = mainFrame
+    confirmFrame.Size = UDim2.new(1, -40, 0, 80)
+    confirmFrame.Position = UDim2.new(0.5, 0, 0.5, -40)
+    confirmFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    confirmFrame.BorderSizePixel = 0
+    confirmFrame.Visible = false
+    confirmFrame.ZIndex = 20
+    local confirmCorner = Instance.new("UICorner")
+    confirmCorner.CornerRadius = UDim.new(0, 6)
+    confirmCorner.Parent = confirmFrame
+
+    local confirmText = Instance.new("TextLabel")
+    confirmText.Parent = confirmFrame
+    confirmText.Size = UDim2.new(1, 0, 0.5, 0)
+    confirmText.Position = UDim2.new(0, 0, 0, 0)
+    confirmText.Text = "Do you Wanna close the script??"
+    confirmText.TextColor3 = Color3.new(1, 1, 1)
+    confirmText.BackgroundTransparency = 1
+    confirmText.Font = Enum.Font.GothamBold
+    confirmText.TextSize = isMobile and 14 or 16
+
+    local btnYes = Instance.new("TextButton")
+    btnYes.Parent = confirmFrame
+    btnYes.Size = UDim2.new(0.4, -5, 0, 30)
+    btnYes.Position = UDim2.new(0.1, 0, 0.6, 0)
+    btnYes.Text = "Yes"
+    btnYes.BackgroundColor3 = Color3.new(0.8, 0, 0)
+    btnYes.TextColor3 = Color3.new(1, 1, 1)
+    btnYes.Font = Enum.Font.GothamBold
+    btnYes.TextSize = 14
+    btnYes.BorderSizePixel = 0
+    btnYes.ZIndex = 21
+
+    local btnNo = Instance.new("TextButton")
+    btnNo.Parent = confirmFrame
+    btnNo.Size = UDim2.new(0.4, -5, 0, 30)
+    btnNo.Position = UDim2.new(0.5, 0, 0.6, 0)
+    btnNo.Text = "No"
+    btnNo.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+    btnNo.TextColor3 = Color3.new(1, 1, 1)
+    btnNo.Font = Enum.Font.GothamBold
+    btnNo.TextSize = 14
+    btnNo.BorderSizePixel = 0
+    btnNo.ZIndex = 21
+
+    btnYes.MouseButton1Click:Connect(function()
+        cleanup()
+    end)
+    btnNo.MouseButton1Click:Connect(function()
+        confirmFrame.Visible = false
+    end)
+
+    local restoreBtn = Instance.new("TextButton")
+    restoreBtn.Name = "Restore"
+    restoreBtn.Parent = screenGui
+    restoreBtn.Size = UDim2.new(0, 50, 0, 50)
+    restoreBtn.Position = UDim2.new(0, 10, 0, 10)
+    restoreBtn.Text = "🔴"
+    restoreBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+    restoreBtn.TextColor3 = Color3.new(1, 0, 0)
+    restoreBtn.Font = Enum.Font.GothamBold
+    restoreBtn.TextSize = 30
+    restoreBtn.BorderSizePixel = 0
+    restoreBtn.Visible = false
+    restoreBtn.ZIndex = 5
+
+    local function minimize()
+        mainFrame.Visible = false
+        restoreBtn.Visible = true
+    end
+
+    local function restore()
+        mainFrame.Visible = true
+        restoreBtn.Visible = false
+    end
+
+    btnMinimize.MouseButton1Click:Connect(minimize)
+    restoreBtn.MouseButton1Click:Connect(restore)
+
+    btnClose.MouseButton1Click:Connect(function()
+        confirmFrame.Visible = true
+    end)
+
+    local function createButton(text, y)
+        local btn = Instance.new("TextButton")
+        btn.Name = "Btn_" .. text:gsub(" ", "_"):gsub("‑", ""):gsub("🕷", ""):gsub(":", "")
+        btn.Parent = mainFrame
+        btn.Size = UDim2.new(1, -16, 0, isMobile and 34 or 38)
+        btn.Position = UDim2.new(0, 8, 0, y)
+        btn.Text = text
+        btn.BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = isMobile and 14 or 17
+        btn.BorderSizePixel = 0
+        btn.AutoButtonColor = true
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 5)
+        btnCorner.Parent = btn
+        return btn
+    end
+
+    local yOffset = isMobile and 68 or 80
+    local btnHeight = isMobile and 34 or 38
+    local spacing = isMobile and 6 or 8
+    local btnAuto = createButton("Auto Walk: OFF", yOffset)
+    local btnNoclip = createButton("Noclip: OFF", yOffset + btnHeight + spacing)
+    local btnSpider = createButton("🕷 Spider Mode: OFF", yOffset + (btnHeight + spacing) * 2)
+    local btnWebPull = createButton("Web Pull: OFF", yOffset + (btnHeight + spacing) * 3)
+    local btnWebPhys = createButton("Web Physics: OFF", yOffset + (btnHeight + spacing) * 4)
+    local btnMusic = createButton("Music: ON", yOffset + (btnHeight + spacing) * 5)
+
+    btnWebPull.Visible = false
+    btnWebPhys.Visible = false
+
+    local subButtons = {btnWebPull, btnWebPhys}
+
+    local function updateUI()
+        btnAuto.Text = "Auto Walk: " .. (autoPull and "ON" or "OFF")
+        btnAuto.BackgroundColor3 = autoPull and Color3.fromRGB(0, 120, 255) or Color3.new(0.15, 0.15, 0.15)
+
+        btnNoclip.Text = "Noclip: " .. (noclip and "ON" or "OFF")
+        btnNoclip.BackgroundColor3 = noclip and Color3.fromRGB(0, 200, 50) or Color3.new(0.15, 0.15, 0.15)
+
+        btnSpider.Text = "🕷 Spider Mode: " .. (spiderMode and "ON" or "OFF")
+        btnSpider.BackgroundColor3 = spiderMode and Color3.fromRGB(200, 50, 50) or Color3.new(0.15, 0.15, 0.15)
+
+        btnWebPull.Text = "Web Pull: " .. (autoPull and "ON" or "OFF")
+        btnWebPull.BackgroundColor3 = autoPull and Color3.fromRGB(0, 120, 255) or Color3.new(0.15, 0.15, 0.15)
+
+        btnWebPhys.Text = "Web Physics: " .. (webPhysics and "ON" or "OFF")
+        btnWebPhys.BackgroundColor3 = webPhysics and Color3.fromRGB(0, 200, 50) or Color3.new(0.15, 0.15, 0.15)
+
+        btnMusic.Text = "Music: " .. (musicOn and "ON" or "OFF")
+        btnMusic.BackgroundColor3 = musicOn and Color3.fromRGB(200, 50, 50) or Color3.new(0.15, 0.15, 0.15)
+    end
+
+    btnSpider.Activated:Connect(function()
+        if isDragging then return end
+        spiderMode = not spiderMode
+        for _, btn in ipairs(subButtons) do
+            btn.Visible = spiderMode
+        end
+        if spiderMode then
+            if isMobile then
+                mainFrame.Size = UDim2.new(0, 200, 0, 400)
+            else
+                mainFrame.Size = UDim2.new(0, 220, 0, 420)
+            end
+        else
+            if isMobile then
+                mainFrame.Size = UDim2.new(0, 200, 0, 320)
+            else
+                mainFrame.Size = UDim2.new(0, 220, 0, 340)
+            end
+        end
+        mainFrame.Position = UDim2.new(0.5, -mainFrame.Size.X.Offset/2, 0.5, -mainFrame.Size.Y.Offset/2)
+        updateUI()
+    end)
+
+    btnAuto.Activated:Connect(function()
+        if isDragging then return end
+        autoPull = not autoPull
+        if autoPull then webPhysics = false end
+        updateUI()
+    end)
+
+    btnNoclip.Activated:Connect(function()
+        if isDragging then return end
+        noclip = not noclip
+        updateUI()
+    end)
+
+    btnWebPull.Activated:Connect(function()
+        if isDragging then return end
+        webPhysics = false
+        autoPull = true
+        updateUI()
+    end)
+
+    btnWebPhys.Activated:Connect(function()
+        if isDragging then return end
+        webPhysics = true
+        autoPull = false
+        updateUI()
+    end)
+
+    btnMusic.Activated:Connect(function()
+        if isDragging then return end
+        musicOn = not musicOn
+        if musicOn then
+            if not musicSound then createMusic() end
+            musicSound:Play()
+        else
+            if musicSound then musicSound:Stop() end
+        end
+        updateUI()
+    end)
+
+    local dragStart = nil
+    local frameStart = nil
+    local dragThreshold = 10
+    mainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local target = game:GetService("UserInputService"):GetFocusedTextBox()
+                if target then return end
+            end
+            isDragging = false
+            dragStart = input.Position
+            frameStart = mainFrame.Position
+        end
+    end)
+    mainFrame.InputChanged:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) and dragStart then
+            local delta = input.Position - dragStart
+            if delta.Magnitude > dragThreshold then
+                isDragging = true
+                mainFrame.Position = UDim2.new(
+                    frameStart.X.Scale, frameStart.X.Offset + delta.X,
+                    frameStart.Y.Scale, frameStart.Y.Offset + delta.Y
+                )
+            end
+        end
+    end)
+    mainFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            task.wait(0.05)
+            dragStart = nil
+            isDragging = false
+        end
+    end)
+
+    local function isTouchingUI(pos)
+        local descendants = screenGui:GetDescendants()
+        for _, obj in ipairs(descendants) do
+            if obj:IsA("GuiObject") and obj.AbsoluteSize.X > 0 then
+                local absPos = obj.AbsolutePosition
+                if pos.X >= absPos.X and pos.X <= absPos.X + obj.AbsoluteSize.X and
+                   pos.Y >= absPos.Y and pos.Y <= absPos.Y + obj.AbsoluteSize.Y then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    if isMobile then
+        addConnection(UserInputService.InputBegan:Connect(function(input, processed)
+            if processed then return end
+            if input.UserInputType == Enum.UserInputType.Touch then
+                if isTouchingUI(input.Position) then return end
+            end
+        end))
+    end
+
+    updateUI()
+    return screenGui, mainFrame
+end
+
+-- Web functions
+local function createWeb(startPos, endPos)
+    if currentWeb then currentWeb:Destroy() end
+    local p1 = Instance.new("Part")
+    p1.Anchored = true
+    p1.CanCollide = false
+    p1.Transparency = 1
+    p1.CFrame = CFrame.new(startPos)
+    p1.Parent = workspace
+    local p2 = Instance.new("Part")
+    p2.Anchored = true
+    p2.CanCollide = false
+    p2.Transparency = 1
+    p2.CFrame = CFrame.new(endPos)
+    p2.Parent = workspace
+    local a1 = Instance.new("Attachment")
+    a1.Parent = p1
+    local a2 = Instance.new("Attachment")
+    a2.Parent = p2
+    local beam = Instance.new("Beam")
+    beam.Attachment0 = a1
+    beam.Attachment1 = a2
+    beam.Width0 = 2
+    beam.Width1 = 2
+    beam.LightEmission = 1
+    beam.Texture = "rbxassetid://446111271"
+    beam.TextureMode = Enum.TextureMode.Stretch
+    beam.TextureLength = 1
+    beam.TextureSpeed = 2
+    beam.Color = ColorSequence.new(Color3.new(1, 1, 1))
+    beam.Transparency = NumberSequence.new(0.05)
+    beam.Parent = p1
+    currentWeb = Instance.new("Folder")
+    currentWeb.Name = "WebFolder"
+    currentWeb.Parent = workspace
+    p1.Parent = currentWeb
+    p2.Parent = currentWeb
+end
+
+local function useWeb()
+    if not targetPos then return end
+    local char = player.Character or player.CharacterAdded:Wait()
+    local root = char:WaitForChild("HumanoidRootPart")
+    createWeb(root.Position, targetPos)
+    if webPhysics then
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+        bv.Velocity = (targetPos - root.Position).Unit * 100
+        bv.Parent = root
+        Debris:AddItem(bv, 0.5)
+    elseif autoPull then
+        local tw = TweenService:Create(root, TweenInfo.new(0.6, Enum.EasingStyle.Quad), {
+            CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+        })
+        tw:Play()
+    end
+end
+
+-- Global input connection for web shooting
+addConnection(UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if isDragging then return end
+        local ray = camera:ScreenPointToRay(input.Position.X, input.Position.Y)
+        local rp = RaycastParams.new()
+        rp.FilterDescendantsInstances = {player.Character}
+        rp.FilterType = Enum.RaycastFilterType.Blacklist
+        local hit = workspace:Raycast(ray.Origin, ray.Direction * 500, rp)
+        if hit then
+            targetPos = hit.Position
+            useWeb()
+        end
+    end
+end))
+
+-- Noclip loop
+addConnection(RunService.RenderStepped:Connect(function()
+    local char = player.Character
+    if char and noclip then
+        for _, p in pairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.CanCollide = false
+            end
+        end
+    end
+end))
+
+-- Character added handler
+addConnection(player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if targetPos then
+        task.wait(0.5)
+        useWeb()
+    end
+end))
+
+-- Main execution
+createMusic()
+musicSound:Play()
+
+playIntroAnimation(function()
+    createUI()
+end)
+
+-- Custom animation setup (with proper cleanup)
+task.spawn(function()
+    task.wait(1)
+    local character = player.Character or player.CharacterAdded:Wait()
+    -- Instead of destroying the Animate script, disable it and store reference
+    for _, child in pairs(character:GetChildren()) do
+        if child:IsA("LocalScript") and child.Name == "Animate" then
+            originalAnimateScript = child
+            child.Disabled = true
+            break
+        end
+    end
+    local humanoid = character:WaitForChild("Humanoid")
+    humanoid:SetAttribute("AutoAnimate", false)
+
+    local animations = {
+        idle = "rbxassetid://112472797825991",
+        walk = "rbxassetid://136382802509224",
+        jump = "rbxassetid://133675142555339"
+    }
+    local walkAnim = Instance.new("Animation")
+    walkAnim.AnimationId = animations.walk
+    local walkTrack = humanoid:LoadAnimation(walkAnim)
+    local idleAnim = Instance.new("Animation")
+    idleAnim.AnimationId = animations.idle
+    local idleTrack = humanoid:LoadAnimation(idleAnim)
+    local jumpAnim = Instance.new("Animation")
+    jumpAnim.AnimationId = animations.jump
+    local jumpTrack = humanoid:LoadAnimation(jumpAnim)
+
+    -- Store tracks for cleanup
+    animationTracks = {walkTrack, idleTrack, jumpTrack}
+
+    walkTrack.Looped = true
+    idleTrack.Looped = true
+    jumpTrack.Looped = false
+    walkTrack.Priority = Enum.AnimationPriority.Action
+    idleTrack.Priority = Enum.AnimationPriority.Action
+    jumpTrack.Priority = Enum.AnimationPriority.Action
+
+    idleTrack:Play()
+    local lastAnim = idleTrack
+    local function switchAnimation(newAnim)
+        if lastAnim == newAnim then return end
+        lastAnim:Stop()
+        newAnim:Play()
+        lastAnim = newAnim
+    end
+
+    -- Heartbeat and StateChanged connections (stored for cleanup)
+    addConnection(game:GetService("RunService").Heartbeat:Connect(function()
+        if humanoid.Health <= 0 then return end
+        local state = humanoid:GetState()
+        if state == Enum.HumanoidStateType.Jumping then
+            switchAnimation(jumpTrack)
+        elseif state == Enum.HumanoidStateType.Landed or state == Enum.HumanoidStateType.Freefall then
+            -- keep current
+        else
+            local speed = humanoid.MoveDirection.Magnitude
+            if speed > 0.5 then
+                if lastAnim ~= walkTrack then switchAnimation(walkTrack) end
+            else
+                if lastAnim ~= idleTrack then switchAnimation(idleTrack) end
+            end
+        end
+    end))
+
+    addConnection(humanoid.StateChanged:Connect(function(oldState, newState)
+        if newState == Enum.HumanoidStateType.Jumping then
+            switchAnimation(jumpTrack)
+        elseif newState == Enum.HumanoidStateType.Landed then
+            if humanoid.MoveDirection.Magnitude > 0.5 then
+                switchAnimation(walkTrack)
+            else
+                switchAnimation(idleTrack)
+            end
+        end
+    end))
+end)
