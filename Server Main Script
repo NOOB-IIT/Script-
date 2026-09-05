@@ -1,0 +1,47 @@
+-- ServerScriptService.ServerMain
+local Players = game:GetService("Players")
+local DataManager = require(script.Parent:WaitForChild("DataManager"))
+local QuestSystem = require(script.Parent:WaitForChild("QuestSystem"))
+local StakeSystem = require(script.Parent:WaitForChild("StakeSystem"))
+
+-- Leaderstats (Player ka paisa aur points dikhane ke liye)
+local function SetupLeaderstats(player)
+    local leaderstats = Instance.new("Folder")
+    leaderstats.Name = "leaderstats"
+    
+    local cash = Instance.new("IntValue")
+    cash.Name = "Cash" -- Stake ke liye
+    cash.Value = 0
+    cash.Parent = leaderstats
+    
+    local points = Instance.new("IntValue")
+    points.Name = "Points" -- Leaderboard ke liye
+    points.Parent = leaderstats
+    
+    leaderstats.Parent = player
+    return cash, points
+end
+
+Players.PlayerAdded:Connect(function(player)
+    local data = DataManager.LoadData(player)
+    local cash, points = SetupLeaderstats(player)
+    
+    cash.Value = data.Cash
+    points.Value = data.Points
+    
+    -- Daily Reset Check (Agar naya din hai)
+    QuestSystem.HandleDailyReset(player, data)
+
+    -- Save on leave
+    player:SetAttribute("PlayerData", data) -- Temp memory mein rakho
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    local data = player:GetAttribute("PlayerData")
+    if data then
+        -- Aakhri baar save karna
+        cash.Value = data.Cash
+        points.Value = data.Points
+        DataManager.SaveData(player, data)
+    end
+end)
