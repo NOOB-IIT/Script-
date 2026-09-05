@@ -1,0 +1,35 @@
+-- LocalScript (e.g., in StarterPlayerScripts)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GetReport = ReplicatedStorage.Remotes.GetReport
+
+local function DataToString(quests)
+    local str = ""
+    for _, q in ipairs(quests) do
+        str = str .. q.Name .. " [" .. q.Progress .. "/" .. q.Target .. "]\n"
+    end
+    return str
+end
+
+local function ShowReport()
+    local data = GetReport:InvokeServer()
+    if not data then
+        print("No player data available.")
+        return
+    end
+
+    local reportText = string.format([[
+=== COMPLETE REPORT ===
+Cash: %d
+Points: %d
+Wins: %d
+Losses: %d
+
+=== DAILY QUESTS ===
+%s
+]], data.Cash, data.Points, data.Wins, data.Losses, DataToString(data.Quests))
+
+    print(reportText)
+end
+
+-- Call ShowReport when needed, e.g., on a button click
+-- ShowReport()
