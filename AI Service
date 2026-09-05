@@ -1,0 +1,50 @@
+-- ServerScriptService.AIService
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TopicRequest = ReplicatedStorage.Remotes.TopicRequest
+
+local AIService = {}
+local CachedTopics = {}
+local API_KEY = "YAHAN_APNI_OPENAI_KEY_DAALO" -- Keep this only on the server (never on the client)
+
+local function FetchTopic()
+    local success, result = pcall(function()
+        local response = HttpService:RequestAsync({
+            Url = "https://api.openai.com/v1/chat/completions",
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json",
+                ["Authorization"] = "Bearer " .. API_KEY
+            },
+            Body = HttpService:JSONEncode({
+                model = "gpt-4o-mini",
+                messages = {
+                    { role = "system", content = "You are a game guide. Provide one short interesting conversation topic." },
+                    { role = "user", content = "Give me a topic for 4 friends playing a game." }
+                },
+                max_tokens = 50
+            })
+        })
+        local data = HttpService:JSONDecode(response.Body)
+        return data.choices[1].message.content
+    end)
+    
+    if success then return result else return "Talk about your favorite food!" end
+end
+
+-- When a client requests a topic
+TopicRequest.OnServerInvoke = function(player)
+    -- Check cache first (to save API costs)
+    if #CachedTopics > 0 then
+        return table.remove(CachedTopics)
+    else
+        -- If cache is empty, fetch 10 topics and store them
+        for i = 1, 10 do
+            table.insert(CachedTopics, FetchTopic())
+            task.wait(1) -- To avoid rate limiting
+        end
+        return table.remove(CachedTopics)
+    end
+end
+
+return AIService
