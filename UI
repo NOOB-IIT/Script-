@@ -1,0 +1,124 @@
+-- StarterGui.MainUI (LocalScript)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SharedConfig = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("SharedConfig"))
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- 1. UI Create karna (Code se hi sab banao)
+local gui = Instance.new("ScreenGui")
+gui.Name = "MainUI"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local questFrame = Instance.new("Frame")
+questFrame.Size = UDim2.new(0, 250, 0, 200)
+questFrame.Position = UDim2.new(0, 10, 0, 50)
+questFrame.BackgroundColor3 = SharedConfig.Colors.Main
+questFrame.BorderSizePixel = 0
+questFrame.Parent = gui
+
+local questTitle = Instance.new("TextLabel")
+questTitle.Size = UDim2.new(1, 0, 0, 30)
+questTitle.Text = "Daily Quests"
+questTitle.TextColor3 = SharedConfig.Colors.Accent
+questTitle.BackgroundTransparency = 1
+questTitle.Parent = questFrame
+
+local questList = Instance.new("TextLabel")
+questList.Size = UDim2.new(1, -10, 1, -40)
+questList.Position = UDim2.new(0, 5, 0, 35)
+questList.Text = "Loading..."
+questList.TextColor3 = SharedConfig.Colors.Text
+questList.TextWrapped = true
+questList.TextXAlignment = Enum.TextXAlignment.Left
+questList.TextYAlignment = Enum.TextYAlignment.Top
+questList.BackgroundTransparency = 1
+questList.Parent = questFrame
+
+-- Stake Section (Bottom Right)
+local stakeFrame = Instance.new("Frame")
+stakeFrame.Size = UDim2.new(0, 250, 0, 150)
+stakeFrame.Position = UDim2.new(1, -260, 1, -160)
+stakeFrame.BackgroundColor3 = SharedConfig.Colors.Main
+stakeFrame.Parent = gui
+
+local stakeBtn = Instance.new("TextButton")
+stakeBtn.Size = UDim2.new(1, -20, 0, 50)
+stakeBtn.Position = UDim2.new(0, 10, 0, 10)
+stakeBtn.Text = "Stake " .. SharedConfig.StakeAmount .. " Cash"
+stakeBtn.BackgroundColor3 = SharedConfig.Colors.Accent
+stakeBtn.TextColor3 = Color3.new(0,0,0)
+stakeBtn.Parent = stakeFrame
+
+local reportBtn = Instance.new("TextButton")
+reportBtn.Size = UDim2.new(1, -20, 0, 40)
+reportBtn.Position = UDim2.new(0, 10, 0, 70)
+reportBtn.Text = "View Report"
+reportBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+reportBtn.TextColor3 = SharedConfig.Colors.Text
+reportBtn.Parent = stakeFrame
+
+-- AI Section (Bottom Left)
+local aiFrame = Instance.new("Frame")
+aiFrame.Size = UDim2.new(0, 250, 0, 120)
+aiFrame.Position = UDim2.new(0, 10, 1, -130)
+aiFrame.BackgroundColor3 = SharedConfig.Colors.Main
+aiFrame.Parent = gui
+
+local topicLabel = Instance.new("TextLabel")
+topicLabel.Size = UDim2.new(1, -10, 0, 50)
+topicLabel.Position = UDim2.new(0, 5, 0, 5)
+topicLabel.Text = "AI Topic will appear here"
+topicLabel.TextColor3 = SharedConfig.Colors.Text
+topicLabel.TextWrapped = true
+topicLabel.BackgroundTransparency = 1
+topicLabel.Parent = aiFrame
+
+local topicBtn = Instance.new("TextButton")
+topicBtn.Size = UDim2.new(1, -20, 0, 40)
+topicBtn.Position = UDim2.new(0, 10, 0, 70)
+topicBtn.Text = "Get AI Topic"
+topicBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 255)
+topicBtn.TextColor3 = Color3.new(1, 1, 1)
+topicBtn.Parent = aiFrame
+
+-- 2. Logic Connecting (RemoteEvents / Functions)
+local QuestProgress = Remotes.QuestProgress
+local StakeAction = Remotes.StakeAction
+local TopicRequest = Remotes.TopicRequest
+local GetReport = Remotes.GetReport
+
+-- Quest Update Sunna
+QuestProgress.OnClientEvent:Connect(function(quests)
+    local text = ""
+    for _, q in ipairs(quests) do
+        local status = "Incomplete"
+        if q.Completed then status = "DONE" end
+        text = text .. q.Name .. " [" .. q.Progress .. "/" .. q.Target .. "] - " .. status .. "\n"
+    end
+    questList.Text = text
+end)
+
+-- Stake Button (Server ko bhejo)
+stakeBtn.MouseButton1Click:Connect(function()
+    StakeAction:FireServer(SharedConfig.StakeAmount)
+end)
+
+-- Report Button (Server se data lo)
+reportBtn.MouseButton1Click:Connect(function()
+    local data = GetReport:InvokeServer()
+    if data then
+        local text = string.format("REPORT:\nCash: %d\nPoints: %d\nWins: %d\nLosses: %d", data.Cash, data.Points, data.Wins, data.Losses)
+        questList.Text = text -- Temporary report dikhane ke liye
+    end
+end)
+
+-- AI Topic Button (Server se topic lo)
+topicBtn.MouseButton1Click:Connect(function()
+    topicLabel.Text = "Thinking..."
+    local topic = TopicRequest:InvokeServer()
+    topicLabel.Text = topic
+end)
