@@ -1,0 +1,62 @@
+-- ServerScriptService.DataManager
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
+
+local Store = DataStoreService:GetDataStore("PlayerData_V1")
+
+local DataManager = {}
+
+-- Loads player data, returning default data if none exists.
+DataManager.LoadData = function(player)
+    local key = "Player_" .. player.UserId
+    local success, data = pcall(function()
+        return Store:GetAsync(key)
+    end)
+
+    if success and data then
+        return data
+    else
+        -- Provide default data for new players.
+        return {
+            Cash = 1000, -- Starting cash for staking
+            Points = 0, -- Points for leaderboard
+            DailyQuests = {}, -- Table mapping task names to progress
+            LastResetDate = os.date("%Y-%m-%d"),
+            History = { Wins = 0, Losses = 0 }
+        }
+    end
+end
+
+-- Saves player data to the data store.
+DataManager.SaveData = function(player, data)
+    local key = "Player_" .. player.UserId
+    local success, err = pcall(function()
+        Store:SetAsync(key, data)
+    end)
+    if not success then
+        warn("Error saving data for " .. player.Name .. ": " .. err)
+    end
+end
+
+-- Updates player data atomically using UpdateAsync to avoid race conditions.
+DataManager.UpdateData = function(player, callback)
+    local key = "Player_" .. player.UserId
+    local success, updatedData = pcall(function()
+        return Store:UpdateAsync(key, function(oldData)
+            -- Provide default data if the player has none.
+            if not oldData then
+                oldData = {
+                    Cash = 1000,
+                    Points = 0,
+                    DailyQuests = {},
+                    LastResetDate = os.date("%Y-%m-%d"),
+                    History = { Wins = 0, Losses = 0 }
+                }
+            end
+            return callback(oldData)
+        end)
+    end)
+    return success and updatedData or nil
+end
+
+return DataManager
