@@ -1,0 +1,16 @@
+-- Server script handling GetReport remote function
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GetReport = ReplicatedStorage.Remotes.GetReport
+
+GetReport.OnServerInvoke = function(player)
+    local data = player:GetAttribute("PlayerData")
+    if data then
+        return {
+            Cash = data.Cash,
+            Points = data.Points,
+            Wins = data.History.Wins,
+            Losses = data.History.Losses,
+            Quests = data.DailyQuests
+        }
+    end
+end
