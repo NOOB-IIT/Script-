@@ -1,0 +1,59 @@
+-- ServerScriptService.QuestSystem
+local DataManager = require(script.Parent:WaitForChild("DataManager"))
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local QuestProgress = ReplicatedStorage.Remotes.QuestProgress
+
+local QuestSystem = {}
+
+-- Define daily quest tasks with their targets
+local TASKS = {
+    { Name = "Talk to 5 players", Target = 5 },
+    { Name = "Win 2 games", Target = 2 },
+    { Name = "Spend 500 Cash", Target = 500 }
+}
+
+-- Handles daily quest reset and sends current quest list to the client
+function QuestSystem.HandleDailyReset(player, data)
+    local today = os.date("%Y-%m-%d")
+    
+    if data.LastResetDate ~= today then
+        -- Assign new quests for the day
+        local newQuests = {}
+        for _, task in ipairs(TASKS) do
+            table.insert(newQuests, { Name = task.Name, Target = task.Target, Progress = 0, Completed = false })
+        end
+        
+        data.DailyQuests = newQuests
+        data.LastResetDate = today
+        DataManager.SaveData(player, data)
+        
+        -- Notify the client about the new quests
+        QuestProgress:FireClient(player, newQuests)
+    else
+        -- If already reset today, send existing quests
+        QuestProgress:FireClient(player, data.DailyQuests)
+    end
+end
+
+-- Called from ServerMain whenever a task is completed
+function QuestSystem.CompleteQuest(player, questName)
+    local data = player:GetAttribute("PlayerData")
+    if not data then return end
+    
+    for _, quest in ipairs(data.DailyQuests) do
+        if quest.Name == questName and quest.Completed == false then
+            quest.Progress = quest.Progress + 1
+            if quest.Progress >= quest.Target then
+                quest.Completed = true
+                -- Award points for completing the quest
+                player.leaderstats.Points.Value += 10
+                data.Points = player.leaderstats.Points.Value
+            end
+            DataManager.SaveData(player, data)
+            QuestProgress:FireClient(player, data.DailyQuests) -- Update the client UI
+            break
+        end
+    end
+end
+
+return QuestSystem
