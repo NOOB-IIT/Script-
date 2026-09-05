@@ -1,0 +1,75 @@
+-- ServerScriptService.StakeSystem
+local DataManager = require(script.Parent:WaitForChild("DataManager"))
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StakeAction = ReplicatedStorage.Remotes.StakeAction
+local DataStoreService = game:GetService("DataStoreService")
+
+local GlobalLeaderboard = DataStoreService:GetOrderedDataStore("DailyPoints")
+
+local StakeSystem = {}
+local CurrentStakePool = 0 -- Total pool contributed by all players
+
+-- Handles player staking action
+StakeAction.OnServerEvent:Connect(function(player, amount)
+    local data = player:GetAttribute("PlayerData")
+    if not data then return end
+    
+    if amount <= 0 or amount > data.Cash then
+        return -- Invalid stake amount
+    end
+    
+    -- Deduct cash and add to the pool
+    data.Cash -= amount
+    player.leaderstats.Cash.Value = data.Cash
+    CurrentStakePool += amount
+    
+    -- Mark player as having staked
+    data.HasStaked = true
+    data.StakeAmount = amount
+    DataManager.SaveData(player, data)
+end)
+
+-- Daily reward distribution at midnight
+task.spawn(function()
+    while true do
+        local currentTime = os.date("%H:%M")
+        if currentTime == "00:00" then
+            -- Check all players who staked and completed all quests
+            for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+                local data = player:GetAttribute("PlayerData")
+                if data and data.HasStaked and data.DailyQuests then
+                    local allCompleted = true
+                    for _, quest in ipairs(data.DailyQuests) do
+                        if not quest.Completed then
+                            allCompleted = false
+                            break
+                        end
+                    end
+                    
+                    if allCompleted then
+                        -- Winner: receive stake back plus 20% bonus from pool
+                        local reward = data.StakeAmount + (CurrentStakePool * 0.2)
+                        data.Cash += reward
+                        player.leaderstats.Cash.Value = data.Cash
+                        data.History.Wins += 1
+                    else
+                        data.History.Losses += 1
+                        -- Stake is lost
+                    end
+                    
+                    -- Update global leaderboard
+                    pcall(function()
+                        GlobalLeaderboard:SetAsync(player.UserId, data.Points)
+                    end)
+                    
+                    data.HasStaked = false
+                    DataManager.SaveData(player, data)
+                end
+            end
+            CurrentStakePool = 0 -- Reset pool
+        end
+        task.wait(60) -- Check every minute
+    end
+end)
+
+return StakeSystem
