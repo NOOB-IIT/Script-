@@ -1,0 +1,839 @@
+--[[
+    ██████╗ ███████╗██████╗     ██╗  ██╗██╗   ██╗██████╗ 
+    ██╔══██╗██╔════╝██╔══██╗    ██║  ██║██║   ██║██╔══██╗
+    ██████╔╝█████╗  ██║  ██║    ███████║██║   ██║██████╔╝
+    ██╔══██╗██╔══╝  ██║  ██║    ██╔══██║██║   ██║██╔══██╗
+    ██║  ██║███████╗██████╔╝    ██║  ██║╚██████╔╝██████╔╝
+    ╚═╝  ╚═╝╚══════╝╚═════╝     ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ 
+    RED HUB  |  I_AM_RED  |  By NOT_IITIAN
+    discord.gg/64d6es6WsT
+]]
+
+local BRAND          = "RED HUB"
+local OWNER          = "I_AM_RED"
+local CREDIT         = "NOT_IITIAN"
+local DISCORD_LINK   = "https://discord.gg/64d6es6WsT"
+local DISCORD_SHOW   = "discord.gg/64d6es6WsT"
+local MUSIC_ID       = "rbxassetid://9039851834"
+local NATURE_ID      = "rbxassetid://6031075931"
+
+-- ===== NEW LINKS =====
+local WINDUI_URL     = "https://raw.githubusercontent.com/NOOB-IIT/Script-/cb4913f21442176625717b512248e28a0d86f26c/Wind%20GUI%20RED%20HUB"
+local RAYFIELD_URL   = "https://raw.githubusercontent.com/NOOB-IIT/Script-/2193a29c52269758933b7ebfce3cb0f79cbf0739/Rayfeild%20GUI%20Red%20hub"
+
+local Settings = { SelectedLibrary = nil, AutoLoad = false }
+
+local TS          = game:GetService("TweenService")
+local Debris      = game:GetService("Debris")
+local Players     = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+
+-- ============== Settings ==============
+local function SafeLoadSettings()
+    if pcall(function() return readfile and readfile("XVCHubSettings.json") end) then
+        local fd = readfile("XVCHubSettings.json")
+        if fd and fd ~= "" then
+            local ok, dec = pcall(function() return HttpService:JSONDecode(fd) end)
+            if ok and dec then Settings = dec end
+        end
+    end
+end
+SafeLoadSettings()
+
+local gethui = gethui or get_hidden_gui
+local function parentToHidden(gui)
+    if gethui then gui.Parent = gethui()
+    elseif game:GetService("CoreGui"):FindFirstChildWhichIsA("ScreenGui") then
+        gui.Parent = game:GetService("CoreGui")
+    else
+        gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+    end
+end
+
+-- =========================================================
+--  PERSISTENT LAYER (music + brand bar that stays forever)
+-- =========================================================
+local Persistent = Instance.new("ScreenGui")
+Persistent.Name = "REDHUB_Persistent"
+Persistent.ResetOnSpawn = false
+Persistent.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Persistent.IgnoreGuiInset = true
+parentToHidden(Persistent)
+
+-- Music (never stops unless toggled)
+local Music = Instance.new("Sound")
+Music.Name = "REDHUB_Music"
+Music.SoundId = MUSIC_ID
+Music.Volume = 0.5
+Music.Looped = true
+Music.Parent = Persistent
+pcall(function() Music:Play() end)
+
+-- =========================================================
+--  BRAND BAR (appears on top of loaded libraries)
+-- =========================================================
+local BrandBar = Instance.new("Frame")
+BrandBar.Name = "BrandBar"
+BrandBar.Parent = Persistent
+BrandBar.AnchorPoint = Vector2.new(0, 1)
+BrandBar.Position = UDim2.new(0, 12, 1, -12)
+BrandBar.Size = UDim2.new(0, 268, 0, 48)
+BrandBar.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+BrandBar.BackgroundTransparency = 0.12
+BrandBar.BorderSizePixel = 0
+BrandBar.Visible = false
+
+local BBCorner = Instance.new("UICorner")
+BBCorner.CornerRadius = UDim.new(0, 10)
+BBCorner.Parent = BrandBar
+
+local BBGrad = Instance.new("UIGradient")
+BBGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 22, 26)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 0, 0))
+})
+BBGrad.Rotation = 135
+BBGrad.Parent = BrandBar
+
+local BBStroke = Instance.new("UIStroke")
+BBStroke.Parent = BrandBar
+BBStroke.Color = Color3.fromRGB(255, 30, 30)
+BBStroke.Thickness = 1.2
+BBStroke.Transparency = 0.2
+
+-- Avatar (I_AM_RED photo)
+local BBAvatar = Instance.new("ImageLabel")
+BBAvatar.Parent = BrandBar
+BBAvatar.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+BBAvatar.BorderSizePixel = 0
+BBAvatar.Position = UDim2.new(0, 7, 0.5, 0)
+BBAvatar.AnchorPoint = Vector2.new(0, 0.5)
+BBAvatar.Size = UDim2.new(0, 36, 0, 36)
+BBAvatar.Image = ""
+
+local BBAvCorner = Instance.new("UICorner")
+BBAvCorner.CornerRadius = UDim.new(1, 0)
+BBAvCorner.Parent = BBAvatar
+
+local BBAvStroke = Instance.new("UIStroke")
+BBAvStroke.Parent = BBAvatar
+BBAvStroke.Color = Color3.fromRGB(255, 30, 30)
+BBAvStroke.Thickness = 1.6
+
+task.spawn(function()
+    local ok, thumb = pcall(function()
+        return Players:GetUserThumbnailAsync(
+            Players.LocalPlayer.UserId,
+            Enum.ThumbnailType.HeadShot,
+            Enum.ThumbnailSize.Size150x150)
+    end)
+    if ok and thumb then BBAvatar.Image = thumb end
+end)
+
+local BBTitle = Instance.new("TextLabel")
+BBTitle.Parent = BrandBar
+BBTitle.BackgroundTransparency = 1
+BBTitle.Position = UDim2.new(0, 50, 0, 6)
+BBTitle.Size = UDim2.new(0, 140, 0, 18)
+BBTitle.Font = Enum.Font.GothamBlack
+BBTitle.Text = BRAND
+BBTitle.TextColor3 = Color3.fromRGB(255, 40, 40)
+BBTitle.TextSize = 15
+BBTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local BBSub = Instance.new("TextLabel")
+BBSub.Parent = BrandBar
+BBSub.BackgroundTransparency = 1
+BBSub.Position = UDim2.new(0, 50, 0, 25)
+BBSub.Size = UDim2.new(0, 140, 0, 14)
+BBSub.Font = Enum.Font.Code
+BBSub.Text = OWNER .. "  //  by " .. CREDIT
+BBSub.TextColor3 = Color3.fromRGB(210, 210, 210)
+BBSub.TextSize = 10
+BBSub.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Music toggle
+local BBMusic = Instance.new("TextButton")
+BBMusic.Parent = BrandBar
+BBMusic.AnchorPoint = Vector2.new(1, 0.5)
+BBMusic.Position = UDim2.new(1, -6, 0.5, 0)
+BBMusic.Size = UDim2.new(0, 34, 0, 32)
+BBMusic.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
+BBMusic.BorderSizePixel = 0
+BBMusic.Font = Enum.Font.GothamBold
+BBMusic.Text = "♪"
+BBMusic.TextColor3 = Color3.fromRGB(255, 60, 60)
+BBMusic.TextSize = 17
+BBMusic.AutoButtonColor = false
+
+local BBMusicCorner = Instance.new("UICorner")
+BBMusicCorner.CornerRadius = UDim.new(0, 6)
+BBMusicCorner.Parent = BBMusic
+
+local BBMusicStroke = Instance.new("UIStroke")
+BBMusicStroke.Parent = BBMusic
+BBMusicStroke.Color = Color3.fromRGB(255, 30, 30)
+BBMusicStroke.Thickness = 1.2
+
+local musicOn = true
+BBMusic.MouseButton1Click:Connect(function()
+    musicOn = not musicOn
+    if musicOn then
+        Music:Play()
+        BBMusic.Text = "♪"
+        BBMusic.TextColor3 = Color3.fromRGB(255, 60, 60)
+    else
+        Music:Pause()
+        BBMusic.Text = "✕"
+        BBMusic.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end)
+
+-- Discord
+local BBDiscord = Instance.new("TextButton")
+BBDiscord.Parent = BrandBar
+BBDiscord.AnchorPoint = Vector2.new(1, 0.5)
+BBDiscord.Position = UDim2.new(1, -44, 0.5, 0)
+BBDiscord.Size = UDim2.new(0, 34, 0, 32)
+BBDiscord.BackgroundColor3 = Color3.fromRGB(40, 0, 60)
+BBDiscord.BorderSizePixel = 0
+BBDiscord.Font = Enum.Font.GothamBold
+BBDiscord.Text = "D"
+BBDiscord.TextColor3 = Color3.fromRGB(190, 130, 255)
+BBDiscord.TextSize = 15
+BBDiscord.AutoButtonColor = false
+
+local BBDiscordCorner = Instance.new("UICorner")
+BBDiscordCorner.CornerRadius = UDim.new(0, 6)
+BBDiscordCorner.Parent = BBDiscord
+
+local BBDiscordStroke = Instance.new("UIStroke")
+BBDiscordStroke.Parent = BBDiscord
+BBDiscordStroke.Color = Color3.fromRGB(150, 100, 255)
+BBDiscordStroke.Thickness = 1.2
+
+BBDiscord.MouseButton1Click:Connect(function()
+    pcall(function()
+        if setclipboard then setclipboard(DISCORD_LINK)
+        elseif toclipboard then toclipboard(DISCORD_LINK) end
+    end)
+    BBDiscord.Text = "✓"
+    task.wait(1.2)
+    BBDiscord.Text = "D"
+end)
+
+-- Draggable brand bar
+do
+    local drag = false
+    local start, startPos
+    BrandBar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            drag = true
+            start = i.Position
+            startPos = BrandBar.Position
+        end
+    end)
+    BrandBar.InputChanged:Connect(function(i)
+        if drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = i.Position - start
+            BrandBar.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    BrandBar.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            drag = false
+        end
+    end)
+end
+
+-- =========================================================
+--  REBRAND FUNCTION (aggressive)
+-- =========================================================
+local function rebrand(content)
+    if type(content) ~= "string" then return content end
+
+    local subs = {
+        -- Hub names
+        ["The Chosen Hub Windui"]  = BRAND,
+        ["The Chosen Hub"]         = BRAND,
+        ["TheChosenHub"]           = "REDHUB",
+        ["Chosen Hub"]             = BRAND,
+        ["ChosenHub"]              = "REDHUB",
+        ["chosen hub"]             = BRAND,
+        ["XVC Hub"]                = BRAND,
+        ["XVCHub"]                 = "REDHUB",
+        ["XvcHub"]                 = "REDHUB",
+        ["xvc hub"]                = BRAND,
+        ["XVCHubLoader"]           = "REDHUBLoader",
+        ["XVC"]                    = "RED",
+        -- Credits / owners
+        ["Aviaxen"]                = CREDIT,
+        ["aviaxen"]                = CREDIT:lower(),
+        ["by Chosen"]              = "by " .. CREDIT,
+        ["by Aviaxen"]             = "by " .. CREDIT,
+        ["By Aviaxen"]             = "By " .. CREDIT,
+        ["by The Chosen Hub"]      = "by " .. CREDIT,
+        ["By The Chosen Hub"]      = "By " .. CREDIT,
+        ["by XVC"]                 = "by " .. CREDIT,
+        ["By XVC"]                 = "By " .. CREDIT,
+        ["credits to them"]        = "credits to " .. CREDIT,
+        ["credits to Aviaxen"]     = "credits to " .. CREDIT,
+        -- Discord
+        ["discord.gg/rTw5M8dRXN"]  = DISCORD_SHOW,
+        ["discord.gg/"]            = DISCORD_SHOW:gsub("discord%.gg/", "discord.gg/"),
+    }
+
+    for k, v in pairs(subs) do
+        local pattern = k:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1")
+        content = content:gsub(pattern, v)
+    end
+    return content
+end
+
+-- =========================================================
+--  SELECTION GUI
+-- =========================================================
+local XVCHubLoader = Instance.new("ScreenGui")
+XVCHubLoader.Name = "REDHUB_Loader"
+XVCHubLoader.ResetOnSpawn = false
+XVCHubLoader.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+XVCHubLoader.IgnoreGuiInset = true
+parentToHidden(XVCHubLoader)
+
+local function playSound(id, vol, pitch)
+    local s = Instance.new("Sound")
+    s.SoundId = id
+    s.Volume = vol or 1
+    s.PlaybackSpeed = pitch or 1
+    s.Parent = XVCHubLoader
+    s:Play()
+    Debris:AddItem(s, 6)
+    return s
+end
+
+-- =============== INTRO ===============
+local IntroFrame = Instance.new("Frame")
+IntroFrame.Name = "IntroFrame"
+IntroFrame.Parent = XVCHubLoader
+IntroFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+IntroFrame.BorderSizePixel = 0
+IntroFrame.Size = UDim2.new(1, 0, 1, 0)
+IntroFrame.ZIndex = 100
+
+local scanlines = {}
+for i = 1, 25 do
+    local line = Instance.new("Frame")
+    line.Parent = IntroFrame
+    line.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    line.BackgroundTransparency = 0.75
+    line.BorderSizePixel = 0
+    line.Size = UDim2.new(1, 0, 0, 2)
+    line.Position = UDim2.new(0, 0, math.random(), 0)
+    line.ZIndex = 101
+    table.insert(scanlines, line)
+end
+
+local IntroTitle = Instance.new("TextLabel")
+IntroTitle.Parent = IntroFrame
+IntroTitle.BackgroundTransparency = 1
+IntroTitle.Size = UDim2.new(1, 0, 0.15, 0)
+IntroTitle.Position = UDim2.new(0, 0, 0.4, 0)
+IntroTitle.Font = Enum.Font.Code
+IntroTitle.Text = ""
+IntroTitle.TextColor3 = Color3.fromRGB(255, 20, 20)
+IntroTitle.TextSize = 70
+IntroTitle.TextStrokeTransparency = 0
+IntroTitle.TextStrokeColor3 = Color3.fromRGB(120, 0, 0)
+IntroTitle.ZIndex = 102
+
+local IntroSub = Instance.new("TextLabel")
+IntroSub.Parent = IntroFrame
+IntroSub.BackgroundTransparency = 1
+IntroSub.Size = UDim2.new(1, 0, 0.05, 0)
+IntroSub.Position = UDim2.new(0, 0, 0.57, 0)
+IntroSub.Font = Enum.Font.Code
+IntroSub.Text = ""
+IntroSub.TextColor3 = Color3.fromRGB(255, 60, 60)
+IntroSub.TextSize = 18
+IntroSub.ZIndex = 102
+
+pcall(function() playSound("rbxassetid://131961136", 2) end)
+
+task.spawn(function()
+    while IntroFrame.Parent do
+        for _, line in ipairs(scanlines) do
+            line.Position = UDim2.new(0, 0, math.random(), 0)
+        end
+        task.wait(0.04)
+    end
+end)
+
+task.spawn(function()
+    while IntroFrame.Parent do
+        local r = Instance.new("Frame")
+        r.Parent = IntroFrame
+        r.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        r.BackgroundTransparency = math.random(40, 85) / 100
+        r.BorderSizePixel = 0
+        r.Size = UDim2.new(math.random(20, 100) / 100, 0, math.random(1, 4) / 100, 0)
+        r.Position = UDim2.new(math.random(0, 80) / 100, 0, math.random(0, 95) / 100, 0)
+        r.ZIndex = 103
+        Debris:AddItem(r, 0.1)
+        task.wait(math.random(4, 14) / 100)
+    end
+end)
+
+task.wait(0.6)
+local typetext = BRAND
+local shown = ""
+for i = 1, #typetext do
+    shown = shown .. typetext:sub(i, i)
+    IntroTitle.Text = shown
+    pcall(function() playSound("rbxassetid://9120389156", 1.5, 1 + math.random(-10, 10)/100) end)
+    task.wait(0.2)
+end
+
+task.wait(0.3)
+IntroSub.Text = "> ACCESS GRANTED_"
+pcall(function() playSound("rbxassetid://9046328632", 2) end)
+task.wait(0.9)
+
+local flash = Instance.new("Frame")
+flash.Parent = XVCHubLoader
+flash.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+flash.BorderSizePixel = 0
+flash.Size = UDim2.new(1, 0, 1, 0)
+flash.ZIndex = 200
+flash.BackgroundTransparency = 1
+
+TS:Create(flash, TweenInfo.new(0.12), {BackgroundTransparency = 0}):Play()
+task.wait(0.12)
+TS:Create(flash, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+task.wait(0.5)
+flash:Destroy()
+
+TS:Create(IntroFrame, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+for _, line in ipairs(scanlines) do
+    TS:Create(line, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+end
+TS:Create(IntroTitle, TweenInfo.new(0.4), {TextTransparency = 1, TextStrokeTransparency = 1}):Play()
+TS:Create(IntroSub, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+task.wait(0.45)
+IntroFrame:Destroy()
+
+-- =============== MAIN UI ===============
+local Frame = Instance.new("Frame")
+Frame.Parent = XVCHubLoader
+Frame.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+Frame.BackgroundTransparency = 1
+Frame.BorderSizePixel = 0
+Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+Frame.Size = UDim2.new(0, 480, 0, 360)
+Frame.ClipsDescendants = true
+
+local UICorner_Main = Instance.new("UICorner")
+UICorner_Main.CornerRadius = UDim.new(0, 14)
+UICorner_Main.Parent = Frame
+
+local MainGrad = Instance.new("UIGradient")
+MainGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 18, 22)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 0, 0))
+})
+MainGrad.Rotation = 135
+MainGrad.Parent = Frame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Parent = Frame
+MainStroke.Color = Color3.fromRGB(255, 20, 20)
+MainStroke.Thickness = 1.5
+MainStroke.Transparency = 1
+
+-- HERO BANNER with nature image
+local HeroBanner = Instance.new("Frame")
+HeroBanner.Parent = Frame
+HeroBanner.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+HeroBanner.BackgroundTransparency = 1
+HeroBanner.BorderSizePixel = 0
+HeroBanner.Size = UDim2.new(1, 0, 0, 90)
+HeroBanner.ClipsDescendants = true
+
+local HeroImage = Instance.new("ImageLabel")
+HeroImage.Parent = HeroBanner
+HeroImage.BackgroundTransparency = 1
+HeroImage.Size = UDim2.new(1, 0, 1, 0)
+HeroImage.Image = NATURE_ID
+HeroImage.ImageTransparency = 1
+HeroImage.ScaleType = Enum.ScaleType.Crop
+HeroImage.ZIndex = 1
+
+local HeroOverlay = Instance.new("Frame")
+HeroOverlay.Parent = HeroBanner
+HeroOverlay.BackgroundColor3 = Color3.fromRGB(10, 0, 0)
+HeroOverlay.BackgroundTransparency = 1
+HeroOverlay.BorderSizePixel = 0
+HeroOverlay.Size = UDim2.new(1, 0, 1, 0)
+HeroOverlay.ZIndex = 2
+
+local HeroGrad = Instance.new("UIGradient")
+HeroGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0, 0.35)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 0, 0, 0.9))
+})
+HeroGrad.Rotation = 90
+HeroGrad.Parent = HeroOverlay
+
+-- Header text on hero
+local HeaderTitle = Instance.new("TextLabel")
+HeaderTitle.Parent = HeroBanner
+HeaderTitle.BackgroundTransparency = 1
+HeaderTitle.Position = UDim2.new(0, 16, 0, 12)
+HeaderTitle.Size = UDim2.new(1, -32, 0, 32)
+HeaderTitle.Font = Enum.Font.GothamBlack
+HeaderTitle.Text = BRAND
+HeaderTitle.TextColor3 = Color3.fromRGB(255, 40, 40)
+HeaderTitle.TextSize = 30
+HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
+HeaderTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+HeaderTitle.TextStrokeTransparency = 1
+HeaderTitle.TextTransparency = 1
+HeaderTitle.ZIndex = 5
+
+local HeaderTag = Instance.new("TextLabel")
+HeaderTag.Parent = HeroBanner
+HeaderTag.BackgroundTransparency = 1
+HeaderTag.Position = UDim2.new(0, 16, 0, 46)
+HeaderTag.Size = UDim2.new(1, -32, 0, 18)
+HeaderTag.Font = Enum.Font.Code
+HeaderTag.Text = "// PREMIUM SCRIPT HUB_"
+HeaderTag.TextColor3 = Color3.fromRGB(255, 100, 100)
+HeaderTag.TextSize = 12
+HeaderTag.TextXAlignment = Enum.TextXAlignment.Left
+HeaderTag.TextTransparency = 1
+HeaderTag.ZIndex = 5
+
+-- I_AM_RED avatar on hero (top right)
+local HeroAvatar = Instance.new("ImageLabel")
+HeroAvatar.Parent = HeroBanner
+HeroAvatar.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+HeroAvatar.BorderSizePixel = 0
+HeroAvatar.AnchorPoint = Vector2.new(1, 0)
+HeroAvatar.Position = UDim2.new(1, -16, 0, 16)
+HeroAvatar.Size = UDim2.new(0, 58, 0, 58)
+HeroAvatar.Image = ""
+HeroAvatar.ImageTransparency = 1
+HeroAvatar.ZIndex = 5
+
+local HeroAvatarCorner = Instance.new("UICorner")
+HeroAvatarCorner.CornerRadius = UDim.new(1, 0)
+HeroAvatarCorner.Parent = HeroAvatar
+
+local HeroAvatarStroke = Instance.new("UIStroke")
+HeroAvatarStroke.Parent = HeroAvatar
+HeroAvatarStroke.Color = Color3.fromRGB(255, 40, 40)
+HeroAvatarStroke.Thickness = 2
+HeroAvatarStroke.Transparency = 1
+
+task.spawn(function()
+    local ok, thumb = pcall(function()
+        return Players:GetUserThumbnailAsync(
+            Players.LocalPlayer.UserId,
+            Enum.ThumbnailType.HeadShot,
+            Enum.ThumbnailSize.Size150x150)
+    end)
+    if ok and thumb then HeroAvatar.Image = thumb end
+end)
+
+-- ============= User info row =============
+local UserRow = Instance.new("Frame")
+UserRow.Parent = Frame
+UserRow.BackgroundTransparency = 1
+UserRow.Position = UDim2.new(0, 0, 0, 96)
+UserRow.Size = UDim2.new(1, 0, 0, 60)
+
+local OwnerLabel = Instance.new("TextLabel")
+OwnerLabel.Parent = UserRow
+OwnerLabel.BackgroundTransparency = 1
+OwnerLabel.Position = UDim2.new(0, 18, 0, 6)
+OwnerLabel.Size = UDim2.new(1, -140, 0, 24)
+OwnerLabel.Font = Enum.Font.GothamBlack
+OwnerLabel.Text = OWNER
+OwnerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+OwnerLabel.TextSize = 20
+OwnerLabel.TextXAlignment = Enum.TextXAlignment.Left
+OwnerLabel.TextTransparency = 1
+
+local CreditLabel = Instance.new("TextLabel")
+CreditLabel.Parent = UserRow
+CreditLabel.BackgroundTransparency = 1
+CreditLabel.Position = UDim2.new(0, 18, 0, 30)
+CreditLabel.Size = UDim2.new(1, -140, 0, 18)
+CreditLabel.Font = Enum.Font.Code
+CreditLabel.Text = "by " .. CREDIT .. "  //  OWNER"
+CreditLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+CreditLabel.TextSize = 12
+CreditLabel.TextXAlignment = Enum.TextXAlignment.Left
+CreditLabel.TextTransparency = 1
+
+-- Discord inline copy
+local DiscordRow = Instance.new("Frame")
+DiscordRow.Parent = Frame
+DiscordRow.BackgroundColor3 = Color3.fromRGB(18, 0, 0)
+DiscordRow.BackgroundTransparency = 1
+DiscordRow.Position = UDim2.new(0, 18, 0, 162)
+DiscordRow.Size = UDim2.new(1, -36, 0, 38)
+
+local DiscordCorner = Instance.new("UICorner")
+DiscordCorner.CornerRadius = UDim.new(0, 8)
+DiscordCorner.Parent = DiscordRow
+
+local DiscordStroke = Instance.new("UIStroke")
+DiscordStroke.Parent = DiscordRow
+DiscordStroke.Color = Color3.fromRGB(255, 30, 30)
+DiscordStroke.Thickness = 1
+DiscordStroke.Transparency = 1
+
+local DiscordLabel = Instance.new("TextLabel")
+DiscordLabel.Parent = DiscordRow
+DiscordLabel.BackgroundTransparency = 1
+DiscordLabel.Position = UDim2.new(0, 12, 0, 0)
+DiscordLabel.Size = UDim2.new(1, -110, 1, 0)
+DiscordLabel.Font = Enum.Font.Code
+DiscordLabel.Text = DISCORD_SHOW
+DiscordLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+DiscordLabel.TextSize = 13
+DiscordLabel.TextXAlignment = Enum.TextXAlignment.Left
+DiscordLabel.TextTransparency = 1
+
+local CopyBtn = Instance.new("TextButton")
+CopyBtn.Parent = DiscordRow
+CopyBtn.AnchorPoint = Vector2.new(1, 0.5)
+CopyBtn.Position = UDim2.new(1, -6, 0.5, 0)
+CopyBtn.Size = UDim2.new(0, 82, 0, 26)
+CopyBtn.BackgroundColor3 = Color3.fromRGB(255, 20, 20)
+CopyBtn.BackgroundTransparency = 1
+CopyBtn.BorderSizePixel = 0
+CopyBtn.Font = Enum.Font.GothamBold
+CopyBtn.Text = "COPY"
+CopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CopyBtn.TextSize = 12
+CopyBtn.TextTransparency = 1
+CopyBtn.AutoButtonColor = false
+
+local CopyCorner = Instance.new("UICorner")
+CopyCorner.CornerRadius = UDim.new(0, 6)
+CopyCorner.Parent = CopyBtn
+
+CopyBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        if setclipboard then setclipboard(DISCORD_LINK)
+        elseif toclipboard then toclipboard(DISCORD_LINK) end
+    end)
+    local old = CopyBtn.Text
+    CopyBtn.Text = "COPIED!"
+    playSound("rbxassetid://9120389156", 1)
+    task.wait(1.2)
+    CopyBtn.Text = old
+end)
+
+-- ============= Choose Label =============
+local ChooseLabel = Instance.new("TextLabel")
+ChooseLabel.Parent = Frame
+ChooseLabel.BackgroundTransparency = 1
+ChooseLabel.Position = UDim2.new(0, 18, 0, 208)
+ChooseLabel.Size = UDim2.new(1, -36, 0, 20)
+ChooseLabel.Font = Enum.Font.Code
+ChooseLabel.Text = "> SELECT UI LIBRARY_"
+ChooseLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+ChooseLabel.TextSize = 12
+ChooseLabel.TextXAlignment = Enum.TextXAlignment.Left
+ChooseLabel.TextTransparency = 1
+
+-- ============= Library Buttons =============
+local buttonsenabled = true
+
+local function SaveSettings()
+    if pcall(function() return writefile end) then
+        writefile("XVCHubSettings.json", HttpService:JSONEncode(Settings))
+    end
+end
+
+local function makeButton(name, title, subtitle, xPos, onClick)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Parent = Frame
+    btn.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+    btn.BackgroundTransparency = 1
+    btn.BorderSizePixel = 0
+    btn.Position = UDim2.new(xPos, 0, 0, 234)
+    btn.Size = UDim2.new(0, 214, 0, 106)
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    btn.ZIndex = 2
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 10)
+    c.Parent = btn
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 0, 0))
+    })
+    grad.Rotation = 135
+    grad.Parent = btn
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Parent = btn
+    stroke.Color = Color3.fromRGB(255, 30, 30)
+    stroke.Thickness = 1.3
+    stroke.Transparency = 1
+
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Parent = btn
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Position = UDim2.new(0, 0, 0, 20)
+    nameLbl.Size = UDim2.new(1, 0, 0, 28)
+    nameLbl.Font = Enum.Font.GothamBold
+    nameLbl.Text = title
+    nameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLbl.TextSize = 17
+    nameLbl.TextTransparency = 1
+    nameLbl.ZIndex = 3
+
+    local subLbl = Instance.new("TextLabel")
+    subLbl.Parent = btn
+    subLbl.BackgroundTransparency = 1
+    subLbl.Position = UDim2.new(0, 0, 0, 50)
+    subLbl.Size = UDim2.new(1, 0, 0, 20)
+    subLbl.Font = Enum.Font.Code
+    subLbl.Text = subtitle
+    subLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+    subLbl.TextSize = 11
+    subLbl.TextTransparency = 1
+    subLbl.ZIndex = 3
+
+    local line = Instance.new("Frame")
+    line.Parent = btn
+    line.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
+    line.BorderSizePixel = 0
+    line.Position = UDim2.new(0, 20, 0, 80)
+    line.Size = UDim2.new(0, 60, 0, 2)
+    line.BackgroundTransparency = 1
+    line.ZIndex = 3
+
+    btn.MouseEnter:Connect(function()
+        TS:Create(btn, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(45, 0, 0)}):Play()
+        TS:Create(stroke, TweenInfo.new(0.18), {Transparency = 0, Thickness = 2}):Play()
+        TS:Create(nameLbl, TweenInfo.new(0.18), {TextColor3 = Color3.fromRGB(255, 80, 80)}):Play()
+        pcall(function() playSound("rbxassetid://9120389156", 0.35, 1.5) end)
+    end)
+    btn.MouseLeave:Connect(function()
+        TS:Create(btn, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(22, 22, 26)}):Play()
+        TS:Create(stroke, TweenInfo.new(0.18), {Transparency = 0.3, Thickness = 1.3}):Play()
+        TS:Create(nameLbl, TweenInfo.new(0.18), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+    end)
+
+    btn.MouseButton1Down:Connect(function()
+        playSound("rbxassetid://9120389156", 1, 1.3)
+        onClick()
+    end)
+
+    task.delay(0.15, function()
+        TS:Create(btn, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
+        TS:Create(stroke, TweenInfo.new(0.5), {Transparency = 0.3}):Play()
+        TS:Create(nameLbl, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+        TS:Create(subLbl, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+        TS:Create(line, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
+    end)
+
+    return btn
+end
+
+local function loadLibrary(url, libName)
+    XVCHubLoader:Destroy()
+    BrandBar.Visible = true
+
+    -- Fade in brand bar
+    BrandBar.BackgroundTransparency = 1
+    BBStroke.Transparency = 1
+    TS:Create(BrandBar, TweenInfo.new(0.5), {BackgroundTransparency = 0.12}):Play()
+    TS:Create(BBStroke, TweenInfo.new(0.5), {Transparency = 0.2}):Play()
+
+    local ok, content = pcall(function() return game:HttpGet(url) end)
+    if ok and content then
+        local ok2, rebranded = pcall(rebrand, content)
+        local final = (ok2 and rebranded) or content
+        local ok3, err = pcall(function() loadstring(final)() end)
+        if not ok3 then warn("[" .. BRAND .. "] " .. libName .. " load error: " .. tostring(err)) end
+    else
+        warn("[" .. BRAND .. "] Failed to download " .. libName)
+    end
+end
+
+makeButton("WinduiButton", "WIND UI", "// MODERN INTERFACE", 0.038, function()
+    if not buttonsenabled then return end
+    buttonsenabled = false
+    Settings.SelectedLibrary = "Windui"
+    SaveSettings()
+    loadLibrary(WINDUI_URL, "WindUI")
+end)
+
+makeButton("RayfieldButton", "RAYFIELD", "// CLASSIC POWER", 0.535, function()
+    if not buttonsenabled then return end
+    buttonsenabled = false
+    Settings.SelectedLibrary = "Rayfield"
+    SaveSettings()
+    loadLibrary(RAYFIELD_URL, "Rayfield")
+end)
+
+-- ============= ENTRANCE ANIMATIONS =============
+task.wait(0.1)
+TS:Create(Frame, TweenInfo.new(0.55), {BackgroundTransparency = 0.03}):Play()
+TS:Create(MainStroke, TweenInfo.new(0.55), {Transparency = 0.25}):Play()
+TS:Create(HeroImage, TweenInfo.new(0.9), {ImageTransparency = 0.15}):Play()
+TS:Create(HeroOverlay, TweenInfo.new(0.7), {BackgroundTransparency = 0.1}):Play()
+TS:Create(HeaderTitle, TweenInfo.new(0.7), {TextTransparency = 0, TextStrokeTransparency = 0.5}):Play()
+TS:Create(HeaderTag, TweenInfo.new(0.7), {TextTransparency = 0.15}):Play()
+TS:Create(HeroAvatar, TweenInfo.new(0.7), {ImageTransparency = 0}):Play()
+TS:Create(HeroAvatarStroke, TweenInfo.new(0.7), {Transparency = 0}):Play()
+TS:Create(OwnerLabel, TweenInfo.new(0.7), {TextTransparency = 0}):Play()
+TS:Create(CreditLabel, TweenInfo.new(0.7), {TextTransparency = 0.1}):Play()
+TS:Create(DiscordRow, TweenInfo.new(0.55), {BackgroundTransparency = 0.4}):Play()
+TS:Create(DiscordStroke, TweenInfo.new(0.55), {Transparency = 0.4}):Play()
+TS:Create(DiscordLabel, TweenInfo.new(0.55), {TextTransparency = 0.1}):Play()
+TS:Create(CopyBtn, TweenInfo.new(0.55), {BackgroundTransparency = 0, TextTransparency = 0}):Play()
+TS:Create(ChooseLabel, TweenInfo.new(0.55), {TextTransparency = 0}):Play()
+
+-- Title pulse
+task.spawn(function()
+    while Frame.Parent do
+        TS:Create(HeaderTitle, TweenInfo.new(1.5), {TextColor3 = Color3.fromRGB(255, 80, 80)}):Play()
+        task.wait(1.5)
+        TS:Create(HeaderTitle, TweenInfo.new(1.5), {TextColor3 = Color3.fromRGB(255, 30, 30)}):Play()
+        task.wait(1.5)
+    end
+end)
+
+-- ============= AUTOLOAD =============
+if Settings.SelectedLibrary and Settings.AutoLoad then
+    task.wait(0.4)
+    BrandBar.Visible = true
+    BrandBar.BackgroundTransparency = 0.12
+    BBStroke.Transparency = 0.2
+    local url
+    if Settings.SelectedLibrary == "Windui" then
+        url = WINDUI_URL
+    elseif Settings.SelectedLibrary == "Rayfield" then
+        url = RAYFIELD_URL
+    end
+    if url then
+        local ok, content = pcall(function() return game:HttpGet(url) end)
+        if ok and content then
+            local ok2, reb = pcall(rebrand, content)
+            loadstring((ok2 and reb) or content)()
+            XVCHubLoader:Destroy()
+        end
+    end
+end
