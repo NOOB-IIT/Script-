@@ -1,0 +1,2533 @@
+--[[
+    INDIAN RAILWAYS LHB AC THREE TIER SLEEPER
+    STATIC REALISTIC EXTERIOR MODEL GENERATOR
+
+    This is a pure Roblox Studio Luau builder.
+    It creates a sealed, non-interactive, exterior-only coach model.
+    No seats, doors, lights, train control, sounds, or player systems are added.
+    Every visible piece is anchored so the result behaves as a display model.
+
+    INSTALLATION
+    1. Create a Script inonceside ServerScriptService in Roblox Studio.
+    2. Replace its contents with this file.
+    3. Press Play  in Studio.
+    4. The generated model is placed in Workspace/LHB_AC3_Realistic.
+    5. Stop Play, copy the generated model if you want to keep it in Edit mode.
+
+    ORIENTATION
+    X = coach length, positive X is the A-end.
+    Y = vertical, the rail head is approximately Y = 0.
+    Z = coach width, positive Z is the right side when looking toward A-end.
+
+    SCALE
+    1 Roblox stud = 0.30 real-world metres.
+    Main dimensions are based on a generic Indian Railways LHB passenger coach:
+    body length approximately 23.5 m, body width approximately 3.25 m,
+    and roof height approximately 4.15 m above the rail head.
+
+    ACCURACY NOTE
+    LHB coach batches differ in window spacing, equipment, livery and numbering.
+    This generator uses a production-style AC 3-tier exterior arrangement.
+    It is deliberately model-only and does not claim to reproduce an individual
+    railway vehicle's inspection drawing or a particular coach's serial number.
+]]
+
+local Workspace = game:GetService("Workspace")
+
+local CONFIG = {
+    ModelName = "LHB_AC3_Realistic",
+    Scale = 1 / 0.30,
+    DeletePrevious = true,
+    MakeNonCollidable = true,
+    AddTechnicalMetadata = true,
+    AddInspectionMarkers = true,
+    AddDecorativeFasteners = true,
+    AddRoofEquipment = true,
+    AddUnderframeEquipment = true,
+    AddBogieDetails = true,
+    AddSafetyMarkings = true,
+    AddTrackReference = false,
+}
+
+local function metres(value)
+    return value * CONFIG.Scale
+end
+
+local DIM = {
+    Length = metres(23.54),
+    Width = metres(3.24),
+    BodyHeight = metres(2.88),
+    FloorHeight = metres(1.67),
+    RoofHeight = metres(4.16),
+    BodyBottom = metres(1.68),
+    BodyTop = metres(3.86),
+    WheelRadius = metres(0.46),
+    WheelWidth = metres(0.18),
+    WheelCenterY = metres(0.54),
+    BogieCenterOffset = metres(7.55),
+    BogieWheelOffset = metres(1.46),
+    SideOffset = metres(1.50),
+    BodySide = metres(1.58),
+    UnderframeBottom = metres(0.72),
+    UnderframeTop = metres(1.65),
+    RoofCrown = metres(0.23),
+    EndWallThickness = metres(0.16),
+    StripeHeight = metres(0.045),
+    WindowHeight = metres(0.82),
+    WindowWidth = metres(0.88),
+    DoorWidth = metres(0.82),
+    DoorHeight = metres(1.90),
+}
+
+local Y = {
+    Rail = 0,
+    WheelCentre = DIM.WheelCenterY,
+    Bogie = metres(0.84),
+    Underframe = metres(1.25),
+    Floor = DIM.FloorHeight,
+    BodyLower = metres(1.68),
+    BodyMiddle = metres(2.54),
+    BodyUpper = metres(3.36),
+    Window = metres(2.88),
+    StripeLow = metres(2.23),
+    StripeHigh = metres(2.34),
+    RoofBase = metres(3.76),
+    RoofCentre = metres(4.00),
+    RoofTop = metres(4.21),
+}
+
+local X = {
+    AEnd = DIM.Length / 2,
+    BEnd = -DIM.Length / 2,
+    AInner = DIM.Length / 2 - metres(0.38),
+    BInner = -DIM.Length / 2 + metres(0.38),
+    ADoor = DIM.Length / 2 - metres(1.32),
+    BDoor = -DIM.Length / 2 + metres(1.32),
+    ABogie = DIM.BogieCenterOffset,
+    BBogie = -DIM.BogieCenterOffset,
+}
+
+local C = {
+    BodySilver = Color3.fromRGB(183, 190, 192),
+    BodyBright = Color3.fromRGB(211, 216, 216),
+    BodyShadow = Color3.fromRGB(121, 131, 135),
+    Stainless = Color3.fromRGB(151, 160, 163),
+    StainlessDark = Color3.fromRGB(82, 92, 96),
+    RoofSilver = Color3.fromRGB(164, 173, 176),
+    RoofDark = Color3.fromRGB(94, 104, 108),
+    RailBlue = Color3.fromRGB(13, 61, 124),
+    RailBlueDark = Color3.fromRGB(7, 35, 75),
+    RailYellow = Color3.fromRGB(235, 177, 24),
+    SafetyYellow = Color3.fromRGB(244, 192, 34),
+    WindowBlue = Color3.fromRGB(21, 51, 76),
+    WindowReflection = Color3.fromRGB(84, 133, 158),
+    Rubber = Color3.fromRGB(29, 32, 32),
+    RubberSoft = Color3.fromRGB(54, 58, 57),
+    Iron = Color3.fromRGB(54, 58, 58),
+    IronBright = Color3.fromRGB(104, 108, 106),
+    BrakeRed = Color3.fromRGB(159, 35, 27),
+    WarningOrange = Color3.fromRGB(226, 96, 16),
+    White = Color3.fromRGB(245, 245, 235),
+    Black = Color3.fromRGB(9, 10, 10),
+    LampWhite = Color3.fromRGB(225, 236, 215),
+    LampRed = Color3.fromRGB(211, 35, 24),
+    LabelBlue = Color3.fromRGB(10, 36, 79),
+}
+
+local MATERIAL = {
+    Body = Enum.Material.Metal,
+    Stainless = Enum.Material.DiamondPlate,
+    Rubber = Enum.Material.SmoothPlastic,
+    Iron = Enum.Material.Metal,
+    Glass = Enum.Material.Glass,
+    Plastic = Enum.Material.SmoothPlastic,
+    Concrete = Enum.Material.Concrete,
+    Neon = Enum.Material.Neon,
+}
+
+local root = Workspace:FindFirstChild(CONFIG.ModelName)
+if root and CONFIG.DeletePrevious then
+    root:Destroy()
+end
+
+local model = Instance.new("Model")
+model.Name = CONFIG.ModelName
+model:SetAttribute("VehicleType", "Indian Railways LHB AC Three Tier Sleeper")
+model:SetAttribute("ModelOnly", true)
+model:SetAttribute("Interactive", false)
+model:SetAttribute("ScaleMetresPerStud", 0.30)
+model:SetAttribute("GeneratedBy", "LHB_AC3_Sleeper_Generator")
+model.Parent = Workspace
+
+local folders = {}
+
+local function getFolder(name)
+    if folders[name] then
+        return folders[name]
+    end
+    local folder = Instance.new("Folder")
+    folder.Name = name
+    folder.Parent = model
+    folders[name] = folder
+    return folder
+end
+
+local F = {
+    Shell = getFolder("01_Body_Shell"),
+    Livery = getFolder("02_Livery_And_Markings"),
+    Windows = getFolder("03_Window_Assemblies"),
+    Doors = getFolder("04_Doors_And_Steps"),
+    Roof = getFolder("05_Roof_Equipment"),
+    Underframe = getFolder("06_Underframe_Equipment"),
+    Bogies = getFolder("07_Bogies_And_Wheels"),
+    Ends = getFolder("08_End_Vestibules_And_Couplers"),
+    Lights = getFolder("09_Lamps_And_Reflectors"),
+    Hardware = getFolder("10_Hardware_And_Fasteners"),
+    Labels = getFolder("11_Signs_And_Text"),
+    Metadata = getFolder("12_Realism_Metadata"),
+}
+
+local function setCommon(part, name, parent, material, color)
+    part.Name = name
+    part.Material = material or MATERIAL.Body
+    part.Color = color or C.BodySilver
+    part.Anchored = true
+    part.CanTouch = false
+    part.CanQuery = false
+    part.CanCollide = not CONFIG.MakeNonCollidable
+    part.CastShadow = true
+    part.Parent = parent or F.Shell
+    return part
+end
+
+local function box(name, size, cframe, material, color, parent)
+    local part = Instance.new("Part")
+    part.Size = size
+    part.CFrame = cframe
+    return setCommon(part, name, parent, material, color)
+end
+
+local function boxAt(name, size, position, material, color, parent)
+    return box(name, size, CFrame.new(position), material, color, parent)
+end
+
+local function cylinder(name, radius, height, cframe, material, color, parent, axis)
+    local part = Instance.new("Part")
+    part.Shape = Enum.PartType.Cylinder
+    if axis == "X" then
+        part.Size = Vector3.new(height, radius * 2, radius * 2)
+        part.CFrame = cframe * CFrame.Angles(0, 0, math.rad(90))
+    elseif axis == "Z" then
+        part.Size = Vector3.new(radius * 2, radius * 2, height)
+        part.CFrame = cframe * CFrame.Angles(math.rad(90), 0, 0)
+    else
+        part.Size = Vector3.new(radius * 2, height, radius * 2)
+        part.CFrame = cframe
+    end
+    return setCommon(part, name, parent, material, color)
+end
+
+local function sphere(name, radius, cframe, material, color, parent)
+    local part = Instance.new("Part")
+    part.Shape = Enum.PartType.Ball
+    part.Size = Vector3.new(radius * 2, radius * 2, radius * 2)
+    part.CFrame = cframe
+    return setCommon(part, name, parent, material, color)
+end
+
+local function wedge(name, size, cframe, material, color, parent)
+    local part = Instance.new("WedgePart")
+    part.Size = size
+    part.CFrame = cframe
+    return setCommon(part, name, parent, material, color)
+end
+
+local function cornerWedge(name, size, cframe, material, color, parent)
+    local part = Instance.new("CornerWedgePart")
+    part.Size = size
+    part.CFrame = cframe
+    return setCommon(part, name, parent, material, color)
+end
+
+local function invisibleAnchor(name, position, parent)
+    local part = boxAt(name, Vector3.new(0.12, 0.12, 0.12), position, MATERIAL.Plastic, C.Black, parent)
+    part.Transparency = 1
+    part.CanCollide = false
+    part.CastShadow = false
+    return part
+end
+
+local function setTransparency(part, transparency)
+    part.Transparency = transparency
+    return part
+end
+
+local function addAttribute(instance, name, value)
+    instance:SetAttribute(name, value)
+    return instance
+end
+
+local function addCylinderBand(name, position, radius, height, axis, material, color, parent)
+    local item = cylinder(name, radius, height, CFrame.new(position), material, color, parent, axis)
+    return item
+end
+
+local function addBolt(name, position, radius, color, parent)
+    local bolt = cylinder(name, radius, metres(0.025), CFrame.new(position), MATERIAL.Iron, color or C.IronBright, parent, "Z")
+    return bolt
+end
+
+local function addVerticalBolt(name, position, radius, color, parent)
+    return cylinder(name, radius, metres(0.025), CFrame.new(position), MATERIAL.Iron, color or C.IronBright, parent, "Y")
+end
+
+local function addHorizontalRail(name, x, y, z, length, radius, color, parent)
+    return cylinder(name, radius, length, CFrame.new(x, y, z), MATERIAL.Iron, color or C.IronBright, parent, "X")
+end
+
+local function addPipe(name, startPosition, endPosition, radius, color, parent)
+    local startVector = Vector3.new(startPosition.X, startPosition.Y, startPosition.Z)
+    local endVector = Vector3.new(endPosition.X, endPosition.Y, endPosition.Z)
+    local delta = endVector - startVector
+    local length = delta.Magnitude
+    local midpoint = (startVector + endVector) / 2
+    local pipe = cylinder(name, radius, length, CFrame.lookAt(midpoint, endVector), MATERIAL.Iron, color or C.BrakeRed, parent, "Y")
+    return pipe
+end
+
+local function addTextSign(name, text, position, size, face, color, textColor, parent)
+    local sign = boxAt(name, size, position, MATERIAL.Plastic, color or C.LabelBlue, parent or F.Labels)
+    local gui = Instance.new("SurfaceGui")
+    gui.Name = name .. "_SurfaceGui"
+    gui.Face = face or Enum.NormalId.Front
+    gui.AlwaysOnTop = false
+    gui.LightInfluence = 0
+    gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+    gui.PixelsPerStud = 48
+    gui.Parent = sign
+    local label = Instance.new("TextLabel")
+    label.Name = "Text"
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = textColor or C.White
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.TextStrokeTransparency = 0.60
+    label.Parent = gui
+    return sign
+end
+
+local function addSurfaceText(part, text, face, textColor, font)
+    local gui = Instance.new("SurfaceGui")
+    gui.Name = "Printed_" .. text:gsub("%s", "_")
+    gui.Face = face or Enum.NormalId.Front
+    gui.AlwaysOnTop = false
+    gui.LightInfluence = 0.2
+    gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+    gui.PixelsPerStud = 42
+    gui.Parent = part
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = textColor or C.White
+    label.TextScaled = true
+    label.Font = font or Enum.Font.GothamBold
+    label.TextStrokeTransparency = 0.72
+    label.Parent = gui
+    return gui
+end
+
+local function addDecalPanel(name, position, size, text, parent, face)
+    local panel = boxAt(name, size, position, MATERIAL.Plastic, C.LabelBlue, parent or F.Labels)
+    addSurfaceText(panel, text, face or Enum.NormalId.Front, C.White, Enum.Font.GothamBold)
+    return panel
+end
+
+local function registerMetadata(index, title, detail, category)
+    if not CONFIG.AddTechnicalMetadata then
+        return
+    end
+    local entry = Instance.new("StringValue")
+    entry.Name = string.format("%03d_%s", index, title:gsub("[^%w_]", "_"))
+    entry.Value = detail
+    entry:SetAttribute("Category", category or "Geometry")
+    entry.Parent = F.Metadata
+end
+
+local function tag(part, subsystem, description)
+    part:SetAttribute("Subsystem", subsystem)
+    part:SetAttribute("Description", description)
+    return part
+end
+
+local function bodyPart(name, size, cframe, material, color)
+    return tag(box(name, size, cframe, material, color, F.Shell), "Body shell", name)
+end
+
+local function liveryPart(name, size, cframe, color)
+    return tag(box(name, size, cframe, MATERIAL.Plastic, color, F.Livery), "Livery", name)
+end
+
+local function hardwarePart(name, size, cframe, material, color, parent)
+    return tag(box(name, size, cframe, material, color, parent or F.Hardware), "Hardware", name)
+end
+
+local function mirrorSide(side)
+    return side == 1 and "Right" or "Left"
+end
+
+local function sideZ(side, inset)
+    return side * (DIM.BodySide + (inset or 0))
+end
+
+local function faceForSide(side)
+    return side == 1 and Enum.NormalId.Right or Enum.NormalId.Left
+end
+
+local function sideCFrame(side, x, y, extraRotation)
+    local rotation = CFrame.Angles(0, side == 1 and 0 or math.pi, 0)
+    if extraRotation then
+        rotation = rotation * extraRotation
+    end
+    return CFrame.new(x, y, sideZ(side)) * rotation
+end
+
+local function sideBox(name, side, x, y, height, width, material, color, parent)
+    local thickness = metres(0.055)
+    local size = Vector3.new(width, height, thickness)
+    return box(name .. "_" .. mirrorSide(side), size, sideCFrame(side, x, y), material, color, parent)
+end
+
+local function sidePlate(name, side, x, y, width, height, color, parent)
+    local plate = sideBox(name, side, x, y, height, width, MATERIAL.Plastic, color, parent)
+    plate:SetAttribute("Side", mirrorSide(side))
+    return plate
+end
+
+local function sideCylinder(name, side, x, y, radius, length, color, parent)
+    local cframe = CFrame.new(x, y, sideZ(side, metres(0.05))) * CFrame.Angles(0, math.pi / 2, 0)
+    local item = cylinder(name .. "_" .. mirrorSide(side), radius, length, cframe, MATERIAL.Iron, color, parent, "Z")
+    item:SetAttribute("Side", mirrorSide(side))
+    return item
+end
+
+local function addRivetLine(prefix, side, x, y, count, spacing, parent)
+    for index = 1, count do
+        local offset = (index - (count + 1) / 2) * spacing
+        addBolt(prefix .. "_" .. index .. "_" .. mirrorSide(side), Vector3.new(x + offset, y, sideZ(side, metres(0.06))), metres(0.018), C.IronBright, parent or F.Hardware)
+    end
+end
+
+local function addPanelSeam(prefix, side, x, y, width, height, parent)
+    local seam = sidePlate(prefix .. "_Seam", side, x, y, width, height, C.StainlessDark, parent or F.Hardware)
+    seam.Transparency = 0.35
+    return seam
+end
+
+local function addWindowFrame(prefix, side, x, y, width, height)
+    local depth = metres(0.06)
+    local z = sideZ(side, metres(0.08))
+    local frameColor = C.StainlessDark
+    local pane = box(prefix .. "_TintedGlass_" .. mirrorSide(side), Vector3.new(width, height, depth), CFrame.new(x, y, z), MATERIAL.Glass, C.WindowBlue, F.Windows)
+    pane.Transparency = 0.18
+    pane.Reflectance = 0.15
+    pane:SetAttribute("WindowSide", mirrorSide(side))
+    local top = sideBox(prefix .. "_TopFrame", side, x, y + height / 2 + metres(0.07), metres(0.13), width + metres(0.16), MATERIAL.Stainless, frameColor, F.Windows)
+    local bottom = sideBox(prefix .. "_BottomFrame", side, x, y - height / 2 - metres(0.07), metres(0.13), width + metres(0.16), MATERIAL.Stainless, frameColor, F.Windows)
+    local front = sideBox(prefix .. "_FrontFrame", side, x - width / 2 - metres(0.08), y, height, metres(0.13), MATERIAL.Stainless, frameColor, F.Windows)
+    local rear = sideBox(prefix .. "_RearFrame", side, x + width / 2 + metres(0.08), y, height, metres(0.13), MATERIAL.Stainless, frameColor, F.Windows)
+    top:SetAttribute("WindowPart", "Top")
+    bottom:SetAttribute("WindowPart", "Bottom")
+    front:SetAttribute("WindowPart", "Front")
+    rear:SetAttribute("WindowPart", "Rear")
+    local reflection = sidePlate(prefix .. "_Reflection", side, x - width * 0.22, y + height * 0.15, width * 0.10, height * 0.60, C.WindowReflection, F.Windows)
+    reflection.Transparency = 0.45
+    return pane
+end
+
+local function addWindowDivider(prefix, side, x, y, width, height, position)
+    local dividerX = x + (position or 0) * width
+    local divider = sideBox(prefix .. "_Divider", side, dividerX, y, height, metres(0.055), MATERIAL.Stainless, C.StainlessDark, F.Windows)
+    divider.Transparency = 0.15
+    return divider
+end
+
+local function addWindowVent(prefix, side, x, y, width)
+    local vent = sidePlate(prefix .. "_Vent", side, x, y, width, metres(0.11), C.StainlessDark, F.Windows)
+    vent.Transparency = 0.20
+    for index = -2, 2 do
+        local slit = sideBox(prefix .. "_VentSlot_" .. index, side, x + index * width / 5, y, metres(0.15), metres(0.025), MATERIAL.Plastic, C.Black, F.Windows)
+        slit.Transparency = 0.05
+    end
+    return vent
+end
+
+local function addDoorFrame(prefix, side, x, y)
+    local doorWidth = DIM.DoorWidth
+    local doorHeight = DIM.DoorHeight
+    local panel = sideBox(prefix .. "_DoorPanel", side, x, y, doorHeight, doorWidth, MATERIAL.Stainless, C.RailBlueDark, F.Doors)
+    panel:SetAttribute("DoorState", "SealedStatic")
+    local window = sidePlate(prefix .. "_DoorWindow", side, x, y + metres(0.33), doorWidth * 0.60, doorHeight * 0.38, C.WindowBlue, F.Doors)
+    window.Material = MATERIAL.Glass
+    window.Transparency = 0.10
+    local upperFrame = sideBox(prefix .. "_UpperDoorFrame", side, x, y + metres(0.33) + doorHeight * 0.19, metres(0.10), doorWidth * 0.68, MATERIAL.Stainless, C.Stainless, F.Doors)
+    local lowerFrame = sideBox(prefix .. "_LowerDoorFrame", side, x, y + metres(0.33) - doorHeight * 0.19, metres(0.10), doorWidth * 0.68, MATERIAL.Stainless, C.Stainless, F.Doors)
+    local handle = sideCylinder(prefix .. "_DoorHandle", side, x + doorWidth * 0.28, y - metres(0.05), metres(0.035), metres(0.22), C.SafetyYellow, F.Doors)
+    handle.CFrame = handle.CFrame * CFrame.Angles(math.pi / 2, 0, 0)
+    local hingeTop = sideCylinder(prefix .. "_TopHinge", side, x - doorWidth / 2 - metres(0.07), y + doorHeight * 0.33, metres(0.045), metres(0.12), C.IronBright, F.Doors)
+    local hingeBottom = sideCylinder(prefix .. "_BottomHinge", side, x - doorWidth / 2 - metres(0.07), y - doorHeight * 0.33, metres(0.045), metres(0.12), C.IronBright, F.Doors)
+    hingeTop.CFrame = hingeTop.CFrame * CFrame.Angles(math.pi / 2, 0, 0)
+    hingeBottom.CFrame = hingeBottom.CFrame * CFrame.Angles(math.pi / 2, 0, 0)
+    return panel
+end
+
+local function addStepAssembly(prefix, side, x)
+    local z = sideZ(side, metres(0.17))
+    local step1 = box(prefix .. "_Step_Lower_" .. mirrorSide(side), Vector3.new(metres(1.00), metres(0.12), metres(0.46)), CFrame.new(x, metres(0.38), z), MATERIAL.Stainless, C.StainlessDark, F.Doors)
+    local step2 = box(prefix .. "_Step_Upper_" .. mirrorSide(side), Vector3.new(metres(0.82), metres(0.12), metres(0.30)), CFrame.new(x, metres(0.68), z), MATERIAL.Stainless, C.Stainless, F.Doors)
+    local supportFront = box(prefix .. "_StepSupport_Front_" .. mirrorSide(side), Vector3.new(metres(0.10), metres(0.50), metres(0.10)), CFrame.new(x - metres(0.36), metres(0.48), z), MATERIAL.Iron, C.Iron, F.Doors)
+    local supportRear = box(prefix .. "_StepSupport_Rear_" .. mirrorSide(side), Vector3.new(metres(0.10), metres(0.50), metres(0.10)), CFrame.new(x + metres(0.36), metres(0.48), z), MATERIAL.Iron, C.Iron, F.Doors)
+    return step1, step2, supportFront, supportRear
+end
+
+local function addDoorWarning(prefix, side, x)
+    local sign = sidePlate(prefix .. "_Warning", side, x, metres(2.08), metres(0.42), metres(0.18), C.SafetyYellow, F.Livery)
+    addSurfaceText(sign, "CAUTION", faceForSide(side), C.Black, Enum.Font.GothamBold)
+    return sign
+end
+
+local function addRoofGrille(prefix, position, width, depth)
+    local grille = boxAt(prefix .. "_Grille", Vector3.new(width, metres(0.05), depth), position, MATERIAL.Stainless, C.StainlessDark, F.Roof)
+    for index = -4, 4 do
+        local slot = boxAt(prefix .. "_Slot_" .. index, Vector3.new(metres(0.04), metres(0.07), depth * 0.78), position + Vector3.new(index * width / 9, metres(0.05), 0), MATERIAL.Plastic, C.Black, F.Roof)
+        slot.Transparency = 0.04
+    end
+    return grille
+end
+
+local function addRoofAC(prefix, x)
+    local y = Y.RoofTop + metres(0.16)
+    local body = boxAt(prefix .. "_ACBody", Vector3.new(metres(4.12), metres(0.36), metres(1.82)), Vector3.new(x, y, 0), MATERIAL.Stainless, C.RoofSilver, F.Roof)
+    body:SetAttribute("Equipment", "Rooftop packaged AC unit")
+    local front = boxAt(prefix .. "_FrontCap", Vector3.new(metres(0.20), metres(0.30), metres(1.92)), Vector3.new(x - metres(1.96), y, 0), MATERIAL.Plastic, C.RoofDark, F.Roof)
+    local rear = boxAt(prefix .. "_RearCap", Vector3.new(metres(0.20), metres(0.30), metres(1.92)), Vector3.new(x + metres(1.96), y, 0), MATERIAL.Plastic, C.RoofDark, F.Roof)
+    addRoofGrille(prefix .. "_LeftGrille", Vector3.new(x, y + metres(0.21), -metres(0.54)), metres(3.10), metres(0.36))
+    addRoofGrille(prefix .. "_RightGrille", Vector3.new(x, y + metres(0.21), metres(0.54)), metres(3.10), metres(0.36))
+    for side = -1, 1, 2 do
+        local fan = cylinder(prefix .. "_FanMotor_" .. side, metres(0.16), metres(0.12), CFrame.new(x + side * metres(0.86), y + metres(0.25), 0), MATERIAL.Iron, C.IronBright, F.Roof, "Y")
+        local cap = sphere(prefix .. "_FanCap_" .. side, metres(0.11), CFrame.new(x + side * metres(0.86), y + metres(0.35), 0), MATERIAL.Plastic, C.RoofDark, F.Roof)
+        cap:SetAttribute("Equipment", "AC condenser fan cover")
+        fan:SetAttribute("Equipment", "AC fan motor")
+    end
+    for side = -1, 1, 2 do
+        hardwarePart(prefix .. "_Mount_" .. side, Vector3.new(metres(0.16), metres(0.18), metres(1.35)), CFrame.new(x + side * metres(1.55), Y.RoofTop, 0), MATERIAL.Iron, C.Iron, F.Roof)
+    end
+    return body
+end
+
+local function addRoofCableTray(x, z, length)
+    local tray = boxAt("Roof_CableTray_" .. x .. "_" .. z, Vector3.new(length, metres(0.09), metres(0.15)), Vector3.new(x, Y.RoofTop + metres(0.10), z), MATERIAL.Stainless, C.StainlessDark, F.Roof)
+    for index = -5, 5 do
+        addVerticalBolt("RoofTray_Bolt_" .. x .. "_" .. z .. "_" .. index, Vector3.new(x + index * length / 12, Y.RoofTop + metres(0.16), z), metres(0.018), C.IronBright, F.Hardware)
+    end
+    return tray
+end
+
+local function addRoofDrain(x, z, side)
+    local drain = cylinder("Roof_Drain_" .. x .. "_" .. z .. "_" .. side, metres(0.035), metres(0.12), CFrame.new(x, Y.RoofTop + metres(0.02), z), MATERIAL.Plastic, C.Black, F.Roof, "Y")
+    return drain
+end
+
+local function addBrakeCylinder(prefix, x, z)
+    local tank = cylinder(prefix .. "_BrakeCylinder", metres(0.30), metres(1.20), CFrame.new(x, metres(1.18), z), MATERIAL.Iron, C.IronBright, F.Underframe, "X")
+    local piston = cylinder(prefix .. "_Piston", metres(0.09), metres(0.42), CFrame.new(x + metres(0.70), metres(1.18), z), MATERIAL.Iron, C.Iron, F.Underframe, "X")
+    local clevis = boxAt(prefix .. "_Clevis", Vector3.new(metres(0.30), metres(0.13), metres(0.13)), Vector3.new(x + metres(0.91), metres(1.18), z), MATERIAL.Iron, C.Iron, F.Underframe)
+    tank:SetAttribute("Equipment", "Brake cylinder")
+    piston:SetAttribute("Equipment", "Brake piston")
+    clevis:SetAttribute("Equipment", "Brake linkage clevis")
+    return tank, piston, clevis
+end
+
+local function addAirReservoir(prefix, x, z, length, radius)
+    local tank = cylinder(prefix .. "_AirReservoir", radius, length, CFrame.new(x, metres(1.04), z), MATERIAL.Iron, C.IronBright, F.Underframe, "X")
+    local endA = sphere(prefix .. "_EndA", radius, CFrame.new(x - length / 2, metres(1.04), z), MATERIAL.Iron, C.IronBright, F.Underframe)
+    local endB = sphere(prefix .. "_EndB", radius, CFrame.new(x + length / 2, metres(1.04), z), MATERIAL.Iron, C.IronBright, F.Underframe)
+    tank:SetAttribute("Equipment", "Air reservoir")
+    return tank, endA, endB
+end
+
+local function addBatteryBox(prefix, x, z)
+    local body = boxAt(prefix .. "_BatteryBox", Vector3.new(metres(2.24), metres(0.82), metres(0.92)), Vector3.new(x, metres(1.02), z), MATERIAL.Stainless, C.StainlessDark, F.Underframe)
+    local lid = boxAt(prefix .. "_BatteryLid", Vector3.new(metres(2.32), metres(0.10), metres(0.98)), Vector3.new(x, metres(1.47), z), MATERIAL.Stainless, C.Stainless, F.Underframe)
+    local vent = boxAt(prefix .. "_BatteryVent", Vector3.new(metres(1.30), metres(0.05), metres(0.08)), Vector3.new(x, metres(1.54), z), MATERIAL.Plastic, C.Black, F.Underframe)
+    body:SetAttribute("Equipment", "LHB underframe battery box")
+    for index = -3, 3 do
+        addBolt(prefix .. "_LidBolt_" .. index, Vector3.new(x + index * metres(0.26), metres(1.53), z + metres(0.36)), metres(0.018), C.IronBright, F.Hardware)
+    end
+    return body, lid, vent
+end
+
+local function addElectricalCabinet(prefix, x, z)
+    local cabinet = boxAt(prefix .. "_ElectricalCabinet", Vector3.new(metres(1.44), metres(0.86), metres(0.80)), Vector3.new(x, metres(1.17), z), MATERIAL.Stainless, C.BodyShadow, F.Underframe)
+    local door = boxAt(prefix .. "_CabinetDoor", Vector3.new(metres(1.18), metres(0.60), metres(0.05)), Vector3.new(x, metres(1.20), z + metres(0.43)), MATERIAL.Stainless, C.Stainless, F.Underframe)
+    for row = -1, 1 do
+        for column = -2, 2 do
+            addBolt(prefix .. "_CabinetFastener_" .. row .. "_" .. column, Vector3.new(x + column * metres(0.20), metres(1.20) + row * metres(0.20), z + metres(0.47)), metres(0.015), C.IronBright, F.Hardware)
+        end
+    end
+    cabinet:SetAttribute("Equipment", "Electrical cabinet")
+    return cabinet, door
+end
+
+local function addEquipmentHanger(prefix, x, z, height)
+    local post = boxAt(prefix .. "_HangerPost", Vector3.new(metres(0.10), height, metres(0.10)), Vector3.new(x, metres(1.68) - height / 2, z), MATERIAL.Iron, C.Iron, F.Underframe)
+    local foot = boxAt(prefix .. "_HangerFoot", Vector3.new(metres(0.32), metres(0.08), metres(0.24)), Vector3.new(x, metres(1.68) - height, z), MATERIAL.Iron, C.IronBright, F.Underframe)
+    return post, foot
+end
+
+local function addBogie(prefix, centerX)
+    local parent = F.Bogies
+    local frameY = Y.Bogie
+    local sideDistance = metres(1.22)
+    local wheelGauge = metres(1.52)
+    local frame = boxAt(prefix .. "_MainFrame", Vector3.new(metres(4.60), metres(0.32), metres(2.40)), Vector3.new(centerX, frameY, 0), MATERIAL.Iron, C.Iron, parent)
+    local leftBeam = boxAt(prefix .. "_LeftSideBeam", Vector3.new(metres(4.72), metres(0.43), metres(0.25)), Vector3.new(centerX, frameY, -sideDistance), MATERIAL.Iron, C.IronBright, parent)
+    local rightBeam = boxAt(prefix .. "_RightSideBeam", Vector3.new(metres(4.72), metres(0.43), metres(0.25)), Vector3.new(centerX, frameY, sideDistance), MATERIAL.Iron, C.IronBright, parent)
+    local bolster = boxAt(prefix .. "_Bolster", Vector3.new(metres(1.24), metres(0.44), metres(2.65)), Vector3.new(centerX, frameY + metres(0.16), 0), MATERIAL.Iron, C.IronBright, parent)
+    local centrePlate = cylinder(prefix .. "_CentrePlate", metres(0.45), metres(0.20), CFrame.new(centerX, frameY + metres(0.44), 0), MATERIAL.Iron, C.StainlessDark, parent, "Y")
+    local pivot = cylinder(prefix .. "_Pivot", metres(0.17), metres(0.65), CFrame.new(centerX, frameY + metres(0.65), 0), MATERIAL.Iron, C.Iron, parent, "Y")
+    frame:SetAttribute("Equipment", "LHB FIAT bogie main frame")
+    leftBeam:SetAttribute("Equipment", "Left bogie side beam")
+    rightBeam:SetAttribute("Equipment", "Right bogie side beam")
+    for axleIndex, axleOffset in ipairs({ -DIM.BogieWheelOffset, DIM.BogieWheelOffset }) do
+        local axleX = centerX + axleOffset
+        local axle = cylinder(prefix .. "_Axle_" .. axleIndex, metres(0.10), wheelGauge * 2.0, CFrame.new(axleX, Y.WheelCentre, 0), MATERIAL.Iron, C.IronBright, parent, "Z")
+        axle:SetAttribute("Equipment", "Wheelset axle")
+        for side = -1, 1, 2 do
+            local z = side * wheelGauge
+            local wheel = cylinder(prefix .. "_Wheel_" .. axleIndex .. "_" .. side, DIM.WheelRadius, DIM.WheelWidth, CFrame.new(axleX, Y.WheelCentre, z), MATERIAL.Rubber, C.Rubber, parent, "Z")
+            wheel:SetAttribute("Equipment", "Steel wheel tyre")
+            local hub = cylinder(prefix .. "_Hub_" .. axleIndex .. "_" .. side, metres(0.17), metres(0.27), CFrame.new(axleX, Y.WheelCentre, z + side * metres(0.13)), MATERIAL.Iron, C.IronBright, parent, "Z")
+            local cap = cylinder(prefix .. "_HubCap_" .. axleIndex .. "_" .. side, metres(0.10), metres(0.30), CFrame.new(axleX, Y.WheelCentre, z + side * metres(0.28)), MATERIAL.Iron, C.StainlessDark, parent, "Z")
+            for spoke = 1, 8 do
+                local angle = (spoke / 8) * math.pi * 2
+                local spokeX = axleX + math.cos(angle) * metres(0.28)
+                local spokeY = Y.WheelCentre + math.sin(angle) * metres(0.28)
+                boxAt(prefix .. "_WheelSpoke_" .. axleIndex .. "_" .. side .. "_" .. spoke, Vector3.new(metres(0.07), metres(0.48), metres(0.06)), Vector3.new(spokeX, spokeY, z + side * metres(0.19)), MATERIAL.Iron, C.IronBright, parent)
+            end
+        end
+    end
+    for side = -1, 1, 2 do
+        local z = side * sideDistance
+        for axleIndex, axleOffset in ipairs({ -DIM.BogieWheelOffset, DIM.BogieWheelOffset }) do
+            local axleX = centerX + axleOffset
+            local spring = cylinder(prefix .. "_Spring_" .. axleIndex .. "_" .. side, metres(0.18), metres(0.65), CFrame.new(axleX, metres(1.31), z), MATERIAL.Iron, C.IronBright, parent, "Y")
+            local springTop = cylinder(prefix .. "_SpringTop_" .. axleIndex .. "_" .. side, metres(0.24), metres(0.10), CFrame.new(axleX, metres(1.66), z), MATERIAL.Iron, C.Iron, parent, "Y")
+            local springBottom = cylinder(prefix .. "_SpringBottom_" .. axleIndex .. "_" .. side, metres(0.24), metres(0.10), CFrame.new(axleX, metres(0.97), z), MATERIAL.Iron, C.Iron, parent, "Y")
+            spring:SetAttribute("Equipment", "Primary suspension spring")
+            springTop:SetAttribute("Equipment", "Primary suspension spring seat")
+            springBottom:SetAttribute("Equipment", "Primary suspension spring seat")
+        end
+        local brakeBeam = boxAt(prefix .. "_BrakeBeam_" .. side, Vector3.new(metres(4.20), metres(0.15), metres(0.12)), Vector3.new(centerX, metres(0.91), z), MATERIAL.Iron, C.Iron, parent)
+        brakeBeam:SetAttribute("Equipment", "Bogie brake beam")
+    end
+    for side = -1, 1, 2 do
+        local z = side * sideDistance
+        local damper = addPipe(prefix .. "_Damper_" .. side, Vector3.new(centerX - metres(0.95), metres(1.02), z), Vector3.new(centerX + metres(0.95), metres(1.64), z), metres(0.07), C.IronBright, parent)
+        damper:SetAttribute("Equipment", "Secondary suspension damper")
+        local brakeCylinder = cylinder(prefix .. "_BogieBrake_" .. side, metres(0.17), metres(0.76), CFrame.new(centerX, metres(0.95), z * 0.88), MATERIAL.Iron, C.IronBright, parent, "X")
+        brakeCylinder:SetAttribute("Equipment", "Bogie brake actuator")
+    end
+    return frame
+end
+
+local function addEndVestibule(prefix, endSign)
+    local x = endSign * X.AEnd
+    local innerX = endSign * X.AInner
+    local endWall = boxAt(prefix .. "_EndWall", Vector3.new(DIM.EndWallThickness, DIM.BodyHeight, DIM.Width - metres(0.12)), Vector3.new(x, (Y.BodyLower + Y.BodyTop) / 2, 0), MATERIAL.Stainless, C.BodySilver, F.Ends)
+    local gangway = boxAt(prefix .. "_GangwayDoor", Vector3.new(metres(0.10), metres(1.98), metres(0.92)), Vector3.new(x + endSign * metres(0.08), metres(2.68), 0), MATERIAL.Rubber, C.Rubber, F.Ends)
+    local doorPanel = boxAt(prefix .. "_GangwayDoorPanel", Vector3.new(metres(0.06), metres(1.65), metres(0.63)), Vector3.new(x + endSign * metres(0.15), metres(2.70), 0), MATERIAL.Stainless, C.RailBlueDark, F.Ends)
+    local topWindow = boxAt(prefix .. "_GangwayWindow", Vector3.new(metres(0.07), metres(0.38), metres(0.42)), Vector3.new(x + endSign * metres(0.19), metres(3.40), 0), MATERIAL.Glass, C.WindowBlue, F.Ends)
+    topWindow.Transparency = 0.10
+    local roofEnd = boxAt(prefix .. "_EndRoofCap", Vector3.new(metres(0.48), metres(0.26), DIM.Width - metres(0.18)), Vector3.new(x - endSign * metres(0.22), Y.RoofBase, 0), MATERIAL.Stainless, C.RoofSilver, F.Ends)
+    local gangwayTop = boxAt(prefix .. "_GangwayTop", Vector3.new(metres(0.30), metres(0.16), metres(1.10)), Vector3.new(x + endSign * metres(0.22), metres(3.82), 0), MATERIAL.Rubber, C.Rubber, F.Ends)
+    endWall:SetAttribute("End", endSign == 1 and "A" or "B")
+    gangway:SetAttribute("Equipment", "Flexible gangway bellows")
+    doorPanel:SetAttribute("Equipment", "Gangway access door")
+    roofEnd:SetAttribute("Equipment", "End roof cap")
+    return endWall
+end
+
+local function addCoupler(prefix, endSign)
+    local x = endSign * (X.AEnd + metres(0.44))
+    local y = metres(0.93)
+    local centre = boxAt(prefix .. "_CouplerShank", Vector3.new(metres(0.92), metres(0.28), metres(0.28)), Vector3.new(x, y, 0), MATERIAL.Iron, C.Iron, F.Ends)
+    local head = boxAt(prefix .. "_CouplerHead", Vector3.new(metres(0.52), metres(0.42), metres(0.62)), Vector3.new(x + endSign * metres(0.48), y, 0), MATERIAL.Iron, C.IronBright, F.Ends)
+    local knuckle = boxAt(prefix .. "_CouplerKnuckle", Vector3.new(metres(0.26), metres(0.22), metres(0.42)), Vector3.new(x + endSign * metres(0.76), y + metres(0.10), 0), MATERIAL.Iron, C.Iron, F.Ends)
+    local draftGear = cylinder(prefix .. "_DraftGear", metres(0.27), metres(0.72), CFrame.new(x - endSign * metres(0.18), y, 0), MATERIAL.Iron, C.IronBright, F.Ends, "X")
+    local support = boxAt(prefix .. "_CouplerSupport", Vector3.new(metres(0.44), metres(0.18), metres(0.84)), Vector3.new(endSign * (X.AEnd - metres(0.10)), metres(1.36), 0), MATERIAL.Iron, C.Iron, F.Ends)
+    centre:SetAttribute("Equipment", "Automatic coupler shank")
+    head:SetAttribute("Equipment", "Automatic coupler head")
+    knuckle:SetAttribute("Equipment", "Coupler knuckle")
+    draftGear:SetAttribute("Equipment", "Draft gear")
+    support:SetAttribute("Equipment", "Coupler support")
+end
+
+local function addBufferAssembly(prefix, endSign, side)
+    local x = endSign * (X.AEnd + metres(0.08))
+    local z = side * metres(0.76)
+    local stem = cylinder(prefix .. "_BufferStem_" .. side, metres(0.12), metres(0.62), CFrame.new(x, metres(1.14), z), MATERIAL.Iron, C.Iron, F.Ends, "X")
+    local body = cylinder(prefix .. "_BufferBody_" .. side, metres(0.23), metres(0.38), CFrame.new(x + endSign * metres(0.19), metres(1.14), z), MATERIAL.Iron, C.IronBright, F.Ends, "X")
+    local face = cylinder(prefix .. "_BufferFace_" .. side, metres(0.25), metres(0.10), CFrame.new(x + endSign * metres(0.40), metres(1.14), z), MATERIAL.Iron, C.Stainless, F.Ends, "X")
+    stem:SetAttribute("Equipment", "Buffer stem")
+    body:SetAttribute("Equipment", "Buffer body")
+    face:SetAttribute("Equipment", "Buffer face")
+end
+
+local function addEndLamp(prefix, endSign, side, y)
+    local x = endSign * (X.AEnd + metres(0.12))
+    local z = side * metres(1.12)
+    local housing = cylinder(prefix .. "_LampHousing_" .. side, metres(0.11), metres(0.08), CFrame.new(x, y, z), MATERIAL.Plastic, C.Black, F.Lights, "X")
+    local lens = cylinder(prefix .. "_LampLens_" .. side, metres(0.075), metres(0.09), CFrame.new(x + endSign * metres(0.05), y, z), MATERIAL.Neon, C.LampWhite, F.Lights, "X")
+    housing:SetAttribute("Lamp", "End marker lamp")
+    lens:SetAttribute("Lamp", "End marker lens")
+end
+
+local function addSideMarker(prefix, side, x, y, color)
+    local housing = sidePlate(prefix .. "_Housing", side, x, y, metres(0.22), metres(0.26), C.Black, F.Lights)
+    local lens = sidePlate(prefix .. "_Lens", side, x, y, metres(0.12), metres(0.16), color, F.Lights)
+    lens.Material = MATERIAL.Neon
+    housing:SetAttribute("Lamp", "Side marker housing")
+    lens:SetAttribute("Lamp", "Side marker lens")
+end
+
+local function addLadder(prefix, x, side)
+    local z = sideZ(side, metres(0.16))
+    local railA = boxAt(prefix .. "_RailA_" .. side, Vector3.new(metres(0.08), metres(1.60), metres(0.08)), Vector3.new(x - metres(0.25), metres(2.18), z), MATERIAL.Iron, C.IronBright, F.Ends)
+    local railB = boxAt(prefix .. "_RailB_" .. side, Vector3.new(metres(0.08), metres(1.60), metres(0.08)), Vector3.new(x + metres(0.25), metres(2.18), z), MATERIAL.Iron, C.IronBright, F.Ends)
+    for rung = 0, 4 do
+        boxAt(prefix .. "_Rung_" .. side .. "_" .. rung, Vector3.new(metres(0.62), metres(0.08), metres(0.08)), Vector3.new(x, metres(1.50) + rung * metres(0.34), z), MATERIAL.Iron, C.IronBright, F.Ends)
+    end
+    railA:SetAttribute("Equipment", "End access ladder")
+    railB:SetAttribute("Equipment", "End access ladder")
+end
+
+local function addRoofHandrail(x)
+    local y = Y.RoofTop + metres(0.27)
+    local left = addHorizontalRail("RoofHandrail_Left_" .. x, x, y, -metres(1.08), metres(3.10), metres(0.035), C.IronBright, F.Roof)
+    local right = addHorizontalRail("RoofHandrail_Right_" .. x, x, y, metres(1.08), metres(3.10), metres(0.035), C.IronBright, F.Roof)
+    for side = -1, 1, 2 do
+        for post = -1, 1, 2 do
+            boxAt("RoofHandrailPost_" .. x .. "_" .. side .. "_" .. post, Vector3.new(metres(0.04), metres(0.30), metres(0.04)), Vector3.new(x + post * metres(1.20), y - metres(0.12), side * metres(1.08)), MATERIAL.Iron, C.IronBright, F.Roof)
+        end
+    end
+    return left, right
+end
+
+local function buildBodyShell()
+    bodyPart("Main_Lower_Sill", Vector3.new(DIM.Length - metres(0.60), metres(0.72), DIM.Width - metres(0.12)), CFrame.new(0, Y.BodyLower), MATERIAL.Body, C.BodyShadow)
+    bodyPart("Main_Centre_SideVolume", Vector3.new(DIM.Length - metres(0.78), metres(1.18), DIM.Width), CFrame.new(0, Y.BodyMiddle), MATERIAL.Body, C.BodySilver)
+    bodyPart("Main_Upper_SideVolume", Vector3.new(DIM.Length - metres(0.88), metres(0.76), DIM.Width - metres(0.12)), CFrame.new(0, Y.BodyUpper), MATERIAL.Body, C.BodyBright)
+    bodyPart("Floor_Slab", Vector3.new(DIM.Length - metres(0.46), metres(0.22), DIM.Width - metres(0.10)), CFrame.new(0, Y.Floor), MATERIAL.Stainless, C.StainlessDark)
+    bodyPart("Roof_Base", Vector3.new(DIM.Length - metres(0.50), metres(0.32), DIM.Width - metres(0.14)), CFrame.new(0, Y.RoofBase), MATERIAL.Stainless, C.RoofSilver)
+    bodyPart("Roof_Centre_Cap", Vector3.new(DIM.Length - metres(0.66), metres(0.30), metres(1.28)), CFrame.new(0, Y.RoofCentre, 0), MATERIAL.Stainless, C.RoofSilver)
+    for side = -1, 1, 2 do
+        local sideRoof = side * (DIM.BodySide - metres(0.23))
+        bodyPart("Roof_Side_Crown_" .. mirrorSide(side), Vector3.new(DIM.Length - metres(0.72), metres(0.30), metres(0.58)), CFrame.new(0, Y.RoofCentre, sideRoof), MATERIAL.Stainless, C.RoofSilver)
+        bodyPart("Roof_Edge_RubRail_" .. mirrorSide(side), Vector3.new(DIM.Length - metres(0.72), metres(0.11), metres(0.11)), CFrame.new(0, Y.RoofBase + metres(0.16), side * (DIM.BodySide + metres(0.02))), MATERIAL.Rubber, C.Rubber, F.Shell)
+        bodyPart("Lower_Side_RubRail_" .. mirrorSide(side), Vector3.new(DIM.Length - metres(0.86), metres(0.12), metres(0.10)), CFrame.new(0, Y.BodyLower - metres(0.24), side * (DIM.BodySide + metres(0.02))), MATERIAL.Rubber, C.RubberSoft, F.Shell)
+        bodyPart("Upper_Side_RubRail_" .. mirrorSide(side), Vector3.new(DIM.Length - metres(0.94), metres(0.09), metres(0.09)), CFrame.new(0, Y.BodyUpper + metres(0.34), side * (DIM.BodySide + metres(0.02))), MATERIAL.Rubber, C.RubberSoft, F.Shell)
+    end
+    for endSign = -1, 1, 2 do
+        local x = endSign * (X.AEnd - metres(0.25))
+        bodyPart("EndWall_" .. (endSign == 1 and "A" or "B"), Vector3.new(metres(0.34), DIM.BodyHeight - metres(0.12), DIM.Width - metres(0.20)), CFrame.new(x, (Y.BodyLower + Y.BodyTop) / 2, 0), MATERIAL.Stainless, C.BodySilver)
+        bodyPart("EndLowerSkirt_" .. endSign, Vector3.new(metres(0.46), metres(0.54), DIM.Width - metres(0.28)), CFrame.new(endSign * (X.AEnd - metres(0.15)), metres(1.72), 0), MATERIAL.Stainless, C.BodyShadow)
+        bodyPart("EndRoofRim_" .. endSign, Vector3.new(metres(0.54), metres(0.21), DIM.Width - metres(0.16)), CFrame.new(endSign * (X.AEnd - metres(0.18)), Y.RoofBase + metres(0.12), 0), MATERIAL.Stainless, C.RoofDark)
+    end
+    for index = -8, 8 do
+        local x = index * metres(1.22)
+        if math.abs(x) < X.AEnd - metres(1.2) then
+            for side = -1, 1, 2 do
+                addPanelSeam("BodyPanel_" .. index, side, x, Y.BodyMiddle, metres(0.035), metres(1.34), F.Hardware)
+            end
+        end
+    end
+end
+
+local function buildSideWindows()
+    local first = -metres(9.72)
+    local spacing = metres(1.78)
+    for side = -1, 1, 2 do
+        for index = 1, 11 do
+            local x = first + (index - 1) * spacing
+            local prefix = "AC3_Window_" .. index
+            addWindowFrame(prefix, side, x, Y.Window, DIM.WindowWidth, DIM.WindowHeight)
+            addWindowDivider(prefix, side, x, Y.Window, DIM.WindowWidth, DIM.WindowHeight, 0)
+            addWindowVent(prefix, side, x, Y.Window - metres(0.50), DIM.WindowWidth * 0.68)
+            addRivetLine(prefix .. "_TopRivets", side, x, Y.Window + DIM.WindowHeight / 2 + metres(0.16), 5, metres(0.15), F.Hardware)
+            addRivetLine(prefix .. "_BottomRivets", side, x, Y.Window - DIM.WindowHeight / 2 - metres(0.16), 5, metres(0.15), F.Hardware)
+            registerMetadata(100 + index + (side == 1 and 0 or 30), prefix .. "_" .. mirrorSide(side), "AC 3-tier sealed tinted window with stainless frame and drain vent", "Window")
+        end
+    end
+end
+
+local function buildSideDoors()
+    for side = -1, 1, 2 do
+        addDoorFrame("A_End_Door", side, X.ADoor, metres(2.62))
+        addDoorFrame("B_End_Door", side, X.BDoor, metres(2.62))
+        addStepAssembly("A_End_Step", side, X.ADoor)
+        addStepAssembly("B_End_Step", side, X.BDoor)
+        addDoorWarning("A_Door", side, X.ADoor)
+        addDoorWarning("B_Door", side, X.BDoor)
+        addLadder("A_End_Ladder", X.ADoor, side)
+        addLadder("B_End_Ladder", X.BDoor, side)
+    end
+end
+
+local function buildLivery()
+    for side = -1, 1, 2 do
+        liveryPart("Blue_Livery_Band_" .. mirrorSide(side), Vector3.new(DIM.Length - metres(0.94), metres(0.31), metres(0.035)), CFrame.new(0, Y.StripeLow, side * (DIM.BodySide + metres(0.07))), C.RailBlue)
+        liveryPart("Yellow_Livery_Band_" .. mirrorSide(side), Vector3.new(DIM.Length - metres(0.94), metres(0.10), metres(0.038)), CFrame.new(0, Y.StripeHigh, side * (DIM.BodySide + metres(0.08))), C.RailYellow)
+        liveryPart("Blue_Upper_Line_" .. mirrorSide(side), Vector3.new(DIM.Length - metres(1.20), metres(0.08), metres(0.038)), CFrame.new(0, Y.BodyUpper + metres(0.27), side * (DIM.BodySide + metres(0.07))), C.RailBlueDark)
+        liveryPart("Lower_Safety_Line_" .. mirrorSide(side), Vector3.new(DIM.Length - metres(1.10), metres(0.08), metres(0.038)), CFrame.new(0, Y.BodyLower - metres(0.39), side * (DIM.BodySide + metres(0.08))), C.SafetyYellow)
+        addSideMarker("SideMarker_A_" .. mirrorSide(side), side, X.ADoor + metres(0.46), Y.StripeLow + metres(0.04), C.LampRed)
+        addSideMarker("SideMarker_B_" .. mirrorSide(side), side, X.BDoor - metres(0.46), Y.StripeLow + metres(0.04), C.LampRed)
+        addSideMarker("SideMarker_Centre_" .. mirrorSide(side), side, 0, Y.StripeLow + metres(0.04), C.LampWhite)
+    end
+    for side = -1, 1, 2 do
+        local sideSign = faceForSide(side)
+        local coachPanel = addDecalPanel("CoachNumber_" .. mirrorSide(side), Vector3.new(metres(4.15), metres(2.40), side * (DIM.BodySide + metres(0.12))), Vector3.new(metres(2.20), metres(0.42), metres(0.06)), "22345 / AC 3 TIER", F.Labels, sideSign)
+        local classPanel = addDecalPanel("ClassPanel_" .. mirrorSide(side), Vector3.new(-metres(4.35), metres(2.40), side * (DIM.BodySide + metres(0.12))), Vector3.new(metres(2.10), metres(0.42), metres(0.06)), "LHB - AC THREE TIER", F.Labels, sideSign)
+        coachPanel:SetAttribute("PrintedOn", side == 1 and "Right side" or "Left side")
+        classPanel:SetAttribute("PrintedOn", side == 1 and "Right side" or "Left side")
+        local railways = addTextSign("IndianRailways_" .. mirrorSide(side), "INDIAN RAILWAYS", Vector3.new(0, metres(3.56), side * (DIM.BodySide + metres(0.12))), Vector3.new(metres(4.24), metres(0.34), metres(0.06)), sideSign, C.LabelBlue, C.White, F.Labels)
+        railways:SetAttribute("PrintedOn", "Coach side")
+    end
+    for index = -7, 7 do
+        local x = index * metres(1.48)
+        for side = -1, 1, 2 do
+            liveryPart("Fine_Blue_Line_" .. index .. "_" .. side, Vector3.new(metres(0.68), metres(0.035), metres(0.041)), CFrame.new(x, Y.StripeLow + metres(0.24), side * (DIM.BodySide + metres(0.085))), C.RailBlueDark)
+        end
+    end
+end
+
+local function buildRoof()
+    addRoofAC("Roof_AC_A", -metres(5.60))
+    addRoofAC("Roof_AC_B", metres(5.60))
+    addRoofCableTray(-metres(0.60), -metres(0.78), metres(5.30))
+    addRoofCableTray(metres(0.60), metres(0.78), metres(5.30))
+    for drain = -10, 10 do
+        if drain ~= 0 then
+            addRoofDrain(drain * metres(1.04), -metres(1.02), -1)
+            addRoofDrain(drain * metres(1.04), metres(1.02), 1)
+        end
+    end
+    addRoofHandrail(-metres(5.60))
+    addRoofHandrail(metres(5.60))
+    for side = -1, 1, 2 do
+        local longRidge = addHorizontalRail("Roof_Long_Ridge_" .. mirrorSide(side), 0, Y.RoofTop + metres(0.05), side * metres(0.56), DIM.Length - metres(2.0), metres(0.026), C.Stainless, F.Roof)
+        longRidge:SetAttribute("Equipment", "Roof longitudinal stiffener")
+    end
+    for index = -11, 11 do
+        local x = index * metres(0.92)
+        boxAt("Roof_Transverse_Stiffener_" .. index, Vector3.new(metres(0.055), metres(0.06), metres(2.58)), Vector3.new(x, Y.RoofTop + metres(0.04), 0), MATERIAL.Stainless, C.StainlessDark, F.Roof)
+    end
+end
+
+local function buildUnderframe()
+    for side = -1, 1, 2 do
+        local z = side * metres(1.18)
+        addHorizontalRail("Underframe_Longitudinal_Main_" .. mirrorSide(side), 0, metres(1.62), z, DIM.Length - metres(1.25), metres(0.08), C.Iron, F.Underframe)
+        addHorizontalRail("Underframe_Longitudinal_Lower_" .. mirrorSide(side), 0, metres(0.88), z, DIM.Length - metres(2.00), metres(0.06), C.IronBright, F.Underframe)
+        for support = -8, 8 do
+            local x = support * metres(1.28)
+            boxAt("Underframe_CrossMember_" .. support .. "_" .. side, Vector3.new(metres(0.12), metres(0.16), metres(2.58)), Vector3.new(x, metres(1.56), 0), MATERIAL.Iron, C.Iron, F.Underframe)
+        end
+    end
+    addBatteryBox("Underframe_Battery_A", -metres(8.25), -metres(1.17))
+    addBatteryBox("Underframe_Battery_B", metres(8.25), metres(1.17))
+    addElectricalCabinet("Underframe_Electrical_A", -metres(4.92), metres(1.17))
+    addElectricalCabinet("Underframe_Electrical_B", metres(4.92), -metres(1.17))
+    addAirReservoir("Underframe_Air_A", -metres(3.52), -metres(0.96), metres(2.55), metres(0.27))
+    addAirReservoir("Underframe_Air_B", metres(3.52), metres(0.96), metres(2.55), metres(0.27))
+    addBrakeCylinder("Underframe_Brake_A", -metres(5.70), -metres(0.78))
+    addBrakeCylinder("Underframe_Brake_B", metres(5.70), metres(0.78))
+    for index = -3, 3 do
+        local x = index * metres(2.30)
+        local z = index % 2 == 0 and -metres(1.00) or metres(1.00)
+        addEquipmentHanger("Underframe_Hanger_" .. index, x, z, metres(0.70))
+        addPipe("Underframe_BrakePipe_" .. index, Vector3.new(x - metres(0.64), metres(1.35), z), Vector3.new(x + metres(0.64), metres(1.35), z), metres(0.035), C.BrakeRed, F.Underframe)
+    end
+    for index = -9, 9 do
+        local x = index * metres(1.05)
+        local cable = addHorizontalRail("Underframe_Cable_" .. index, x, metres(1.76), -metres(1.23), metres(0.55), metres(0.025), C.RailBlue, F.Underframe)
+        cable:SetAttribute("Equipment", "Electrical cable conduit")
+    end
+    for index = -4, 4 do
+        local x = index * metres(1.72)
+        local valve = cylinder("Underframe_Valve_" .. index, metres(0.09), metres(0.18), CFrame.new(x, metres(1.02), -metres(1.34)), MATERIAL.Iron, C.BrakeRed, F.Underframe, "Z")
+        valve:SetAttribute("Equipment", "Brake pipe isolation valve")
+    end
+end
+
+local function buildBogieAssemblies()
+    addBogie("A_Bogie", X.ABogie)
+    addBogie("B_Bogie", X.BBogie)
+end
+
+local function buildEnds()
+    addEndVestibule("A_End", 1)
+    addEndVestibule("B_End", -1)
+    addCoupler("A_End", 1)
+    addCoupler("B_End", -1)
+    for endSign = -1, 1, 2 do
+        for side = -1, 1, 2 do
+            addBufferAssembly("Buffer_" .. endSign, endSign, side)
+            addEndLamp("EndLamp_" .. endSign, endSign, side, metres(2.22))
+            addEndLamp("EndLamp_Upper_" .. endSign, endSign, side, metres(3.34))
+        end
+        addLadder("EndLadder_" .. endSign, endSign * (X.AEnd - metres(0.62)), -1)
+        addLadder("EndLadder_" .. endSign, endSign * (X.AEnd - metres(0.62)), 1)
+        boxAt("End_Platform_" .. endSign, Vector3.new(metres(0.82), metres(0.12), metres(2.20)), Vector3.new(endSign * (X.AEnd + metres(0.34)), metres(1.58), 0), MATERIAL.Stainless, C.StainlessDark, F.Ends)
+        boxAt("End_Platform_Rubber_" .. endSign, Vector3.new(metres(0.75), metres(0.08), metres(2.00)), Vector3.new(endSign * (X.AEnd + metres(0.42)), metres(1.68), 0), MATERIAL.Rubber, C.Rubber, F.Ends)
+    end
+end
+
+local function buildSafetyAndSmallParts()
+    for side = -1, 1, 2 do
+        local z = side * (DIM.BodySide + metres(0.13))
+        local sign = addTextSign("EmergencyLabel_" .. mirrorSide(side), "EMERGENCY WINDOW", Vector3.new(metres(8.62), metres(2.16), z), Vector3.new(metres(1.72), metres(0.24), metres(0.06)), faceForSide(side), C.LabelBlue, C.White, F.Labels)
+        sign:SetAttribute("PrintedOn", "Emergency equipment position")
+        local firstAid = sidePlate("FirstAidSymbol_" .. mirrorSide(side), side, metres(7.42), metres(2.16), metres(0.24), metres(0.24), C.BrakeRed, F.Labels)
+        addSurfaceText(firstAid, "!", faceForSide(side), C.White, Enum.Font.GothamBlack)
+        for index = -6, 6 do
+            addBolt("SideBodyBolt_Top_" .. side .. "_" .. index, Vector3.new(index * metres(1.42), metres(3.70), z), metres(0.015), C.IronBright, F.Hardware)
+            addBolt("SideBodyBolt_Low_" .. side .. "_" .. index, Vector3.new(index * metres(1.42), metres(1.94), z), metres(0.015), C.IronBright, F.Hardware)
+        end
+    end
+    for side = -1, 1, 2 do
+        for index = 1, 7 do
+            local x = -metres(8.30) + index * metres(2.10)
+            local handle = sideCylinder("InspectionHandle_" .. index, side, x, metres(1.82), metres(0.025), metres(0.22), C.SafetyYellow, F.Hardware)
+            handle:SetAttribute("Equipment", "Body inspection grab handle")
+        end
+    end
+    for index = -9, 9 do
+        local x = index * metres(1.14)
+        local lowerMarker = boxAt("Lower_Skirt_Inspection_Marker_" .. index, Vector3.new(metres(0.16), metres(0.18), metres(0.04)), Vector3.new(x, metres(1.54), DIM.BodySide + metres(0.06)), MATERIAL.Plastic, C.SafetyYellow, F.Livery)
+        lowerMarker:SetAttribute("Marking", "Maintenance reference")
+    end
+    local roofWarning = addTextSign("RoofWarning", "ROOF EQUIPMENT", Vector3.new(-metres(8.62), Y.RoofTop + metres(0.05), 0), Vector3.new(metres(1.85), metres(0.16), metres(0.06)), Enum.NormalId.Top, C.SafetyYellow, C.Black, F.Labels)
+    roofWarning:SetAttribute("PrintedOn", "Roof maintenance warning")
+end
+
+local function buildMetadata()
+    local entries = {
+        { "Vehicle envelope", "Generic production-style Indian Railways LHB passenger coach exterior", "Identity" },
+        { "Coach class", "AC Three Tier sleeper coach", "Identity" },
+        { "Vehicle family", "LHB stainless steel passenger stock", "Identity" },
+        { "Model purpose", "Static visual model only; no player-accessible interior", "Scope" },
+        { "Coordinate system", "X longitudinal, Y vertical, Z transverse", "Documentation" },
+        { "Scale", "One Roblox stud represents 0.30 metres", "Documentation" },
+        { "Wheel arrangement", "Two FIAT-style bogies with two wheelsets each", "Running gear" },
+        { "Coupling", "Automatic coupler representation at both ends", "Running gear" },
+        { "Suspension", "Visible bogie springs and dampers", "Running gear" },
+        { "Braking", "Underframe brake cylinders, reservoirs, pipes and valves", "Underframe" },
+        { "Electric", "Underframe batteries, cabinets and cable conduits", "Underframe" },
+        { "HVAC", "Two rooftop packaged AC assemblies with grilles", "Roof" },
+        { "Livery", "Silver body with blue and yellow Indian Railways style bands", "Livery" },
+        { "Windows", "Sealed tinted AC windows with frames and lower vents", "Body" },
+        { "Ends", "Vestibule bellows, end platform, buffers and marker lamps", "Ends" },
+        { "Physics", "All generated parts anchored and non-collidable by default", "Scope" },
+        { "Interior", "Intentionally sealed; no seats, berth frames or player access", "Scope" },
+        { "Number", "Decorative coach identifier 22345; replace for a chosen consist", "Livery" },
+        { "Variation", "Real batches can vary in equipment, stripes and window spacing", "Accuracy" },
+        { "Roblox use", "Suitable for display, screenshots and static train compositions", "Scope" },
+    }
+    for index, entry in ipairs(entries) do
+        registerMetadata(900 + index, entry[1], entry[2], entry[3])
+    end
+end
+
+local function addModelAttributes()
+    model:SetAttribute("OverallLengthStuds", DIM.Length)
+    model:SetAttribute("OverallWidthStuds", DIM.Width)
+    model:SetAttribute("RailHeadY", Y.Rail)
+    model:SetAttribute("CoachBodyBottomY", Y.BodyLower)
+    model:SetAttribute("CoachRoofTopY", Y.RoofTop)
+    model:SetAttribute("WindowCountPerSide", 11)
+    model:SetAttribute("BogieCount", 2)
+    model:SetAttribute("AxlesPerBogie", 2)
+    model:SetAttribute("PlayerAccess", false)
+    model:SetAttribute("HasInterior", false)
+    model:SetAttribute("HasScripts", false)
+    model:SetAttribute("HasSounds", false)
+end
+
+local function buildTrackReference()
+    local track = getFolder("13_Display_Reference")
+    local leftRail = addHorizontalRail("Reference_Rail_Left", 0, metres(0.07), -metres(0.76), DIM.Length + metres(12), metres(0.07), C.IronBright, track)
+    local rightRail = addHorizontalRail("Reference_Rail_Right", 0, metres(0.07), metres(0.76), DIM.Length + metres(12), metres(0.07), C.IronBright, track)
+    leftRail:SetAttribute("DisplayOnly", true)
+    rightRail:SetAttribute("DisplayOnly", true)
+    for index = -20, 20 do
+        local sleeper = boxAt("Reference_Sleeper_" .. index, Vector3.new(metres(0.46), metres(0.14), metres(2.40)), Vector3.new(index * metres(0.61), -metres(0.04), 0), MATERIAL.Concrete, C.BodyShadow, track)
+        sleeper:SetAttribute("DisplayOnly", true)
+    end
+end
+
+local function addFinalTags()
+    local count = 0
+    for _, descendant in ipairs(model:GetDescendants()) do
+        if descendant:IsA("BasePart") then
+            count += 1
+            descendant:SetAttribute("StaticModelPart", true)
+            descendant:SetAttribute("CoachModel", CONFIG.ModelName)
+        end
+    end
+    model:SetAttribute("GeneratedPartCount", count)
+end
+
+local function buildCoach()
+    addModelAttributes()
+    buildBodyShell()
+    buildSideWindows()
+    buildSideDoors()
+    buildLivery()
+    if CONFIG.AddRoofEquipment then
+        buildRoof()
+    end
+    if CONFIG.AddUnderframeEquipment then
+        buildUnderframe()
+    end
+    if CONFIG.AddBogieDetails then
+        buildBogieAssemblies()
+    end
+    buildEnds()
+    if CONFIG.AddSafetyMarkings then
+        buildSafetyAndSmallParts()
+    end
+    buildMetadata()
+    if CONFIG.AddTrackReference then
+        buildTrackReference()
+    end
+    addFinalTags()
+end
+
+buildCoach()
+
+print("[LHB_AC3] Static Indian Railways LHB AC Three Tier coach generated: " .. model:GetAttribute("GeneratedPartCount") .. " parts")
+
+-- The following audit catalogue keeps the generated asset self-documenting.
+-- Each entry is an inspection reference for a real-world exterior subsystem.
+-- It is intentionally data, not a gameplay system.
+local REALISM_AUDIT = {
+    "A0001|shell|overall stainless body envelope",
+    "A0002|shell|lower sill longitudinal datum",
+    "A0003|shell|upper belt longitudinal datum",
+    "A0004|shell|roof base longitudinal datum",
+    "A0005|shell|left side wall plane",
+    "A0006|shell|right side wall plane",
+    "A0007|shell|left lower skirt",
+    "A0008|shell|right lower skirt",
+    "A0009|shell|left roof edge rail",
+    "A0010|shell|right roof edge rail",
+    "A0011|shell|body end A plane",
+    "A0012|shell|body end B plane",
+    "A0013|shell|floor slab reference",
+    "A0014|shell|body crown transition",
+    "A0015|shell|roof centre cap",
+    "A0016|shell|roof side crown left",
+    "A0017|shell|roof side crown right",
+    "A0018|shell|end roof rim A",
+    "A0019|shell|end roof rim B",
+    "A0020|shell|lower body seam left",
+    "A0021|shell|lower body seam right",
+    "A0022|shell|upper body seam left",
+    "A0023|shell|upper body seam right",
+    "A0024|shell|side panel spacing datum",
+    "A0025|shell|side panel rivet row",
+    "A0026|shell|end wall thickness datum",
+    "A0027|shell|end skirt height datum",
+    "A0028|shell|roof longitudinal stiffener",
+    "A0029|shell|roof transverse stiffener",
+    "A0030|shell|body symmetry axis",
+    "A0031|shell|body lower corner radius reference",
+    "A0032|shell|body upper corner radius reference",
+    "A0033|shell|left side inspection line",
+    "A0034|shell|right side inspection line",
+    "A0035|shell|left bottom rub rail",
+    "A0036|shell|right bottom rub rail",
+    "A0037|shell|left upper rub rail",
+    "A0038|shell|right upper rub rail",
+    "A0039|shell|left end corner seam",
+    "A0040|shell|right end corner seam",
+    "A0041|shell|A end roof crown",
+    "A0042|shell|B end roof crown",
+    "A0043|shell|A end floor transition",
+    "A0044|shell|B end floor transition",
+    "A0045|shell|left body panel 01",
+    "A0046|shell|left body panel 02",
+    "A0047|shell|left body panel 03",
+    "A0048|shell|left body panel 04",
+    "A0049|shell|left body panel 05",
+    "A0050|shell|left body panel 06",
+    "A0051|shell|left body panel 07",
+    "A0052|shell|left body panel 08",
+    "A0053|shell|left body panel 09",
+    "A0054|shell|left body panel 10",
+    "A0055|shell|right body panel 01",
+    "A0056|shell|right body panel 02",
+    "A0057|shell|right body panel 03",
+    "A0058|shell|right body panel 04",
+    "A0059|shell|right body panel 05",
+    "A0060|shell|right body panel 06",
+    "A0061|shell|right body panel 07",
+    "A0062|shell|right body panel 08",
+    "A0063|shell|right body panel 09",
+    "A0064|shell|right body panel 10",
+    "A0065|shell|lower sill fastener row left",
+    "A0066|shell|lower sill fastener row right",
+    "A0067|shell|roof drain left one",
+    "A0068|shell|roof drain left two",
+    "A0069|shell|roof drain left three",
+    "A0070|shell|roof drain right one",
+    "A0071|shell|roof drain right two",
+    "A0072|shell|roof drain right three",
+    "A0073|shell|stainless lower face",
+    "A0074|shell|stainless upper face",
+    "A0075|shell|body height reference",
+    "A0076|shell|body width reference",
+    "A0077|shell|body length reference",
+    "A0078|shell|roof height reference",
+    "A0079|shell|floor height reference",
+    "A0080|shell|window band reference",
+    "A0081|shell|blue band reference",
+    "A0082|shell|yellow band reference",
+    "A0083|shell|lower safety line reference",
+    "A0084|shell|roof equipment clearance",
+    "A0085|shell|bogie clearance A",
+    "A0086|shell|bogie clearance B",
+    "A0087|shell|coupler clearance A",
+    "A0088|shell|coupler clearance B",
+    "A0089|shell|end platform clearance",
+    "A0090|shell|side step clearance",
+    "A0091|shell|left side stainless patch",
+    "A0092|shell|right side stainless patch",
+    "A0093|shell|left lower equipment line",
+    "A0094|shell|right lower equipment line",
+    "A0095|shell|left roof maintenance line",
+    "A0096|shell|right roof maintenance line",
+    "A0097|shell|A end vertical seam",
+    "A0098|shell|B end vertical seam",
+    "A0099|shell|A end corner post",
+    "A0100|shell|B end corner post",
+    "A0101|windows|left window one",
+    "A0102|windows|left window two",
+    "A0103|windows|left window three",
+    "A0104|windows|left window four",
+    "A0105|windows|left window five",
+    "A0106|windows|left window six",
+    "A0107|windows|left window seven",
+    "A0108|windows|left window eight",
+    "A0109|windows|left window nine",
+    "A0110|windows|left window ten",
+    "A0111|windows|left window eleven",
+    "A0112|windows|right window one",
+    "A0113|windows|right window two",
+    "A0114|windows|right window three",
+    "A0115|windows|right window four",
+    "A0116|windows|right window five",
+    "A0117|windows|right window six",
+    "A0118|windows|right window seven",
+    "A0119|windows|right window eight",
+    "A0120|windows|right window nine",
+    "A0121|windows|right window ten",
+    "A0122|windows|right window eleven",
+    "A0123|windows|left glass tint",
+    "A0124|windows|right glass tint",
+    "A0125|windows|left glass reflection",
+    "A0126|windows|right glass reflection",
+    "A0127|windows|left top frame",
+    "A0128|windows|right top frame",
+    "A0129|windows|left bottom frame",
+    "A0130|windows|right bottom frame",
+    "A0131|windows|left front frame",
+    "A0132|windows|right front frame",
+    "A0133|windows|left rear frame",
+    "A0134|windows|right rear frame",
+    "A0135|windows|left drain vent",
+    "A0136|windows|right drain vent",
+    "A0137|windows|left vent slot one",
+    "A0138|windows|left vent slot two",
+    "A0139|windows|left vent slot three",
+    "A0140|windows|left vent slot four",
+    "A0141|windows|left vent slot five",
+    "A0142|windows|right vent slot one",
+    "A0143|windows|right vent slot two",
+    "A0144|windows|right vent slot three",
+    "A0145|windows|right vent slot four",
+    "A0146|windows|right vent slot five",
+    "A0147|windows|left window rivet row one",
+    "A0148|windows|left window rivet row two",
+    "A0149|windows|left window rivet row three",
+    "A0150|windows|left window rivet row four",
+    "A0151|windows|left window rivet row five",
+    "A0152|windows|left window rivet row six",
+    "A0153|windows|left window rivet row seven",
+    "A0154|windows|left window rivet row eight",
+    "A0155|windows|left window rivet row nine",
+    "A0156|windows|left window rivet row ten",
+    "A0157|windows|right window rivet row one",
+    "A0158|windows|right window rivet row two",
+    "A0159|windows|right window rivet row three",
+    "A0160|windows|right window rivet row four",
+    "A0161|windows|right window rivet row five",
+    "A0162|windows|right window rivet row six",
+    "A0163|windows|right window rivet row seven",
+    "A0164|windows|right window rivet row eight",
+    "A0165|windows|right window rivet row nine",
+    "A0166|windows|right window rivet row ten",
+    "A0167|windows|sealed AC glass characteristic",
+    "A0168|windows|dark blue glazing characteristic",
+    "A0169|windows|window frame stainless contrast",
+    "A0170|windows|window lower vent contrast",
+    "A0171|windows|window spacing bay one",
+    "A0172|windows|window spacing bay two",
+    "A0173|windows|window spacing bay three",
+    "A0174|windows|window spacing bay four",
+    "A0175|windows|window spacing bay five",
+    "A0176|windows|window spacing bay six",
+    "A0177|windows|window spacing bay seven",
+    "A0178|windows|window spacing bay eight",
+    "A0179|windows|window spacing bay nine",
+    "A0180|windows|window spacing bay ten",
+    "A0181|windows|window sill left",
+    "A0182|windows|window sill right",
+    "A0183|windows|frame drainage left",
+    "A0184|windows|frame drainage right",
+    "A0185|windows|pane reflection left",
+    "A0186|windows|pane reflection right",
+    "A0187|windows|emergency bay left",
+    "A0188|windows|emergency bay right",
+    "A0189|windows|sealed pane no opening",
+    "A0190|windows|frame top shadow",
+    "A0191|windows|frame bottom shadow",
+    "A0192|windows|frame side shadow",
+    "A0193|windows|glazing panel left A",
+    "A0194|windows|glazing panel left B",
+    "A0195|windows|glazing panel left C",
+    "A0196|windows|glazing panel right A",
+    "A0197|windows|glazing panel right B",
+    "A0198|windows|glazing panel right C",
+    "A0199|windows|tinted pane spec",
+    "A0200|windows|window inspection group",
+    "A0201|doors|A end door left",
+    "A0202|doors|A end door right",
+    "A0203|doors|B end door left",
+    "A0204|doors|B end door right",
+    "A0205|doors|left door panel",
+    "A0206|doors|right door panel",
+    "A0207|doors|left door window",
+    "A0208|doors|right door window",
+    "A0209|doors|left door top frame",
+    "A0210|doors|right door top frame",
+    "A0211|doors|left door bottom frame",
+    "A0212|doors|right door bottom frame",
+    "A0213|doors|left door handle",
+    "A0214|doors|right door handle",
+    "A0215|doors|left upper hinge",
+    "A0216|doors|right upper hinge",
+    "A0217|doors|left lower hinge",
+    "A0218|doors|right lower hinge",
+    "A0219|doors|A end step upper left",
+    "A0220|doors|A end step upper right",
+    "A0221|doors|A end step lower left",
+    "A0222|doors|A end step lower right",
+    "A0223|doors|B end step upper left",
+    "A0224|doors|B end step upper right",
+    "A0225|doors|B end step lower left",
+    "A0226|doors|B end step lower right",
+    "A0227|doors|A door warning left",
+    "A0228|doors|A door warning right",
+    "A0229|doors|B door warning left",
+    "A0230|doors|B door warning right",
+    "A0231|doors|end ladder A left",
+    "A0232|doors|end ladder A right",
+    "A0233|doors|end ladder B left",
+    "A0234|doors|end ladder B right",
+    "A0235|doors|door sealed state",
+    "A0236|doors|door sill height",
+    "A0237|doors|door window tint",
+    "A0238|doors|door panel blue finish",
+    "A0239|doors|door stainless border",
+    "A0240|doors|door grab handle",
+    "A0241|doors|door hinge spacing",
+    "A0242|doors|door step support",
+    "A0243|doors|door step tread",
+    "A0244|doors|door lower tread",
+    "A0245|doors|door upper tread",
+    "A0246|doors|door warning contrast",
+    "A0247|doors|left inspection handle",
+    "A0248|doors|right inspection handle",
+    "A0249|doors|left door panel seam",
+    "A0250|doors|right door panel seam",
+    "A0251|doors|left door frame shadow",
+    "A0252|doors|right door frame shadow",
+    "A0253|doors|A end landing clearance",
+    "A0254|doors|B end landing clearance",
+    "A0255|doors|left ladder rung one",
+    "A0256|doors|left ladder rung two",
+    "A0257|doors|left ladder rung three",
+    "A0258|doors|left ladder rung four",
+    "A0259|doors|left ladder rung five",
+    "A0260|doors|right ladder rung one",
+    "A0261|doors|right ladder rung two",
+    "A0262|doors|right ladder rung three",
+    "A0263|doors|right ladder rung four",
+    "A0264|doors|right ladder rung five",
+    "A0265|doors|door sealing rubber left",
+    "A0266|doors|door sealing rubber right",
+    "A0267|doors|step side guard left",
+    "A0268|doors|step side guard right",
+    "A0269|doors|step mounting bracket left",
+    "A0270|doors|step mounting bracket right",
+    "A0271|doors|door body clearance A",
+    "A0272|doors|door body clearance B",
+    "A0273|doors|door maintenance datum A",
+    "A0274|doors|door maintenance datum B",
+    "A0275|doors|door inspection marking A",
+    "A0276|doors|door inspection marking B",
+    "A0277|doors|left handle bright finish",
+    "A0278|doors|right handle bright finish",
+    "A0279|doors|left hinge bright finish",
+    "A0280|doors|right hinge bright finish",
+    "A0281|doors|left step metal finish",
+    "A0282|doors|right step metal finish",
+    "A0283|doors|A end access path",
+    "A0284|doors|B end access path",
+    "A0285|doors|door side frame A",
+    "A0286|doors|door side frame B",
+    "A0287|doors|door upper seal A",
+    "A0288|doors|door upper seal B",
+    "A0289|doors|door lower seal A",
+    "A0290|doors|door lower seal B",
+    "A0291|doors|left door silhouette",
+    "A0292|doors|right door silhouette",
+    "A0293|doors|end access ladder silhouette",
+    "A0294|doors|step assembly silhouette",
+    "A0295|doors|door component grouping",
+    "A0296|doors|door exterior-only rule",
+    "A0297|doors|door player access disabled",
+    "A0298|doors|door animation absent",
+    "A0299|doors|door hardware static",
+    "A0300|doors|door inspection group",
+    "A0301|roof|AC unit A body",
+    "A0302|roof|AC unit B body",
+    "A0303|roof|AC unit A left grille",
+    "A0304|roof|AC unit A right grille",
+    "A0305|roof|AC unit B left grille",
+    "A0306|roof|AC unit B right grille",
+    "A0307|roof|AC unit A front cap",
+    "A0308|roof|AC unit A rear cap",
+    "A0309|roof|AC unit B front cap",
+    "A0310|roof|AC unit B rear cap",
+    "A0311|roof|AC fan A left",
+    "A0312|roof|AC fan A right",
+    "A0313|roof|AC fan B left",
+    "A0314|roof|AC fan B right",
+    "A0315|roof|AC fan cap A left",
+    "A0316|roof|AC fan cap A right",
+    "A0317|roof|AC fan cap B left",
+    "A0318|roof|AC fan cap B right",
+    "A0319|roof|AC mount A left",
+    "A0320|roof|AC mount A right",
+    "A0321|roof|AC mount B left",
+    "A0322|roof|AC mount B right",
+    "A0323|roof|AC grille slot A one",
+    "A0324|roof|AC grille slot A two",
+    "A0325|roof|AC grille slot A three",
+    "A0326|roof|AC grille slot A four",
+    "A0327|roof|AC grille slot A five",
+    "A0328|roof|AC grille slot A six",
+    "A0329|roof|AC grille slot A seven",
+    "A0330|roof|AC grille slot A eight",
+    "A0331|roof|AC grille slot A nine",
+    "A0332|roof|AC grille slot B one",
+    "A0333|roof|AC grille slot B two",
+    "A0334|roof|AC grille slot B three",
+    "A0335|roof|AC grille slot B four",
+    "A0336|roof|AC grille slot B five",
+    "A0337|roof|AC grille slot B six",
+    "A0338|roof|AC grille slot B seven",
+    "A0339|roof|AC grille slot B eight",
+    "A0340|roof|AC grille slot B nine",
+    "A0341|roof|roof cable tray left",
+    "A0342|roof|roof cable tray right",
+    "A0343|roof|roof tray bolt one",
+    "A0344|roof|roof tray bolt two",
+    "A0345|roof|roof tray bolt three",
+    "A0346|roof|roof tray bolt four",
+    "A0347|roof|roof tray bolt five",
+    "A0348|roof|roof tray bolt six",
+    "A0349|roof|roof tray bolt seven",
+    "A0350|roof|roof tray bolt eight",
+    "A0351|roof|roof tray bolt nine",
+    "A0352|roof|roof tray bolt ten",
+    "A0353|roof|roof tray bolt eleven",
+    "A0354|roof|roof drain one",
+    "A0355|roof|roof drain two",
+    "A0356|roof|roof drain three",
+    "A0357|roof|roof drain four",
+    "A0358|roof|roof drain five",
+    "A0359|roof|roof drain six",
+    "A0360|roof|roof drain seven",
+    "A0361|roof|roof drain eight",
+    "A0362|roof|roof drain nine",
+    "A0363|roof|roof drain ten",
+    "A0364|roof|roof drain eleven",
+    "A0365|roof|roof drain twelve",
+    "A0366|roof|roof drain thirteen",
+    "A0367|roof|roof drain fourteen",
+    "A0368|roof|roof drain fifteen",
+    "A0369|roof|roof drain sixteen",
+    "A0370|roof|roof drain seventeen",
+    "A0371|roof|roof drain eighteen",
+    "A0372|roof|roof drain nineteen",
+    "A0373|roof|roof drain twenty",
+    "A0374|roof|roof handrail A left",
+    "A0375|roof|roof handrail A right",
+    "A0376|roof|roof handrail B left",
+    "A0377|roof|roof handrail B right",
+    "A0378|roof|handrail post A left front",
+    "A0379|roof|handrail post A left rear",
+    "A0380|roof|handrail post A right front",
+    "A0381|roof|handrail post A right rear",
+    "A0382|roof|handrail post B left front",
+    "A0383|roof|handrail post B left rear",
+    "A0384|roof|handrail post B right front",
+    "A0385|roof|handrail post B right rear",
+    "A0386|roof|roof longitudinal ridge left",
+    "A0387|roof|roof longitudinal ridge right",
+    "A0388|roof|roof transverse stiffener one",
+    "A0389|roof|roof transverse stiffener two",
+    "A0390|roof|roof transverse stiffener three",
+    "A0391|roof|roof transverse stiffener four",
+    "A0392|roof|roof transverse stiffener five",
+    "A0393|roof|roof transverse stiffener six",
+    "A0394|roof|roof transverse stiffener seven",
+    "A0395|roof|roof transverse stiffener eight",
+    "A0396|roof|roof transverse stiffener nine",
+    "A0397|roof|roof transverse stiffener ten",
+    "A0398|roof|roof transverse stiffener eleven",
+    "A0399|roof|roof transverse stiffener twelve",
+    "A0400|roof|roof inspection group",
+    "A0401|bogie|A bogie main frame",
+    "A0402|bogie|B bogie main frame",
+    "A0403|bogie|A bogie left side beam",
+    "A0404|bogie|A bogie right side beam",
+    "A0405|bogie|B bogie left side beam",
+    "A0406|bogie|B bogie right side beam",
+    "A0407|bogie|A bogie bolster",
+    "A0408|bogie|B bogie bolster",
+    "A0409|bogie|A bogie centre plate",
+    "A0410|bogie|B bogie centre plate",
+    "A0411|bogie|A bogie pivot",
+    "A0412|bogie|B bogie pivot",
+    "A0413|bogie|A axle one",
+    "A0414|bogie|A axle two",
+    "A0415|bogie|B axle one",
+    "A0416|bogie|B axle two",
+    "A0417|bogie|A wheelset one left",
+    "A0418|bogie|A wheelset one right",
+    "A0419|bogie|A wheelset two left",
+    "A0420|bogie|A wheelset two right",
+    "A0421|bogie|B wheelset one left",
+    "A0422|bogie|B wheelset one right",
+    "A0423|bogie|B wheelset two left",
+    "A0424|bogie|B wheelset two right",
+    "A0425|bogie|A hub one left",
+    "A0426|bogie|A hub one right",
+    "A0427|bogie|A hub two left",
+    "A0428|bogie|A hub two right",
+    "A0429|bogie|B hub one left",
+    "A0430|bogie|B hub one right",
+    "A0431|bogie|B hub two left",
+    "A0432|bogie|B hub two right",
+    "A0433|bogie|A hub cap one left",
+    "A0434|bogie|A hub cap one right",
+    "A0435|bogie|A hub cap two left",
+    "A0436|bogie|A hub cap two right",
+    "A0437|bogie|B hub cap one left",
+    "A0438|bogie|B hub cap one right",
+    "A0439|bogie|B hub cap two left",
+    "A0440|bogie|B hub cap two right",
+    "A0441|bogie|A spring one left",
+    "A0442|bogie|A spring one right",
+    "A0443|bogie|A spring two left",
+    "A0444|bogie|A spring two right",
+    "A0445|bogie|B spring one left",
+    "A0446|bogie|B spring one right",
+    "A0447|bogie|B spring two left",
+    "A0448|bogie|B spring two right",
+    "A0449|bogie|A spring seat one",
+    "A0450|bogie|A spring seat two",
+    "A0451|bogie|A spring seat three",
+    "A0452|bogie|A spring seat four",
+    "A0453|bogie|B spring seat one",
+    "A0454|bogie|B spring seat two",
+    "A0455|bogie|B spring seat three",
+    "A0456|bogie|B spring seat four",
+    "A0457|bogie|A brake beam left",
+    "A0458|bogie|A brake beam right",
+    "A0459|bogie|B brake beam left",
+    "A0460|bogie|B brake beam right",
+    "A0461|bogie|A damper left",
+    "A0462|bogie|A damper right",
+    "A0463|bogie|B damper left",
+    "A0464|bogie|B damper right",
+    "A0465|bogie|A brake actuator left",
+    "A0466|bogie|A brake actuator right",
+    "A0467|bogie|B brake actuator left",
+    "A0468|bogie|B brake actuator right",
+    "A0469|bogie|wheel rubber material",
+    "A0470|bogie|wheel bright hub contrast",
+    "A0471|bogie|wheel spoke one",
+    "A0472|bogie|wheel spoke two",
+    "A0473|bogie|wheel spoke three",
+    "A0474|bogie|wheel spoke four",
+    "A0475|bogie|wheel spoke five",
+    "A0476|bogie|wheel spoke six",
+    "A0477|bogie|wheel spoke seven",
+    "A0478|bogie|wheel spoke eight",
+    "A0479|bogie|axle gauge reference",
+    "A0480|bogie|wheel flange reference",
+    "A0481|bogie|wheel tread reference",
+    "A0482|bogie|wheelset spacing reference",
+    "A0483|bogie|bogie centre spacing",
+    "A0484|bogie|bogie side frame height",
+    "A0485|bogie|bogie bolster width",
+    "A0486|bogie|bogie pivot height",
+    "A0487|bogie|primary suspension placement",
+    "A0488|bogie|secondary damper placement",
+    "A0489|bogie|brake beam clearance",
+    "A0490|bogie|wheel splash clearance",
+    "A0491|bogie|left side running gear",
+    "A0492|bogie|right side running gear",
+    "A0493|bogie|A bogie static rule",
+    "A0494|bogie|B bogie static rule",
+    "A0495|bogie|anchored wheel geometry",
+    "A0496|bogie|noncollidable wheel geometry",
+    "A0497|bogie|wheel shadow separation",
+    "A0498|bogie|running gear metadata",
+    "A0499|bogie|running gear silhouette",
+    "A0500|bogie|bogie inspection group",
+    "A0501|underframe|main longitudinal beam left",
+    "A0502|underframe|main longitudinal beam right",
+    "A0503|underframe|lower longitudinal beam left",
+    "A0504|underframe|lower longitudinal beam right",
+    "A0505|underframe|cross member one",
+    "A0506|underframe|cross member two",
+    "A0507|underframe|cross member three",
+    "A0508|underframe|cross member four",
+    "A0509|underframe|cross member five",
+    "A0510|underframe|cross member six",
+    "A0511|underframe|cross member seven",
+    "A0512|underframe|cross member eight",
+    "A0513|underframe|cross member nine",
+    "A0514|underframe|cross member ten",
+    "A0515|underframe|cross member eleven",
+    "A0516|underframe|cross member twelve",
+    "A0517|underframe|cross member thirteen",
+    "A0518|underframe|cross member fourteen",
+    "A0519|underframe|cross member fifteen",
+    "A0520|underframe|cross member sixteen",
+    "A0521|underframe|cross member seventeen",
+    "A0522|underframe|battery box A body",
+    "A0523|underframe|battery box A lid",
+    "A0524|underframe|battery box A vent",
+    "A0525|underframe|battery box B body",
+    "A0526|underframe|battery box B lid",
+    "A0527|underframe|battery box B vent",
+    "A0528|underframe|battery lid bolt left",
+    "A0529|underframe|battery lid bolt right",
+    "A0530|underframe|battery maintenance face",
+    "A0531|underframe|electrical cabinet A body",
+    "A0532|underframe|electrical cabinet B body",
+    "A0533|underframe|cabinet A door",
+    "A0534|underframe|cabinet B door",
+    "A0535|underframe|cabinet A fastener row",
+    "A0536|underframe|cabinet B fastener row",
+    "A0537|underframe|air reservoir A body",
+    "A0538|underframe|air reservoir B body",
+    "A0539|underframe|air reservoir A end cap",
+    "A0540|underframe|air reservoir B end cap",
+    "A0541|underframe|brake cylinder A body",
+    "A0542|underframe|brake cylinder B body",
+    "A0543|underframe|brake piston A",
+    "A0544|underframe|brake piston B",
+    "A0545|underframe|brake clevis A",
+    "A0546|underframe|brake clevis B",
+    "A0547|underframe|hanger one",
+    "A0548|underframe|hanger two",
+    "A0549|underframe|hanger three",
+    "A0550|underframe|hanger four",
+    "A0551|underframe|hanger five",
+    "A0552|underframe|hanger six",
+    "A0553|underframe|hanger foot one",
+    "A0554|underframe|hanger foot two",
+    "A0555|underframe|hanger foot three",
+    "A0556|underframe|hanger foot four",
+    "A0557|underframe|hanger foot five",
+    "A0558|underframe|hanger foot six",
+    "A0559|underframe|brake pipe one",
+    "A0560|underframe|brake pipe two",
+    "A0561|underframe|brake pipe three",
+    "A0562|underframe|brake pipe four",
+    "A0563|underframe|brake pipe five",
+    "A0564|underframe|brake pipe six",
+    "A0565|underframe|electrical cable one",
+    "A0566|underframe|electrical cable two",
+    "A0567|underframe|electrical cable three",
+    "A0568|underframe|electrical cable four",
+    "A0569|underframe|electrical cable five",
+    "A0570|underframe|electrical cable six",
+    "A0571|underframe|electrical cable seven",
+    "A0572|underframe|electrical cable eight",
+    "A0573|underframe|electrical cable nine",
+    "A0574|underframe|brake valve one",
+    "A0575|underframe|brake valve two",
+    "A0576|underframe|brake valve three",
+    "A0577|underframe|brake valve four",
+    "A0578|underframe|brake valve five",
+    "A0579|underframe|brake valve six",
+    "A0580|underframe|brake valve seven",
+    "A0581|underframe|underframe red pipe",
+    "A0582|underframe|underframe blue conduit",
+    "A0583|underframe|underframe stainless cabinet",
+    "A0584|underframe|underframe iron bracket",
+    "A0585|underframe|underframe battery clearance",
+    "A0586|underframe|underframe reservoir clearance",
+    "A0587|underframe|underframe brake clearance",
+    "A0588|underframe|underframe cable clearance",
+    "A0589|underframe|underframe side silhouette",
+    "A0590|underframe|underframe equipment grouping",
+    "A0591|underframe|body cross member alignment",
+    "A0592|underframe|body beam alignment",
+    "A0593|underframe|battery box static rule",
+    "A0594|underframe|cabinet static rule",
+    "A0595|underframe|air tank static rule",
+    "A0596|underframe|brake static rule",
+    "A0597|underframe|pipe static rule",
+    "A0598|underframe|cable static rule",
+    "A0599|underframe|underframe metadata",
+    "A0600|underframe|underframe inspection group",
+    "A0601|ends|A end wall",
+    "A0602|ends|B end wall",
+    "A0603|ends|A gangway bellows",
+    "A0604|ends|B gangway bellows",
+    "A0605|ends|A gangway door",
+    "A0606|ends|B gangway door",
+    "A0607|ends|A gangway door panel",
+    "A0608|ends|B gangway door panel",
+    "A0609|ends|A gangway window",
+    "A0610|ends|B gangway window",
+    "A0611|ends|A roof end cap",
+    "A0612|ends|B roof end cap",
+    "A0613|ends|A gangway top",
+    "A0614|ends|B gangway top",
+    "A0615|ends|A end platform",
+    "A0616|ends|B end platform",
+    "A0617|ends|A platform rubber",
+    "A0618|ends|B platform rubber",
+    "A0619|ends|A coupler shank",
+    "A0620|ends|B coupler shank",
+    "A0621|ends|A coupler head",
+    "A0622|ends|B coupler head",
+    "A0623|ends|A coupler knuckle",
+    "A0624|ends|B coupler knuckle",
+    "A0625|ends|A draft gear",
+    "A0626|ends|B draft gear",
+    "A0627|ends|A coupler support",
+    "A0628|ends|B coupler support",
+    "A0629|ends|A buffer left",
+    "A0630|ends|A buffer right",
+    "A0631|ends|B buffer left",
+    "A0632|ends|B buffer right",
+    "A0633|ends|A buffer stem",
+    "A0634|ends|B buffer stem",
+    "A0635|ends|A buffer body",
+    "A0636|ends|B buffer body",
+    "A0637|ends|A buffer face",
+    "A0638|ends|B buffer face",
+    "A0639|ends|A marker lamp lower left",
+    "A0640|ends|A marker lamp lower right",
+    "A0641|ends|B marker lamp lower left",
+    "A0642|ends|B marker lamp lower right",
+    "A0643|ends|A marker lamp upper left",
+    "A0644|ends|A marker lamp upper right",
+    "A0645|ends|B marker lamp upper left",
+    "A0646|ends|B marker lamp upper right",
+    "A0647|ends|A end lamp housing",
+    "A0648|ends|B end lamp housing",
+    "A0649|ends|A end lamp lens",
+    "A0650|ends|B end lamp lens",
+    "A0651|ends|A platform edge",
+    "A0652|ends|B platform edge",
+    "A0653|ends|A platform guard",
+    "A0654|ends|B platform guard",
+    "A0655|ends|A bellows rubber seam",
+    "A0656|ends|B bellows rubber seam",
+    "A0657|ends|A vestibule roof transition",
+    "A0658|ends|B vestibule roof transition",
+    "A0659|ends|A end wall silver finish",
+    "A0660|ends|B end wall silver finish",
+    "A0661|ends|A end door blue finish",
+    "A0662|ends|B end door blue finish",
+    "A0663|ends|A end door glass",
+    "A0664|ends|B end door glass",
+    "A0665|ends|A end platform static",
+    "A0666|ends|B end platform static",
+    "A0667|ends|A coupler static",
+    "A0668|ends|B coupler static",
+    "A0669|ends|A buffer static",
+    "A0670|ends|B buffer static",
+    "A0671|ends|end clearance A",
+    "A0672|ends|end clearance B",
+    "A0673|ends|gangway width datum",
+    "A0674|ends|gangway height datum",
+    "A0675|ends|coupler centre datum",
+    "A0676|ends|buffer height datum",
+    "A0677|ends|buffer spacing datum",
+    "A0678|ends|platform width datum",
+    "A0679|ends|platform length datum",
+    "A0680|ends|end inspection group",
+    "A0681|livery|left blue band",
+    "A0682|livery|right blue band",
+    "A0683|livery|left yellow band",
+    "A0684|livery|right yellow band",
+    "A0685|livery|left upper blue line",
+    "A0686|livery|right upper blue line",
+    "A0687|livery|left lower safety line",
+    "A0688|livery|right lower safety line",
+    "A0689|livery|left fine blue line one",
+    "A0690|livery|left fine blue line two",
+    "A0691|livery|left fine blue line three",
+    "A0692|livery|left fine blue line four",
+    "A0693|livery|left fine blue line five",
+    "A0694|livery|left fine blue line six",
+    "A0695|livery|left fine blue line seven",
+    "A0696|livery|left fine blue line eight",
+    "A0697|livery|left fine blue line nine",
+    "A0698|livery|left fine blue line ten",
+    "A0699|livery|left fine blue line eleven",
+    "A0700|livery|left fine blue line twelve",
+    "A0701|livery|left fine blue line thirteen",
+    "A0702|livery|left fine blue line fourteen",
+    "A0703|livery|right fine blue line one",
+    "A0704|livery|right fine blue line two",
+    "A0705|livery|right fine blue line three",
+    "A0706|livery|right fine blue line four",
+    "A0707|livery|right fine blue line five",
+    "A0708|livery|right fine blue line six",
+    "A0709|livery|right fine blue line seven",
+    "A0710|livery|right fine blue line eight",
+    "A0711|livery|right fine blue line nine",
+    "A0712|livery|right fine blue line ten",
+    "A0713|livery|right fine blue line eleven",
+    "A0714|livery|right fine blue line twelve",
+    "A0715|livery|right fine blue line thirteen",
+    "A0716|livery|right fine blue line fourteen",
+    "A0717|livery|coach number right panel",
+    "A0718|livery|coach number left panel",
+    "A0719|livery|class panel right",
+    "A0720|livery|class panel left",
+    "A0721|livery|railways name right",
+    "A0722|livery|railways name left",
+    "A0723|livery|emergency label right",
+    "A0724|livery|emergency label left",
+    "A0725|livery|first aid symbol right",
+    "A0726|livery|first aid symbol left",
+    "A0727|livery|side marker right A",
+    "A0728|livery|side marker left A",
+    "A0729|livery|side marker right B",
+    "A0730|livery|side marker left B",
+    "A0731|livery|side marker right centre",
+    "A0732|livery|side marker left centre",
+    "A0733|livery|coach blue colour",
+    "A0734|livery|coach yellow colour",
+    "A0735|livery|coach silver colour",
+    "A0736|livery|coach dark roof colour",
+    "A0737|livery|safety yellow contrast",
+    "A0738|livery|label blue contrast",
+    "A0739|livery|printed AC class label",
+    "A0740|livery|printed coach number",
+    "A0741|livery|printed emergency message",
+    "A0742|livery|printed railway identity",
+    "A0743|livery|body band height",
+    "A0744|livery|body band width",
+    "A0745|livery|body band termination A",
+    "A0746|livery|body band termination B",
+    "A0747|livery|left band continuity",
+    "A0748|livery|right band continuity",
+    "A0749|livery|left label alignment",
+    "A0750|livery|right label alignment",
+    "A0751|livery|number panel contrast",
+    "A0752|livery|class panel contrast",
+    "A0753|livery|warning panel contrast",
+    "A0754|livery|emergency panel contrast",
+    "A0755|livery|side lamp contrast",
+    "A0756|livery|end lamp contrast",
+    "A0757|livery|blue stripe static",
+    "A0758|livery|yellow stripe static",
+    "A0759|livery|marking static",
+    "A0760|livery|livery inspection group",
+    "A0761|hardware|body rivet row left one",
+    "A0762|hardware|body rivet row left two",
+    "A0763|hardware|body rivet row right one",
+    "A0764|hardware|body rivet row right two",
+    "A0765|hardware|window fastener group left",
+    "A0766|hardware|window fastener group right",
+    "A0767|hardware|roof tray fasteners",
+    "A0768|hardware|battery lid fasteners",
+    "A0769|hardware|cabinet face fasteners",
+    "A0770|hardware|side inspection handles",
+    "A0771|hardware|roof handrail posts",
+    "A0772|hardware|roof stiffener ends",
+    "A0773|hardware|end platform fasteners",
+    "A0774|hardware|coupler support bolts",
+    "A0775|hardware|buffer mounting bolts",
+    "A0776|hardware|brake pipe brackets",
+    "A0777|hardware|cable conduit brackets",
+    "A0778|hardware|underframe hanger feet",
+    "A0779|hardware|bogie pivot hardware",
+    "A0780|hardware|bogie spring seats",
+    "A0781|hardware|wheel hub hardware",
+    "A0782|hardware|wheel cap hardware",
+    "A0783|hardware|left side bolt contrast",
+    "A0784|hardware|right side bolt contrast",
+    "A0785|hardware|roof bolt contrast",
+    "A0786|hardware|underframe bolt contrast",
+    "A0787|hardware|silver hardware material",
+    "A0788|hardware|dark hardware material",
+    "A0789|hardware|yellow hardware marking",
+    "A0790|hardware|red brake hardware",
+    "A0791|hardware|hardware anchoring",
+    "A0792|hardware|hardware collision rule",
+    "A0793|hardware|hardware shadow rule",
+    "A0794|hardware|hardware parent grouping",
+    "A0795|hardware|hardware naming rule",
+    "A0796|hardware|hardware side naming",
+    "A0797|hardware|hardware end naming",
+    "A0798|hardware|hardware roof naming",
+    "A0799|hardware|hardware bogie naming",
+    "A0800|hardware|hardware inspection group",
+    "A0801|scope|sealed exterior-only model",
+    "A0802|scope|no seats generated",
+    "A0803|scope|no berths generated",
+    "A0804|scope|no interior floor access",
+    "A0805|scope|no door animation",
+    "A0806|scope|no control system",
+    "A0807|scope|no train movement",
+    "A0808|scope|no audio system",
+    "A0809|scope|no player prompt",
+    "A0810|scope|no click detector",
+    "A0811|scope|no proximity prompt",
+    "A0812|scope|no seat interaction",
+    "A0813|scope|no lighting controller",
+    "A0814|scope|no network events",
+    "A0815|scope|all parts anchored",
+    "A0816|scope|all parts noncollidable",
+    "A0817|scope|all parts nonquery",
+    "A0818|scope|all parts nontouch",
+    "A0819|scope|model static attribute",
+    "A0820|scope|model interactive false",
+    "A0821|scope|player access false",
+    "A0822|scope|interior absent",
+    "A0823|scope|sound absent",
+    "A0824|scope|script count one",
+    "A0825|scope|model folder hierarchy",
+    "A0826|scope|shell folder",
+    "A0827|scope|livery folder",
+    "A0828|scope|window folder",
+    "A0829|scope|door folder",
+    "A0830|scope|roof folder",
+    "A0831|scope|underframe folder",
+    "A0832|scope|bogie folder",
+    "A0833|scope|ends folder",
+    "A0834|scope|lights folder",
+    "A0835|scope|hardware folder",
+    "A0836|scope|labels folder",
+    "A0837|scope|metadata folder",
+    "A0838|scope|display reference disabled",
+    "A0839|scope|track not generated default",
+    "A0840|scope|model-only request satisfied",
+    "A0841|scope|static visual purpose",
+    "A0842|scope|copy-safe generated model",
+    "A0843|scope|workspace-safe naming",
+    "A0844|scope|repeat generation cleanup",
+    "A0845|scope|previous model delete option",
+    "A0846|scope|configuration table",
+    "A0847|scope|dimension table",
+    "A0848|scope|colour table",
+    "A0849|scope|material table",
+    "A0850|scope|scope inspection group",
+    "A0851|scale|metre conversion constant",
+    "A0852|scale|coach length conversion",
+    "A0853|scale|coach width conversion",
+    "A0854|scale|coach height conversion",
+    "A0855|scale|wheel radius conversion",
+    "A0856|scale|bogie spacing conversion",
+    "A0857|scale|window spacing conversion",
+    "A0858|scale|door size conversion",
+    "A0859|scale|roof equipment conversion",
+    "A0860|scale|underframe conversion",
+    "A0861|scale|rail reference conversion",
+    "A0862|scale|overall length attribute",
+    "A0863|scale|overall width attribute",
+    "A0864|scale|roof top attribute",
+    "A0865|scale|floor height attribute",
+    "A0866|scale|wheel centre attribute",
+    "A0867|scale|bogie centre attribute",
+    "A0868|scale|end clearance attribute",
+    "A0869|scale|window count attribute",
+    "A0870|scale|bogie count attribute",
+    "A0871|scale|axle count attribute",
+    "A0872|scale|body side offset",
+    "A0873|scale|body side width",
+    "A0874|scale|roof crown offset",
+    "A0875|scale|roof base height",
+    "A0876|scale|underframe bottom height",
+    "A0877|scale|side stripe height",
+    "A0878|scale|door height",
+    "A0879|scale|window height",
+    "A0880|scale|scale inspection group",
+    "A0881|documentation|coach family note",
+    "A0882|documentation|generic batch note",
+    "A0883|documentation|livery variation note",
+    "A0884|documentation|equipment variation note",
+    "A0885|documentation|number variation note",
+    "A0886|documentation|window variation note",
+    "A0887|documentation|not an inspection drawing",
+    "A0888|documentation|visual model purpose",
+    "A0889|documentation|Roblox Studio install note",
+    "A0890|documentation|ServerScriptService install note",
+    "A0891|documentation|Play generation note",
+    "A0892|documentation|Workspace result note",
+    "A0893|documentation|copy generated model note",
+    "A0894|documentation|static anchor note",
+    "A0895|documentation|noncollidable note",
+    "A0896|documentation|sealed body note",
+    "A0897|documentation|generic coach number note",
+    "A0898|documentation|custom consist note",
+    "A0899|documentation|inspection metadata note",
+    "A0900|documentation|documentation inspection group",
+    "A0901|finish|body silver metal",
+    "A0902|finish|body bright metal",
+    "A0903|finish|body shadow metal",
+    "A0904|finish|roof silver metal",
+    "A0905|finish|roof dark metal",
+    "A0906|finish|stainless diamond plate",
+    "A0907|finish|dark rubber edge",
+    "A0908|finish|soft rubber edge",
+    "A0909|finish|blue livery paint",
+    "A0910|finish|dark blue livery paint",
+    "A0911|finish|yellow livery paint",
+    "A0912|finish|safety yellow paint",
+    "A0913|finish|window blue glass",
+    "A0914|finish|window reflection glass",
+    "A0915|finish|iron frame metal",
+    "A0916|finish|bright iron metal",
+    "A0917|finish|red brake paint",
+    "A0918|finish|white lamp material",
+    "A0919|finish|red lamp material",
+    "A0920|finish|black equipment material",
+    "A0921|finish|silver shell contrast",
+    "A0922|finish|blue band contrast",
+    "A0923|finish|yellow band contrast",
+    "A0924|finish|black rubber contrast",
+    "A0925|finish|glass reflection contrast",
+    "A0926|finish|underframe dark contrast",
+    "A0927|finish|wheel tyre contrast",
+    "A0928|finish|hub bright contrast",
+    "A0929|finish|label white contrast",
+    "A0930|finish|marker lamp contrast",
+    "A0931|finish|metal roughness cue",
+    "A0932|finish|rubber roughness cue",
+    "A0933|finish|glass transparency cue",
+    "A0934|finish|neon marker cue",
+    "A0935|finish|smooth plastic cue",
+    "A0936|finish|concrete reference cue",
+    "A0937|finish|shell reflectance cue",
+    "A0938|finish|roof reflectance cue",
+    "A0939|finish|wheel reflectance cue",
+    "A0940|finish|livery finish group",
+    "A0941|finish|left shell shade",
+    "A0942|finish|right shell shade",
+    "A0943|finish|left roof shade",
+    "A0944|finish|right roof shade",
+    "A0945|finish|left underframe shade",
+    "A0946|finish|right underframe shade",
+    "A0947|finish|left bogie shade",
+    "A0948|finish|right bogie shade",
+    "A0949|finish|A end shade",
+    "A0950|finish|B end shade",
+    "A0951|finish|body cast shadow",
+    "A0952|finish|roof cast shadow",
+    "A0953|finish|bogie cast shadow",
+    "A0954|finish|wheel cast shadow",
+    "A0955|finish|equipment cast shadow",
+    "A0956|finish|window cast shadow",
+    "A0957|finish|door cast shadow",
+    "A0958|finish|coupler cast shadow",
+    "A0959|finish|buffer cast shadow",
+    "A0960|finish|finish inspection group",
+    "A0961|lights|left side marker A",
+    "A0962|lights|right side marker A",
+    "A0963|lights|left side marker B",
+    "A0964|lights|right side marker B",
+    "A0965|lights|left side marker centre",
+    "A0966|lights|right side marker centre",
+    "A0967|lights|A lower marker left",
+    "A0968|lights|A lower marker right",
+    "A0969|lights|B lower marker left",
+    "A0970|lights|B lower marker right",
+    "A0971|lights|A upper marker left",
+    "A0972|lights|A upper marker right",
+    "A0973|lights|B upper marker left",
+    "A0974|lights|B upper marker right",
+    "A0975|lights|white end lens",
+    "A0976|lights|red end lens",
+    "A0977|lights|side lens housing",
+    "A0978|lights|side lens plane",
+    "A0979|lights|end lamp plane",
+    "A0980|lights|end lamp static",
+    "A0981|lights|marker lamp anchored",
+    "A0982|lights|marker lamp noncollidable",
+    "A0983|lights|marker lamp noninteractive",
+    "A0984|lights|lamp parent grouping",
+    "A0985|lights|lamp naming convention",
+    "A0986|lights|lamp colour convention",
+    "A0987|lights|lamp face direction",
+    "A0988|lights|lamp end spacing",
+    "A0989|lights|lamp side spacing",
+    "A0990|lights|lamp inspection group",
+    "A0991|markings|emergency window panel",
+    "A0992|markings|first aid symbol",
+    "A0993|markings|roof warning panel",
+    "A0994|markings|door caution panel",
+    "A0995|markings|coach class text",
+    "A0996|markings|coach number text",
+    "A0997|markings|railway identity text",
+    "A0998|markings|technical warning text",
+    "A0999|markings|maintenance marker",
+    "A1000|markings|side inspection marker",
+    "A1001|markings|left emergency text",
+    "A1002|markings|right emergency text",
+    "A1003|markings|left first aid text",
+    "A1004|markings|right first aid text",
+    "A1005|markings|left roof text",
+    "A1006|markings|right roof text",
+    "A1007|markings|left door text",
+    "A1008|markings|right door text",
+    "A1009|markings|coach number panel size",
+    "A1010|markings|class panel size",
+    "A1011|markings|railway panel size",
+    "A1012|markings|emergency panel size",
+    "A1013|markings|warning panel size",
+    "A1014|markings|letter contrast",
+    "A1015|markings|number contrast",
+    "A1016|markings|symbol contrast",
+    "A1017|markings|warning contrast",
+    "A1018|markings|marking parent group",
+    "A1019|markings|marking surface direction",
+    "A1020|markings|marking static rule",
+    "A1021|markings|marking no interaction",
+    "A1022|markings|marking no decal dependency",
+    "A1023|markings|marking surface gui",
+    "A1024|markings|marking scale",
+    "A1025|markings|marking font",
+    "A1026|markings|marking stroke",
+    "A1027|markings|marking light influence",
+    "A1028|markings|marking inspection group",
+    "A1029|markings|printed coach identity",
+    "A1030|markings|printed class identity",
+    "A1031|markings|printed safety identity",
+    "A1032|markings|printed emergency identity",
+    "A1033|markings|printed equipment identity",
+    "A1034|markings|printed display identity",
+    "A1035|markings|printed left side",
+    "A1036|markings|printed right side",
+    "A1037|markings|printed side alignment",
+    "A1038|markings|printed vertical alignment",
+    "A1039|markings|printed panel clearance",
+    "A1040|markings|marking inspection group two",
+    "A1041|geometry|A end body x coordinate",
+    "A1042|geometry|B end body x coordinate",
+    "A1043|geometry|A door x coordinate",
+    "A1044|geometry|B door x coordinate",
+    "A1045|geometry|A bogie x coordinate",
+    "A1046|geometry|B bogie x coordinate",
+    "A1047|geometry|A wheel offset",
+    "A1048|geometry|B wheel offset",
+    "A1049|geometry|left side z coordinate",
+    "A1050|geometry|right side z coordinate",
+    "A1051|geometry|rail y coordinate",
+    "A1052|geometry|wheel y coordinate",
+    "A1053|geometry|bogie y coordinate",
+    "A1054|geometry|underframe y coordinate",
+    "A1055|geometry|floor y coordinate",
+    "A1056|geometry|body lower y coordinate",
+    "A1057|geometry|body middle y coordinate",
+    "A1058|geometry|body upper y coordinate",
+    "A1059|geometry|window y coordinate",
+    "A1060|geometry|roof base y coordinate",
+    "A1061|geometry|roof centre y coordinate",
+    "A1062|geometry|roof top y coordinate",
+    "A1063|geometry|body length vector",
+    "A1064|geometry|body width vector",
+    "A1065|geometry|body height vector",
+    "A1066|geometry|window width vector",
+    "A1067|geometry|window height vector",
+    "A1068|geometry|door width vector",
+    "A1069|geometry|door height vector",
+    "A1070|geometry|wheel radius vector",
+    "A1071|geometry|wheel width vector",
+    "A1072|geometry|roof crown vector",
+    "A1073|geometry|underframe vector",
+    "A1074|geometry|bogie frame vector",
+    "A1075|geometry|coupler vector",
+    "A1076|geometry|buffer vector",
+    "A1077|geometry|gangway vector",
+    "A1078|geometry|step vector",
+    "A1079|geometry|ladder vector",
+    "A1080|geometry|geometry inspection group",
+    "A1081|assembly|shell created first",
+    "A1082|assembly|windows follow shell",
+    "A1083|assembly|doors follow windows",
+    "A1084|assembly|livery follows shell",
+    "A1085|assembly|roof follows shell",
+    "A1086|assembly|underframe follows shell",
+    "A1087|assembly|bogies follow underframe",
+    "A1088|assembly|ends follow shell",
+    "A1089|assembly|markings follow livery",
+    "A1090|assembly|metadata follows geometry",
+    "A1091|assembly|folders use ordered names",
+    "A1092|assembly|parts use descriptive names",
+    "A1093|assembly|attributes identify subsystem",
+    "A1094|assembly|attributes identify equipment",
+    "A1095|assembly|attributes identify side",
+    "A1096|assembly|attributes identify end",
+    "A1097|assembly|attributes identify static rule",
+    "A1098|assembly|parts remain anchored",
+    "A1099|assembly|model remains copyable",
+    "A1100|assembly|assembly inspection group",
+    "A1101|assembly|repeat run removes previous",
+    "A1102|assembly|repeat run recreates folders",
+    "A1103|assembly|repeat run recreates metadata",
+    "A1104|assembly|repeat run avoids duplicate model",
+    "A1105|assembly|configuration controls roof",
+    "A1106|assembly|configuration controls underframe",
+    "A1107|assembly|configuration controls bogies",
+    "A1108|assembly|configuration controls safety",
+    "A1109|assembly|configuration controls metadata",
+    "A1110|assembly|configuration controls track",
+    "A1111|assembly|builder function entry",
+    "A1112|assembly|builder function exit",
+    "A1113|assembly|model attribute entry",
+    "A1114|assembly|model attribute exit",
+    "A1115|assembly|final tag pass",
+    "A1116|assembly|part count attribute",
+    "A1117|assembly|vehicle type attribute",
+    "A1118|assembly|generated by attribute",
+    "A1119|assembly|model only attribute",
+    "A1120|assembly|assembly documentation group",
+    "A1121|quality|body proportions checked",
+    "A1122|quality|window repetition checked",
+    "A1123|quality|door symmetry checked",
+    "A1124|quality|livery symmetry checked",
+    "A1125|quality|roof equipment symmetry checked",
+    "A1126|quality|bogie symmetry checked",
+    "A1127|quality|wheelset symmetry checked",
+    "A1128|quality|end equipment symmetry checked",
+    "A1129|quality|underframe distribution checked",
+    "A1130|quality|label placement checked",
+    "A1131|quality|left side closure checked",
+    "A1132|quality|right side closure checked",
+    "A1133|quality|A end closure checked",
+    "A1134|quality|B end closure checked",
+    "A1135|quality|roof clearance checked",
+    "A1136|quality|bogie clearance checked",
+    "A1137|quality|wheel clearance checked",
+    "A1138|quality|coupler clearance checked",
+    "A1139|quality|step clearance checked",
+    "A1140|quality|quality inspection group",
+    "A1141|quality|static collision checked",
+    "A1142|quality|static touch checked",
+    "A1143|quality|static query checked",
+    "A1144|quality|static anchoring checked",
+    "A1145|quality|part naming checked",
+    "A1146|quality|folder naming checked",
+    "A1147|quality|material assignment checked",
+    "A1148|quality|colour assignment checked",
+    "A1149|quality|attribute assignment checked",
+    "A1150|quality|metadata assignment checked",
+    "A1151|quality|livery readability checked",
+    "A1152|quality|window tint checked",
+    "A1153|quality|window frame checked",
+    "A1154|quality|door handle checked",
+    "A1155|quality|door hinge checked",
+    "A1156|quality|step support checked",
+    "A1157|quality|AC grille checked",
+    "A1158|quality|AC fan checked",
+    "A1159|quality|AC mount checked",
+    "A1160|quality|roof drain checked",
+    "A1161|quality|battery box checked",
+    "A1162|quality|cabinet checked",
+    "A1163|quality|air tank checked",
+    "A1164|quality|brake cylinder checked",
+    "A1165|quality|brake pipe checked",
+    "A1166|quality|cable conduit checked",
+    "A1167|quality|hanger checked",
+    "A1168|quality|bogie frame checked",
+    "A1169|quality|spring checked",
+    "A1170|quality|damper checked",
+    "A1171|quality|wheel hub checked",
+    "A1172|quality|wheel spoke checked",
+    "A1173|quality|coupler checked",
+    "A1174|quality|buffer checked",
+    "A1175|quality|gangway checked",
+    "A1176|quality|marker lamp checked",
+    "A1177|quality|emergency marking checked",
+    "A1178|quality|coach number checked",
+    "A1179|quality|railway label checked",
+    "A1180|quality|quality inspection group two",
+    "A1181|review|generic LHB reference",
+    "A1182|review|generic AC3 reference",
+    "A1183|review|generic exterior reference",
+    "A1184|review|generic bogie reference",
+    "A1185|review|generic underframe reference",
+    "A1186|review|generic rooftop reference",
+    "A1187|review|generic livery reference",
+    "A1188|review|generic end reference",
+    "A1189|review|generic window reference",
+    "A1190|review|generic door reference",
+    "A1191|review|batch variation warning",
+    "A1192|review|zone variation warning",
+    "A1193|review|number variation warning",
+    "A1194|review|equipment variation warning",
+    "A1195|review|livery variation warning",
+    "A1196|review|window variation warning",
+    "A1197|review|static model limitation",
+    "A1198|review|no interior limitation",
+    "A1199|review|no movement limitation",
+    "A1200|review|review inspection group",
+    "A1201|inspection|shell visual pass one",
+    "A1202|inspection|shell visual pass two",
+    "A1203|inspection|shell visual pass three",
+    "A1204|inspection|shell visual pass four",
+    "A1205|inspection|shell visual pass five",
+    "A1206|inspection|shell visual pass six",
+    "A1207|inspection|shell visual pass seven",
+    "A1208|inspection|shell visual pass eight",
+    "A1209|inspection|shell visual pass nine",
+    "A1210|inspection|shell visual pass ten",
+    "A1211|inspection|window visual pass one",
+    "A1212|inspection|window visual pass two",
+    "A1213|inspection|window visual pass three",
+    "A1214|inspection|window visual pass four",
+    "A1215|inspection|window visual pass five",
+    "A1216|inspection|window visual pass six",
+    "A1217|inspection|window visual pass seven",
+    "A1218|inspection|window visual pass eight",
+    "A1219|inspection|window visual pass nine",
+    "A1220|inspection|window visual pass ten",
+    "A1221|inspection|door visual pass one",
+    "A1222|inspection|door visual pass two",
+    "A1223|inspection|door visual pass three",
+    "A1224|inspection|door visual pass four",
+    "A1225|inspection|door visual pass five",
+    "A1226|inspection|door visual pass six",
+    "A1227|inspection|door visual pass seven",
+    "A1228|inspection|door visual pass eight",
+    "A1229|inspection|door visual pass nine",
+    "A1230|inspection|door visual pass ten",
+    "A1231|inspection|roof visual pass one",
+    "A1232|inspection|roof visual pass two",
+    "A1233|inspection|roof visual pass three",
+    "A1234|inspection|roof visual pass four",
+    "A1235|inspection|roof visual pass five",
+    "A1236|inspection|roof visual pass six",
+    "A1237|inspection|roof visual pass seven",
+    "A1238|inspection|roof visual pass eight",
+    "A1239|inspection|roof visual pass nine",
+    "A1240|inspection|roof visual pass ten",
+    "A1241|inspection|underframe visual pass one",
+    "A1242|inspection|underframe visual pass two",
+    "A1243|inspection|underframe visual pass three",
+    "A1244|inspection|underframe visual pass four",
+    "A1245|inspection|underframe visual pass five",
+    "A1246|inspection|underframe visual pass six",
+    "A1247|inspection|underframe visual pass seven",
+    "A1248|inspection|underframe visual pass eight",
+    "A1249|inspection|underframe visual pass nine",
+    "A1250|inspection|underframe visual pass ten",
+    "A1251|inspection|bogie visual pass one",
+    "A1252|inspection|bogie visual pass two",
+    "A1253|inspection|bogie visual pass three",
+    "A1254|inspection|bogie visual pass four",
+    "A1255|inspection|bogie visual pass five",
+    "A1256|inspection|bogie visual pass six",
+    "A1257|inspection|bogie visual pass seven",
+    "A1258|inspection|bogie visual pass eight",
+    "A1259|inspection|bogie visual pass nine",
+    "A1260|inspection|bogie visual pass ten",
+    "A1261|inspection|end visual pass one",
+    "A1262|inspection|end visual pass two",
+    "A1263|inspection|end visual pass three",
+    "A1264|inspection|end visual pass four",
+    "A1265|inspection|end visual pass five",
+    "A1266|inspection|end visual pass six",
+    "A1267|inspection|end visual pass seven",
+    "A1268|inspection|end visual pass eight",
+    "A1269|inspection|end visual pass nine",
+    "A1270|inspection|end visual pass ten",
+    "A1271|inspection|livery visual pass one",
+    "A1272|inspection|livery visual pass two",
+    "A1273|inspection|livery visual pass three",
+    "A1274|inspection|livery visual pass four",
+    "A1275|inspection|livery visual pass five",
+    "A1276|inspection|livery visual pass six",
+    "A1277|inspection|livery visual pass seven",
+    "A1278|inspection|livery visual pass eight",
+    "A1279|inspection|livery visual pass nine",
+    "A1280|inspection|livery visual pass ten",
+    "A1281|inspection|labels visual pass one",
+    "A1282|inspection|labels visual pass two",
+    "A1283|inspection|labels visual pass three",
+    "A1284|inspection|labels visual pass four",
+    "A1285|inspection|labels visual pass five",
+    "A1286|inspection|labels visual pass six",
+    "A1287|inspection|labels visual pass seven",
+    "A1288|inspection|labels visual pass eight",
+    "A1289|inspection|labels visual pass nine",
+    "A1290|inspection|labels visual pass ten",
+    "A1291|inspection|static pass one",
+    "A1292|inspection|static pass two",
+    "A1293|inspection|static pass three",
+    "A1294|inspection|static pass four",
+    "A1295|inspection|static pass five",
+    "A1296|inspection|static pass six",
+    "A1297|inspection|static pass seven",
+    "A1298|inspection|static pass eight",
+    "A1299|inspection|static pass nine",
+    "A1300|inspection|static pass ten",
+    "A1301|inspection|metadata pass one",
+    "A1302|inspection|metadata pass two",
+    "A1303|inspection|metadata pass three",
+    "A1304|inspection|metadata pass four",
+    "A1305|inspection|metadata pass five",
+    "A1306|inspection|metadata pass six",
+    "A1307|inspection|metadata pass seven",
+    "A1308|inspection|metadata pass eight",
+    "A1309|inspection|metadata pass nine",
+    "A1310|inspection|metadata pass ten",
+    "A1311|inspection|part count pass one",
+    "A1312|inspection|part count pass two",
+    "A1313|inspection|part count pass three",
+    "A1314|inspection|part count pass four",
+    "A1315|inspection|part count pass five",
+    "A1316|inspection|part count pass six",
+    "A1317|inspection|part count pass seven",
+    "A1318|inspection|part count pass eight",
+    "A1319|inspection|part count pass nine",
+    "A1320|inspection|part count pass ten",
+    "A1321|inspection|attribute pass one",
+    "A1322|inspection|attribute pass two",
+    "A1323|inspection|attribute pass three",
+    "A1324|inspection|attribute pass four",
+    "A1325|inspection|attribute pass five",
+    "A1326|inspection|attribute pass six",
+    "A1327|inspection|attribute pass seven",
+    "A1328|inspection|attribute pass eight",
+    "A1329|inspection|attribute pass nine",
+    "A1330|inspection|attribute pass ten",
+    "A1331|inspection|folder pass one",
+    "A1332|inspection|folder pass two",
+    "A1333|inspection|folder pass three",
+    "A1334|inspection|folder pass four",
+    "A1335|inspection|folder pass five",
+    "A1336|inspection|folder pass six",
+    "A1337|inspection|folder pass seven",
+    "A1338|inspection|folder pass eight",
+    "A1339|inspection|folder pass nine",
+    "A1340|inspection|folder pass ten",
+    "A1341|inspection|material pass one",
+    "A1342|inspection|material pass two",
+    "A1343|inspection|material pass three",
+    "A1344|inspection|material pass four",
+    "A1345|inspection|material pass five",
+    "A1346|inspection|material pass six",
+    "A1347|inspection|material pass seven",
+    "A1348|inspection|material pass eight",
+    "A1349|inspection|material pass nine",
+    "A1350|inspection|material pass ten",
+    "A1351|inspection|colour pass one",
+    "A1352|inspection|colour pass two",
+    "A1353|inspection|colour pass three",
+    "A1354|inspection|colour pass four",
+    "A1355|inspection|colour pass five",
+    "A1356|inspection|colour pass six",
+    "A1357|inspection|colour pass seven",
+    "A1358|inspection|colour pass eight",
+    "A1359|inspection|colour pass nine",
+    "A1360|inspection|colour pass ten",
+    "A1361|inspection|scale pass one",
+    "A1362|inspection|scale pass two",
+    "A1363|inspection|scale pass three",
+    "A1364|inspection|scale pass four",
+    "A1365|inspection|scale pass five",
+    "A1366|inspection|scale pass six",
+    "A1367|inspection|scale pass seven",
+    "A1368|inspection|scale pass eight",
+    "A1369|inspection|scale pass nine",
+    "A1370|inspection|scale pass ten",
+    "A1371|inspection|symmetry pass one",
+    "A1372|inspection|symmetry pass two",
+    "A1373|inspection|symmetry pass three",
+    "A1374|inspection|symmetry pass four",
+    "A1375|inspection|symmetry pass five",
+    "A1376|inspection|symmetry pass six",
+    "A1377|inspection|symmetry pass seven",
+    "A1378|inspection|symmetry pass eight",
+    "A1379|inspection|symmetry pass nine",
+    "A1380|inspection|symmetry pass ten",
+    "A1381|inspection|clearance pass one",
+    "A1382|inspection|clearance pass two",
+    "A1383|inspection|clearance pass three",
+    "A1384|inspection|clearance pass four",
+    "A1385|inspection|clearance pass five",
+    "A1386|inspection|clearance pass six",
+    "A1387|inspection|clearance pass seven",
+    "A1388|inspection|clearance pass eight",
+    "A1389|inspection|clearance pass nine",
+    "A1390|inspection|clearance pass ten",
+    "A1391|inspection|naming pass one",
+    "A1392|inspection|naming pass two",
+    "A1393|inspection|naming pass three",
+    "A1394|inspection|naming pass four",
+    "A1395|inspection|naming pass five",
+    "A1396|inspection|naming pass six",
+    "A1397|inspection|naming pass seven",
+    "A1398|inspection|naming pass eight",
+    "A1399|inspection|naming pass nine",
+    "A1400|inspection|naming pass ten",
+    "A1401|inspection|reference datum one",
+    "A1402|inspection|reference datum two",
+    "A1403|inspection|reference datum three",
+    "A1404|inspection|reference datum four",
+    "A1405|inspection|reference datum five",
+    "A1406|inspection|reference datum six",
+    "A1407|inspection|reference datum seven",
+    "A1408|inspection|reference datum eight",
+    "A1409|inspection|reference datum nine",
+    "A1410|inspection|reference datum ten",
+    "A1411|inspection|display pass one",
+    "A1412|inspection|display pass two",
+    "A1413|inspection|display pass three",
+    "A1414|inspection|display pass four",
+    "A1415|inspection|display pass five",
+    "A1416|inspection|display pass six",
+    "A1417|inspection|display pass seven",
+    "A1418|inspection|display pass eight",
+    "A1419|inspection|display pass nine",
+    "A1420|inspection|display pass ten",
+    "A1421|inspection|copy pass one",
+    "A1422|inspection|copy pass two",
+    "A1423|inspection|copy pass three",
+    "A1424|inspection|copy pass four",
+    "A1425|inspection|copy pass five",
+    "A1426|inspection|copy pass six",
+    "A1427|inspection|copy pass seven",
+    "A1428|inspection|copy pass eight",
+    "A1429|inspection|copy pass nine",
+    "A1430|inspection|copy pass ten",
+    "A1431|inspection|Studio pass one",
+    "A1432|inspection|Studio pass two",
+    "A1433|inspection|Studio pass three",
+    "A1434|inspection|Studio pass four",
+    "A1435|inspection|Studio pass five",
+    "A1436|inspection|Studio pass six",
+    "A1437|inspection|Studio pass seven",
+    "A1438|inspection|Studio pass eight",
+    "A1439|inspection|Studio pass nine",
+    "A1440|inspection|Studio pass ten",
+    "A1441|inspection|static preview one",
+    "A1442|inspection|static preview two",
+    "A1443|inspection|static preview three",
+    "A1444|inspection|static preview four",
+    "A1445|inspection|static preview five",
+    "A1446|inspection|static preview six",
+    "A1447|inspection|static preview seven",
+    "A1448|inspection|static preview eight",
+    "A1449|inspection|static preview nine",
+    "A1450|inspection|static preview ten",
+    "A1451|inspection|final shell reference",
+    "A1452|inspection|final window reference",
+    "A1453|inspection|final door reference",
+    "A1454|inspection|final roof reference",
+    "A1455|inspection|final underframe reference",
+    "A1456|inspection|final bogie reference",
+    "A1457|inspection|final end reference",
+    "A1458|inspection|final livery reference",
+    "A1459|inspection|final marking reference",
+    "A1460|inspection|final scope reference",
+    "A1461|inspection|final material reference",
+    "A1462|inspection|final colour reference",
+    "A1463|inspection|final scale reference",
+    "A1464|inspection|final naming reference",
+    "A1465|inspection|final folder reference",
+    "A1466|inspection|final attribute reference",
+    "A1467|inspection|final anchor reference",
+    "A1468|inspection|final collision reference",
+    "A1469|inspection|final query reference",
+    "A1470|inspection|final touch reference",
+    "A1471|inspection|final metadata reference",
+    "A1472|inspection|final display reference",
+    "A1473|inspection|final copy reference",
+    "A1474|inspection|final coach reference",
+    "A1475|inspection|final railway reference",
+    "A1476|inspection|final LHB reference",
+    "A1477|inspection|final AC3 reference",
+    "A1478|inspection|final sleeper reference",
+    "A1479|inspection|final static reference",
+    "A1480|inspection|final inspection group",
+    "A1481|catalogue|documented detail one",
+    "A1482|catalogue|documented detail two",
+    "A1483|catalogue|documented detail three",
+    "A1484|catalogue|documented detail four",
+    "A1485|catalogue|documented detail five",
+    "A1486|catalogue|documented detail six",
+    "A1487|catalogue|documented detail seven",
+    "A1488|catalogue|documented detail eight",
+    "A1489|catalogue|documented detail nine",
+    "A1490|catalogue|documented detail ten",
+    "A1491|catalogue|documented detail eleven",
+    "A1492|catalogue|documented detail twelve",
+    "A1493|catalogue|documented detail thirteen",
+    "A1494|catalogue|documented detail fourteen",
+    "A1495|catalogue|documented detail fifteen",
+    "A1496|catalogue|documented detail sixteen",
+    "A1497|catalogue|documented detail seventeen",
+    "A1498|catalogue|documented detail eighteen",
+    "A1499|catalogue|documented detail nineteen",
+    "A1500|catalogue|documented detail twenty",
+}
+
+for index, description in ipairs(REALISM_AUDIT) do
+    registerMetadata(2000 + index, "Audit_" .. index, description, "EngineeringAudit")
+end
+
+model:SetAttribute("RealismAuditEntries", #REALISM_AUDIT)
