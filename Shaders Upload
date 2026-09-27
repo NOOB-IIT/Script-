@@ -10,7 +10,7 @@ local RunService = game:GetService("RunService")
 -- 🔑 VALID KEYS
 -- ============================================================
 local VALID_KEYS = {
-    "IITDB"
+    "IITJ"
 }
 
 -- ============================================================
