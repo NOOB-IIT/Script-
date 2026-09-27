@@ -1,0 +1,1939 @@
+--[[
+    RED HUB AI v14.0 — LOAD FIXED + COPY BUTTON
+    Music: rbxassetid://9039851834
+    Discord: https://discord.gg/64d6es6WsT
+]]
+
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
+local HttpService      = game:GetService("HttpService")
+local SoundService     = game:GetService("SoundService")
+
+local LP = Players.LocalPlayer
+
+local THEMES = {
+    { name="Green",  accent=Color3.fromRGB(37,211,102),  userBubble=Color3.fromRGB(0,92,75)    },
+    { name="Blue",   accent=Color3.fromRGB(96,165,250),  userBubble=Color3.fromRGB(37,99,235)  },
+    { name="Purple", accent=Color3.fromRGB(167,139,250), userBubble=Color3.fromRGB(109,40,217) },
+    { name="Pink",   accent=Color3.fromRGB(244,114,182), userBubble=Color3.fromRGB(190,24,93)  },
+    { name="Orange", accent=Color3.fromRGB(251,146,60),  userBubble=Color3.fromRGB(194,65,12)  },
+    { name="Red",    accent=Color3.fromRGB(248,113,113), userBubble=Color3.fromRGB(185,28,28)  },
+}
+
+local CONFIG = {
+    DiscordInvite = "https://discord.gg/64d6es6WsT",
+    DiscordTag    = "discord.gg/64d6es6WsT",
+    ApiEndpoint   = "https://api.groq.com/openai/v1/chat/completions",
+    ConfigFile    = "redhub_ai_config_v14.json",
+    MusicAsset    = "rbxassetid://9039851834",
+    MusicVolume   = 0.25,
+    Models = {
+        { id="openai/gpt-oss-20b",           name="Flash", full="GPT OSS 20B",           color=Color3.fromRGB(96,165,250),  maxTokens=512,
+          system="You are RED HUB AI in FLASH mode. Give SHORT, concise, direct answers in 2-4 sentences. No fluff." },
+        { id="openai/gpt-oss-120b",          name="Pro",   full="GPT OSS 120B",          color=Color3.fromRGB(244,114,182), maxTokens=4096,
+          system="You are RED HUB AI in PRO mode. Give DETAILED, thorough answers with bullet points, examples, and step-by-step explanations. Be comprehensive." },
+        { id="openai/gpt-oss-20b-safeguard", name="Safe",  full="GPT OSS 20B Safeguard", color=Color3.fromRGB(52,211,153),  maxTokens=1024,
+          system="You are RED HUB AI in SAFE mode. Give helpful, safe, moderate-length answers. Be kind and clear." },
+    },
+}
+
+local VALID_KEYS = {
+    ["REDHUB-ALPHA-2025"] = true,
+    ["REDHUB-BETA-2025"]  = true,
+    ["REDHUB-VIP-2025"]   = true,
+}
+
+local function isIITJ(k)
+    if not k or k == "" then return false end
+    return string.find(string.upper(k), "IITJ") ~= nil
+end
+
+local function isValidKey(k)
+    if not k or k == "" then return false end
+    if VALID_KEYS[k] then return true end
+    return isIITJ(k)
+end
+
+local function saveConfig(data)
+    pcall(function()
+        if writefile then writefile(CONFIG.ConfigFile, HttpService:JSONEncode(data)) end
+    end)
+end
+
+local function loadConfig()
+    local ok, d = pcall(function()
+        if readfile and isfile and isfile(CONFIG.ConfigFile) then
+            return HttpService:JSONDecode(readfile(CONFIG.ConfigFile))
+        end
+    end)
+    if ok and type(d) == "table" then return d end
+    return {}
+end
+
+local persisted = loadConfig()
+
+local State = {
+    apiKey       = persisted.apiKey or nil,
+    currentModel = CONFIG.Models[1],
+    currentTheme = THEMES[1],
+    messages     = {},
+    isTyping     = false,
+    authorized   = false,
+    musicOn      = false,
+    musicSound   = nil,
+    minimized    = false,
+    killed       = false,
+    userBubbles  = {},
+    musicBtnRefs = {},
+}
+
+if persisted.themeName then
+    for i = 1, #THEMES do
+        if THEMES[i].name == persisted.themeName then
+            State.currentTheme = THEMES[i]
+            break
+        end
+    end
+end
+
+local function getSafeParent()
+    local ok1, g = pcall(function() if gethui then return gethui() end end)
+    if ok1 and g then return g end
+    local ok2, cg = pcall(function() return game:GetService("CoreGui") end)
+    if ok2 and cg then
+        local test = Instance.new("Frame")
+        local ok3 = pcall(function() test.Parent = cg end)
+        test:Destroy()
+        if ok3 then return cg end
+    end
+    return LP:WaitForChild("PlayerGui")
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RedHubAI_v14"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999
+ScreenGui.Parent = getSafeParent()
+
+local camera = workspace.CurrentCamera
+local function getVps()
+    if camera then return camera.ViewportSize end
+    return Vector2.new(400, 800)
+end
+local vps = getVps()
+
+local function new(class, props)
+    local o = Instance.new(class)
+    if props then
+        for k, v in pairs(props) do o[k] = v end
+    end
+    return o
+end
+
+local function tween(obj, t, props, style, dir)
+    local info = TweenInfo.new(t or 0.25, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out)
+    local tw = TweenService:Create(obj, info, props)
+    tw:Play()
+    return tw
+end
+
+local function corner(p, r)
+    return new("UICorner", { CornerRadius = UDim.new(0, r or 8), Parent = p })
+end
+
+local function stroke(p, c, t, tr)
+    return new("UIStroke", {
+        Color = c or Color3.fromRGB(50, 50, 60),
+        Thickness = t or 1,
+        Transparency = tr or 0,
+        Parent = p,
+    })
+end
+
+local function grad(p, c1, c2, rot)
+    return new("UIGradient", {
+        Color = ColorSequence.new(c1, c2),
+        Rotation = rot or 0,
+        Parent = p,
+    })
+end
+
+local function pad(p, t, r, b, l)
+    t = t or 8
+    r = r or t
+    b = b or t
+    l = l or r
+    return new("UIPadding", {
+        PaddingTop = UDim.new(0, t),
+        PaddingRight = UDim.new(0, r),
+        PaddingBottom = UDim.new(0, b),
+        PaddingLeft = UDim.new(0, l),
+        Parent = p,
+    })
+end
+
+local function dragify(frame, handle)
+    handle = handle or frame
+    local dragging = false
+    local dragStart, startPos
+    handle.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = i.Position
+            startPos = frame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local delta = i.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+local function openBrowser(url)
+    pcall(function() game:GetService("GuiService"):OpenBrowserWindow(url) end)
+end
+
+local function initMusic()
+    pcall(function()
+        State.musicSound = Instance.new("Sound")
+        State.musicSound.Name = "RedHubMusic"
+        State.musicSound.SoundId = CONFIG.MusicAsset
+        State.musicSound.Volume = CONFIG.MusicVolume
+        State.musicSound.Looped = true
+        State.musicSound.Parent = SoundService
+    end)
+end
+
+local function refreshAllMusicButtons()
+    for i = 1, #State.musicBtnRefs do
+        local ref = State.musicBtnRefs[i]
+        if ref and ref.update then
+            pcall(ref.update)
+        end
+    end
+end
+
+local function playMusic()
+    pcall(function()
+        if State.musicSound and not State.musicSound.IsPlaying then
+            State.musicSound:Play()
+        end
+    end)
+    State.musicOn = true
+    refreshAllMusicButtons()
+end
+
+local function stopMusic()
+    pcall(function() if State.musicSound then State.musicSound:Stop() end end)
+    State.musicOn = false
+    refreshAllMusicButtons()
+end
+
+local function destroyMusic()
+    pcall(function()
+        if State.musicSound then
+            State.musicSound:Stop()
+            State.musicSound:Destroy()
+            State.musicSound = nil
+        end
+    end)
+    State.musicOn = false
+end
+
+initMusic()
+
+local FloatingMusicBtn
+
+local function createFloatingMusicBtn()
+    if FloatingMusicBtn and FloatingMusicBtn.Parent then return end
+
+    local btn = new("TextButton", {
+        Name = "FloatingMusicBtn",
+        Size = UDim2.fromOffset(40, 40),
+        Position = UDim2.new(0, 10, 0, 10),
+        BackgroundColor3 = Color3.fromRGB(28, 28, 38),
+        BorderSizePixel = 0,
+        Text = "♪",
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        TextColor3 = Color3.fromRGB(100, 100, 120),
+        AutoButtonColor = false,
+        ZIndex = 500,
+        Parent = ScreenGui,
+    })
+    corner(btn, 20)
+    stroke(btn, Color3.fromRGB(50, 50, 70), 1, 0)
+    dragify(btn)
+
+    local function update()
+        if not btn.Parent then return end
+        if State.musicOn then
+            btn.TextColor3 = State.currentTheme.accent
+            btn.BackgroundColor3 = Color3.fromRGB(24, 34, 48)
+        else
+            btn.TextColor3 = Color3.fromRGB(100, 100, 120)
+            btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+        end
+    end
+
+    table.insert(State.musicBtnRefs, { update = update })
+    update()
+
+    btn.MouseButton1Click:Connect(function()
+        if State.musicOn then stopMusic() else playMusic() end
+    end)
+
+    FloatingMusicBtn = btn
+end
+
+local function KILL_EVERYTHING()
+    if State.killed then return end
+    State.killed = true
+    destroyMusic()
+    pcall(function() ScreenGui:Destroy() end)
+    pcall(function()
+        local cg = game:GetService("CoreGui")
+        for _, g in ipairs(cg:GetChildren()) do
+            if g.Name == "RedHubAI_v14" then g:Destroy() end
+        end
+    end)
+    pcall(function()
+        local pg = LP:FindFirstChild("PlayerGui")
+        if pg then
+            local g = pg:FindFirstChild("RedHubAI_v14")
+            if g then g:Destroy() end
+        end
+    end)
+end
+
+local function playLoading(onComplete)
+    local loading = new("Frame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = Color3.fromRGB(8, 8, 12),
+        BorderSizePixel = 0,
+        ZIndex = 900,
+        Parent = ScreenGui,
+    })
+
+    local holder = new("Frame", {
+        Size = UDim2.fromOffset(220, 220),
+        Position = UDim2.new(0.5, 0, 0.5, -20),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        ZIndex = 905,
+        Parent = loading,
+    })
+
+    local ring = new("Frame", {
+        Size = UDim2.fromOffset(140, 140),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        ZIndex = 905,
+        Parent = holder,
+    })
+    corner(ring, 999)
+    stroke(ring, State.currentTheme.accent, 3, 0.2)
+    grad(ring, State.currentTheme.accent, State.currentTheme.userBubble, 0)
+
+    local dots = {}
+    local numDots = 12
+    for i = 1, numDots do
+        local angle = (i / numDots) * math.pi * 2
+        local d = new("Frame", {
+            Size = UDim2.fromOffset(4, 4),
+            Position = UDim2.new(0.5, math.cos(angle) * 85, 0.5, math.sin(angle) * 85),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = State.currentTheme.accent,
+            BackgroundTransparency = (i / numDots) * 0.8,
+            BorderSizePixel = 0,
+            ZIndex = 906,
+            Parent = holder,
+        })
+        corner(d, 2)
+        table.insert(dots, d)
+    end
+
+    local title = new("TextLabel", {
+        Size = UDim2.fromOffset(400, 40),
+        Position = UDim2.new(0.5, 0, 0.5, -10),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        Text = "RED HUB",
+        Font = Enum.Font.GothamBlack,
+        TextSize = 28,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextTransparency = 1,
+        ZIndex = 910,
+        Parent = holder,
+    })
+
+    local sub = new("TextLabel", {
+        Size = UDim2.fromOffset(400, 18),
+        Position = UDim2.new(0.5, 0, 0.5, 24),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        Text = "Loading...",
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(160, 160, 180),
+        TextTransparency = 1,
+        ZIndex = 910,
+        Parent = holder,
+    })
+
+    task.spawn(function()
+        local rot = 0
+        while loading.Parent do
+            rot = rot + 0.04
+            for i = 1, #dots do
+                local d = dots[i]
+                if d.Parent then
+                    local a = (i / numDots) * math.pi * 2 + rot
+                    d.Position = UDim2.new(0.5, math.cos(a) * 85, 0.5, math.sin(a) * 85)
+                end
+            end
+            RunService.RenderStepped:Wait()
+        end
+    end)
+
+    task.spawn(function()
+        while loading.Parent and ring.Parent do
+            tween(ring, 1.0, { Size = UDim2.fromOffset(160, 160) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.wait(1.0)
+            if not (loading.Parent and ring.Parent) then break end
+            tween(ring, 1.0, { Size = UDim2.fromOffset(140, 140) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.wait(1.0)
+        end
+    end)
+
+    tween(title, 0.6, { TextTransparency = 0 })
+    tween(sub, 0.8, { TextTransparency = 0.3 })
+
+    local steps = { "Initializing", "Secure channel", "Loading models", "Ready" }
+    task.spawn(function()
+        for i = 1, #steps do
+            if not loading.Parent then return end
+            sub.Text = steps[i]
+            task.wait(0.6)
+        end
+        task.wait(0.2)
+        tween(loading, 0.35, { BackgroundTransparency = 1 })
+        for _, d in ipairs(loading:GetDescendants()) do
+            pcall(function()
+                if d:IsA("Frame") and d.BackgroundTransparency < 1 then
+                    tween(d, 0.3, { BackgroundTransparency = 1 })
+                end
+                if d:IsA("TextLabel") then
+                    tween(d, 0.3, { TextTransparency = 1 })
+                end
+                if d:IsA("UIStroke") then
+                    tween(d, 0.3, { Transparency = 1 })
+                end
+            end)
+        end
+        task.wait(0.4)
+        pcall(function() loading:Destroy() end)
+        if onComplete and not State.killed then
+            pcall(onComplete)
+        end
+    end)
+end
+
+local function buildKeySystem(onSuccess)
+    local winW = math.min(vps.X - 12, 460)
+    local winH = math.min(vps.Y - 80, 460)
+
+    local kf = new("Frame", {
+        Size = UDim2.fromOffset(winW, winH),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Color3.fromRGB(16, 16, 22),
+        BorderSizePixel = 0,
+        ZIndex = 60,
+        Parent = ScreenGui,
+    })
+    corner(kf, 14)
+    stroke(kf, Color3.fromRGB(45, 45, 60), 1, 0)
+    dragify(kf)
+
+    local closeBtn = new("TextButton", {
+        Size = UDim2.fromOffset(30, 30),
+        Position = UDim2.new(1, -12, 0, 12),
+        AnchorPoint = Vector2.new(1, 0),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 42),
+        BorderSizePixel = 0,
+        Text = "✕",
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(160, 160, 180),
+        AutoButtonColor = false,
+        ZIndex = 65,
+        Parent = kf,
+    })
+    corner(closeBtn, 8)
+    closeBtn.MouseButton1Click:Connect(KILL_EVERYTHING)
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -80, 0, 26),
+        Position = UDim2.new(0, 22, 0, 22),
+        BackgroundTransparency = 1,
+        Text = "Access Key",
+        Font = Enum.Font.GothamBold,
+        TextSize = 19,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 62,
+        Parent = kf,
+    })
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -44, 0, 16),
+        Position = UDim2.new(0, 22, 0, 52),
+        BackgroundTransparency = 1,
+        Text = "Enter your RED HUB key to continue",
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(140, 140, 160),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 62,
+        Parent = kf,
+    })
+
+    local holder = new("Frame", {
+        Size = UDim2.new(1, -44, 0, 46),
+        Position = UDim2.new(0, 22, 0, 84),
+        BackgroundColor3 = Color3.fromRGB(22, 22, 32),
+        BorderSizePixel = 0,
+        ZIndex = 62,
+        Parent = kf,
+    })
+    corner(holder, 10)
+    local iS = stroke(holder, Color3.fromRGB(50, 50, 70), 1, 0)
+
+    local keyInput = new("TextBox", {
+        Size = UDim2.new(1, -24, 1, 0),
+        Position = UDim2.new(0, 14, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        PlaceholderText = "",
+        PlaceholderColor3 = Color3.fromRGB(90, 90, 110),
+        Font = Enum.Font.Gotham,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(240, 240, 255),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false,
+        ZIndex = 63,
+        Parent = holder,
+    })
+    keyInput.Focused:Connect(function()
+        tween(iS, 0.2, { Color = State.currentTheme.accent, Thickness = 1.5 })
+    end)
+    keyInput.FocusLost:Connect(function()
+        tween(iS, 0.2, { Color = Color3.fromRGB(50, 50, 70), Thickness = 1 })
+    end)
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -44, 0, 16),
+        Position = UDim2.new(0, 22, 0, 140),
+        BackgroundTransparency = 1,
+        Text = "IITJ users: just type IITJ",
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(120, 140, 180),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 62,
+        Parent = kf,
+    })
+
+    local verifyBtn = new("TextButton", {
+        Size = UDim2.new(1, -44, 0, 44),
+        Position = UDim2.new(0, 22, 0, 170),
+        BackgroundColor3 = State.currentTheme.accent,
+        BorderSizePixel = 0,
+        Text = "Continue",
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        AutoButtonColor = false,
+        ZIndex = 62,
+        Parent = kf,
+    })
+    corner(verifyBtn, 10)
+
+    new("Frame", {
+        Size = UDim2.new(1, -44, 0, 1),
+        Position = UDim2.new(0, 22, 0, 232),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 55),
+        BorderSizePixel = 0,
+        ZIndex = 62,
+        Parent = kf,
+    })
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -44, 0, 16),
+        Position = UDim2.new(0, 22, 0, 246),
+        BackgroundTransparency = 1,
+        Text = "Get key from Discord",
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(140, 140, 160),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 62,
+        Parent = kf,
+    })
+
+    local dRow = new("Frame", {
+        Size = UDim2.new(1, -44, 0, 44),
+        Position = UDim2.new(0, 22, 0, 268),
+        BackgroundColor3 = Color3.fromRGB(30, 34, 58),
+        BorderSizePixel = 0,
+        ZIndex = 62,
+        Parent = kf,
+    })
+    corner(dRow, 10)
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -120, 1, 0),
+        Position = UDim2.new(0, 16, 0, 0),
+        BackgroundTransparency = 1,
+        Text = CONFIG.DiscordTag,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(220, 220, 240),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 63,
+        Parent = dRow,
+    })
+
+    local copyBtn = new("TextButton", {
+        Size = UDim2.fromOffset(88, 30),
+        Position = UDim2.new(1, -98, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundColor3 = Color3.fromRGB(88, 101, 242),
+        BorderSizePixel = 0,
+        Text = "Copy",
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        AutoButtonColor = false,
+        ZIndex = 64,
+        Parent = dRow,
+    })
+    corner(copyBtn, 8)
+
+    copyBtn.MouseButton1Click:Connect(function()
+        pcall(function()
+            if setclipboard then setclipboard(CONFIG.DiscordInvite) end
+        end)
+        copyBtn.Text = "Opening..."
+        tween(copyBtn, 0.15, { BackgroundColor3 = State.currentTheme.accent })
+        task.spawn(function()
+            openBrowser(CONFIG.DiscordInvite)
+            task.wait(0.4)
+            copyBtn.Text = "Copied"
+            task.wait(1.0)
+            copyBtn.Text = "Copy"
+            tween(copyBtn, 0.2, { BackgroundColor3 = Color3.fromRGB(88, 101, 242) })
+        end)
+    end)
+
+    local status = new("TextLabel", {
+        Size = UDim2.new(1, -44, 0, 16),
+        Position = UDim2.new(0, 22, 1, -26),
+        BackgroundTransparency = 1,
+        Text = "",
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(255, 120, 120),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 62,
+        Parent = kf,
+    })
+
+    local function tryVerify()
+        local k = keyInput.Text
+        if k == "" then
+            status.Text = "Please enter a key"
+            status.TextColor3 = Color3.fromRGB(251, 191, 36)
+            return
+        end
+        verifyBtn.Text = "Verifying..."
+        task.wait(0.5)
+        if isValidKey(k) then
+            status.Text = "Access granted"
+            status.TextColor3 = State.currentTheme.accent
+            verifyBtn.Text = "Verified"
+            tween(verifyBtn, 0.2, { BackgroundColor3 = State.currentTheme.accent })
+            task.wait(0.6)
+            State.authorized = true
+            pcall(function() kf:Destroy() end)
+            if onSuccess and not State.killed then pcall(onSuccess) end
+        else
+            status.Text = "Invalid key"
+            status.TextColor3 = Color3.fromRGB(248, 113, 113)
+            verifyBtn.Text = "Continue"
+            local orig = kf.Position
+            for i = 1, 6 do
+                kf.Position = orig + UDim2.fromOffset(math.sin(i * 1.5) * 8, 0)
+                task.wait(0.03)
+            end
+            kf.Position = orig
+        end
+    end
+
+    verifyBtn.MouseButton1Click:Connect(tryVerify)
+    keyInput.FocusLost:Connect(function(enter)
+        if enter then tryVerify() end
+    end)
+
+    kf.BackgroundTransparency = 1
+    for _, d in ipairs(kf:GetDescendants()) do
+        pcall(function()
+            if d:IsA("Frame") and d.BackgroundTransparency < 1 then
+                local o = d.BackgroundTransparency
+                d.BackgroundTransparency = 1
+                tween(d, 0.3, { BackgroundTransparency = o })
+            end
+            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+                if d.TextTransparency < 1 then
+                    local o = d.TextTransparency
+                    d.TextTransparency = 1
+                    tween(d, 0.3, { TextTransparency = o })
+                end
+            end
+        end)
+    end
+    tween(kf, 0.3, { BackgroundTransparency = 0 })
+end
+
+local buildMainWindow
+
+local function buildApiKeySystem(onSuccess)
+    local winW = math.min(vps.X - 12, 460)
+    local winH = math.min(vps.Y - 60, 480)
+
+    local af = new("Frame", {
+        Size = UDim2.fromOffset(winW, winH),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Color3.fromRGB(16, 16, 22),
+        BorderSizePixel = 0,
+        ZIndex = 60,
+        Parent = ScreenGui,
+    })
+    corner(af, 14)
+    stroke(af, Color3.fromRGB(45, 45, 60), 1, 0)
+    dragify(af)
+
+    local closeBtn = new("TextButton", {
+        Size = UDim2.fromOffset(30, 30),
+        Position = UDim2.new(1, -12, 0, 12),
+        AnchorPoint = Vector2.new(1, 0),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 42),
+        BorderSizePixel = 0,
+        Text = "✕",
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(160, 160, 180),
+        AutoButtonColor = false,
+        ZIndex = 65,
+        Parent = af,
+    })
+    corner(closeBtn, 8)
+    closeBtn.MouseButton1Click:Connect(KILL_EVERYTHING)
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -80, 0, 26),
+        Position = UDim2.new(0, 22, 0, 20),
+        BackgroundTransparency = 1,
+        Text = "Groq API Key",
+        Font = Enum.Font.GothamBold,
+        TextSize = 19,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 62,
+        Parent = af,
+    })
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -44, 0, 14),
+        Position = UDim2.new(0, 22, 0, 48),
+        BackgroundTransparency = 1,
+        Text = "Free key — follow these 6 steps",
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(140, 140, 160),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 62,
+        Parent = af,
+    })
+
+    local stepsData = {
+        "Open console.groq.com",
+        "Login & open sidebar",
+        "Click 'API Keys'",
+        "Click 'Create Key'",
+        "Copy key (gsk_...)",
+        "Paste below & Save",
+    }
+
+    local gridW = winW - 44
+    local cellW = math.floor((gridW - 6) / 2)
+    local cellH = 26
+    local rows = math.ceil(#stepsData / 2)
+    local gridH = rows * (cellH + 4) - 4
+
+    local grid = new("Frame", {
+        Size = UDim2.new(1, -44, 0, gridH),
+        Position = UDim2.new(0, 22, 0, 70),
+        BackgroundTransparency = 1,
+        ZIndex = 62,
+        Parent = af,
+    })
+
+    for i = 1, #stepsData do
+        local col = (i - 1) % 2
+        local rowIdx = math.floor((i - 1) / 2)
+        local cell = new("Frame", {
+            Size = UDim2.fromOffset(cellW, cellH),
+            Position = UDim2.fromOffset(col * (cellW + 6), rowIdx * (cellH + 4)),
+            BackgroundColor3 = Color3.fromRGB(20, 20, 28),
+            BorderSizePixel = 0,
+            ZIndex = 62,
+            Parent = grid,
+        })
+        corner(cell, 8)
+        stroke(cell, Color3.fromRGB(40, 40, 55), 1, 0)
+
+        local num = new("Frame", {
+            Size = UDim2.fromOffset(16, 16),
+            Position = UDim2.new(0, 6, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundColor3 = State.currentTheme.accent,
+            BorderSizePixel = 0,
+            ZIndex = 63,
+            Parent = cell,
+        })
+        corner(num, 8)
+        new("TextLabel", {
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Text = tostring(i),
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            TextColor3 = Color3.fromRGB(16, 16, 22),
+            ZIndex = 64,
+            Parent = num,
+        })
+        new("TextLabel", {
+            Size = UDim2.new(1, -30, 1, 0),
+            Position = UDim2.new(0, 26, 0, 0),
+            BackgroundTransparency = 1,
+            Text = stepsData[i],
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            TextColor3 = Color3.fromRGB(210, 210, 230),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 63,
+            Parent = cell,
+        })
+    end
+
+    local gridEndY = 70 + gridH
+
+    local linkBtn = new("TextButton", {
+        Size = UDim2.new(1, -44, 0, 32),
+        Position = UDim2.new(0, 22, 0, gridEndY + 10),
+        BackgroundColor3 = Color3.fromRGB(30, 38, 52),
+        BorderSizePixel = 0,
+        Text = "Open console.groq.com in browser",
+        Font = Enum.Font.GothamMedium,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(150, 190, 250),
+        AutoButtonColor = false,
+        ZIndex = 62,
+        Parent = af,
+    })
+    corner(linkBtn, 8)
+
+    linkBtn.MouseButton1Click:Connect(function()
+        pcall(function()
+            if setclipboard then setclipboard("https://console.groq.com/keys") end
+        end)
+        linkBtn.Text = "Opening browser..."
+        tween(linkBtn, 0.2, { BackgroundColor3 = Color3.fromRGB(28, 50, 40) })
+        task.spawn(function()
+            openBrowser("https://console.groq.com/keys")
+            task.wait(0.4)
+            linkBtn.Text = "Link copied & opened"
+            task.wait(1.3)
+            linkBtn.Text = "Open console.groq.com in browser"
+            tween(linkBtn, 0.2, { BackgroundColor3 = Color3.fromRGB(30, 38, 52) })
+        end)
+    end)
+
+    local holder = new("Frame", {
+        Size = UDim2.new(1, -44, 0, 44),
+        Position = UDim2.new(0, 22, 0, gridEndY + 50),
+        BackgroundColor3 = Color3.fromRGB(22, 22, 32),
+        BorderSizePixel = 0,
+        ZIndex = 62,
+        Parent = af,
+    })
+    corner(holder, 10)
+    local s = stroke(holder, Color3.fromRGB(50, 50, 70), 1, 0)
+
+    local apiInput = new("TextBox", {
+        Size = UDim2.new(1, -24, 1, 0),
+        Position = UDim2.new(0, 14, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        PlaceholderText = "Paste your key here",
+        PlaceholderColor3 = Color3.fromRGB(90, 90, 110),
+        Font = Enum.Font.Code,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(240, 240, 255),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false,
+        ZIndex = 63,
+        Parent = holder,
+    })
+    apiInput.Focused:Connect(function()
+        tween(s, 0.2, { Color = State.currentTheme.accent, Thickness = 1.5 })
+    end)
+    apiInput.FocusLost:Connect(function()
+        tween(s, 0.2, { Color = Color3.fromRGB(50, 50, 70), Thickness = 1 })
+    end)
+
+    local saveBtn = new("TextButton", {
+        Size = UDim2.new(1, -44, 0, 46),
+        Position = UDim2.new(0, 22, 0, gridEndY + 102),
+        BackgroundColor3 = State.currentTheme.accent,
+        BorderSizePixel = 0,
+        Text = "Save & Continue",
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        AutoButtonColor = false,
+        ZIndex = 62,
+        Parent = af,
+    })
+    corner(saveBtn, 10)
+
+    local status = new("TextLabel", {
+        Size = UDim2.new(1, -44, 0, 16),
+        Position = UDim2.new(0, 22, 0, gridEndY + 154),
+        BackgroundTransparency = 1,
+        Text = "",
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(255, 120, 120),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 62,
+        Parent = af,
+    })
+
+    saveBtn.MouseButton1Click:Connect(function()
+        local k = apiInput.Text
+        if #k < 20 then
+            status.Text = "Key too short — should start with gsk_"
+            status.TextColor3 = Color3.fromRGB(251, 191, 36)
+            return
+        end
+        saveBtn.Text = "Saving..."
+        task.wait(0.4)
+        State.apiKey = k
+        saveConfig({ apiKey = k, themeName = State.currentTheme.name })
+        status.Text = "Saved"
+        status.TextColor3 = State.currentTheme.accent
+        saveBtn.Text = "Saved"
+        tween(saveBtn, 0.2, { BackgroundColor3 = State.currentTheme.accent })
+        task.wait(0.4)
+        pcall(function() af:Destroy() end)
+        if onSuccess and not State.killed then pcall(onSuccess) end
+    end)
+
+    af.BackgroundTransparency = 1
+    for _, d in ipairs(af:GetDescendants()) do
+        pcall(function()
+            if d:IsA("Frame") and d.BackgroundTransparency < 1 then
+                local o = d.BackgroundTransparency
+                d.BackgroundTransparency = 1
+                tween(d, 0.3, { BackgroundTransparency = o })
+            end
+            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+                if d.TextTransparency < 1 then
+                    local o = d.TextTransparency
+                    d.TextTransparency = 1
+                    tween(d, 0.3, { TextTransparency = o })
+                end
+            end
+        end)
+    end
+    tween(af, 0.3, { BackgroundTransparency = 0 })
+end
+
+-- MESSAGE BUBBLE (simple, no forward declaration)
+local function addMessage(layout, role, text)
+    local isUser = (role == "user")
+    local theme = State.currentTheme
+
+    local row = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundTransparency = 1,
+        ZIndex = 5,
+        Parent = layout.Parent,
+    })
+
+    local bubbleColor
+    if isUser then
+        bubbleColor = theme.userBubble
+    else
+        bubbleColor = Color3.fromRGB(32, 32, 42)
+    end
+
+    local bubble = new("TextLabel", {
+        Size = UDim2.new(0.82, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        Position = isUser and UDim2.new(1, 0, 0, 0) or UDim2.new(0, 0, 0, 0),
+        AnchorPoint = isUser and Vector2.new(1, 0) or Vector2.new(0, 0),
+        BackgroundColor3 = bubbleColor,
+        BorderSizePixel = 0,
+        Text = text,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        Font = Enum.Font.Gotham,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(240, 240, 250),
+        RichText = true,
+        ZIndex = 6,
+        Parent = row,
+    })
+    corner(bubble, 10)
+    pad(bubble, 9, 13, 9, 13)
+
+    if isUser then
+        table.insert(State.userBubbles, bubble)
+    end
+
+    -- copy button only for AI
+    local copyBtn
+    if not isUser then
+        copyBtn = new("TextButton", {
+            Size = UDim2.fromOffset(62, 22),
+            Position = UDim2.new(0, 0, 0, 0),
+            BackgroundColor3 = Color3.fromRGB(22, 22, 30),
+            BorderSizePixel = 0,
+            Text = "📋 Copy",
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            TextColor3 = Color3.fromRGB(150, 150, 180),
+            AutoButtonColor = false,
+            ZIndex = 7,
+            Parent = row,
+        })
+        corner(copyBtn, 6)
+        stroke(copyBtn, Color3.fromRGB(50, 50, 70), 1, 0)
+
+        copyBtn.MouseEnter:Connect(function()
+            tween(copyBtn, 0.15, {
+                BackgroundColor3 = Color3.fromRGB(32, 32, 44),
+                TextColor3 = theme.accent,
+            })
+        end)
+        copyBtn.MouseLeave:Connect(function()
+            if copyBtn.Text ~= "✔ Copied!" then
+                tween(copyBtn, 0.15, {
+                    BackgroundColor3 = Color3.fromRGB(22, 22, 30),
+                    TextColor3 = Color3.fromRGB(150, 150, 180),
+                })
+            end
+        end)
+        copyBtn.MouseButton1Click:Connect(function()
+            pcall(function()
+                if setclipboard then setclipboard(text) end
+            end)
+            copyBtn.Text = "✔ Copied!"
+            copyBtn.TextColor3 = theme.accent
+            tween(copyBtn, 0.15, { BackgroundColor3 = Color3.fromRGB(24, 40, 30) })
+            task.wait(1.3)
+            if copyBtn.Parent then
+                copyBtn.Text = "📋 Copy"
+                copyBtn.TextColor3 = Color3.fromRGB(150, 150, 180)
+                tween(copyBtn, 0.15, { BackgroundColor3 = Color3.fromRGB(22, 22, 30) })
+            end
+        end)
+    end
+
+    bubble.TextTransparency = 1
+    bubble.BackgroundTransparency = 1
+    tween(bubble, 0.25, { TextTransparency = 0, BackgroundTransparency = 0 })
+    if copyBtn then
+        copyBtn.TextTransparency = 1
+        copyBtn.BackgroundTransparency = 1
+        tween(copyBtn, 0.25, { TextTransparency = 0, BackgroundTransparency = 0 })
+    end
+
+    task.spawn(function()
+        for _ = 1, 30 do
+            task.wait(0.05)
+            if not row.Parent then return end
+            local h = bubble.AbsoluteSize.Y
+            if h > 0 then
+                local copyH = 0
+                if copyBtn then
+                    copyH = copyBtn.AbsoluteSize.Y + 4
+                    copyBtn.Position = UDim2.new(0, 0, 0, h + 4)
+                end
+                row.Size = UDim2.new(1, 0, 0, math.max(h + copyH, 32))
+                break
+            end
+        end
+    end)
+
+    return row
+end
+
+local function showTyping(layout)
+    local row = new("Frame", {
+        Size = UDim2.new(0, 60, 0, 32),
+        BackgroundColor3 = Color3.fromRGB(32, 32, 42),
+        BorderSizePixel = 0,
+        ZIndex = 5,
+        Parent = layout.Parent,
+    })
+    corner(row, 10)
+    stroke(row, Color3.fromRGB(45, 45, 60), 1, 0)
+
+    local dots = {}
+    for i = 1, 3 do
+        local d = new("Frame", {
+            Size = UDim2.fromOffset(6, 6),
+            Position = UDim2.new(0, 12 + (i - 1) * 12, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundColor3 = Color3.fromRGB(150, 150, 180),
+            BorderSizePixel = 0,
+            ZIndex = 6,
+            Parent = row,
+        })
+        corner(d, 3)
+        table.insert(dots, d)
+    end
+
+    local run = true
+    task.spawn(function()
+        while run and row.Parent do
+            for i = 1, #dots do
+                local d = dots[i]
+                if not run or not row.Parent or not d.Parent then break end
+                tween(d, 0.25, { Position = UDim2.new(0, 12 + (i - 1) * 12, 0.5, -5) }, Enum.EasingStyle.Sine)
+                task.wait(0.13)
+                if not run or not row.Parent or not d.Parent then break end
+                tween(d, 0.25, { Position = UDim2.new(0, 12 + (i - 1) * 12, 0.5, 0) }, Enum.EasingStyle.Sine)
+            end
+        end
+    end)
+    return row, function()
+        run = false
+        pcall(function() row:Destroy() end)
+    end
+end
+
+local function sendToGroq(userText, chatScroll, layout, sendBtn)
+    if not State.apiKey then
+        addMessage(layout, "assistant", "No API key set.")
+        return
+    end
+    if State.isTyping then return end
+    State.isTyping = true
+    sendBtn.Text = "·"
+
+    table.insert(State.messages, { role = "user", content = userText })
+    addMessage(layout, "user", userText)
+    task.wait(0.1)
+    local _, kill = showTyping(layout)
+    task.wait(0.1)
+    chatScroll.CanvasPosition = Vector2.new(0, chatScroll.CanvasSize.Y.Offset)
+
+    local msgs = { { role = "system", content = State.currentModel.system } }
+    for i = 1, #State.messages do
+        table.insert(msgs, State.messages[i])
+    end
+
+    local body = HttpService:JSONEncode({
+        model = State.currentModel.id,
+        messages = msgs,
+        temperature = 0.7,
+        max_tokens = State.currentModel.maxTokens,
+    })
+
+    local success, response = pcall(function()
+        return HttpService:RequestAsync({
+            Url = CONFIG.ApiEndpoint,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json",
+                ["Authorization"] = "Bearer " .. State.apiKey,
+            },
+            Body = body,
+        })
+    end)
+
+    kill()
+
+    if success and response and response.Success then
+        local ok, decoded = pcall(function() return HttpService:JSONDecode(response.Body) end)
+        if ok and decoded and decoded.choices and decoded.choices[1] then
+            local reply = decoded.choices[1].message.content
+            table.insert(State.messages, { role = "assistant", content = reply })
+            addMessage(layout, "assistant", reply)
+        else
+            addMessage(layout, "assistant", "Failed to parse response.")
+        end
+    else
+        local err = "Request failed."
+        if response and response.Body then
+            local ok, decoded = pcall(function() return HttpService:JSONDecode(response.Body) end)
+            if ok and decoded and decoded.error and decoded.error.message then
+                err = decoded.error.message
+            end
+        end
+        addMessage(layout, "assistant", err)
+    end
+
+    State.isTyping = false
+    sendBtn.Text = "➤"
+    task.wait(0.1)
+    chatScroll.CanvasPosition = Vector2.new(0, chatScroll.CanvasSize.Y.Offset)
+end
+
+buildMainWindow = function()
+    local winW = math.min(vps.X - 8, 460)
+    local winH = math.min(vps.Y - 20, 830)
+
+    local win = new("Frame", {
+        Name = "RedHubMainWindow",
+        Size = UDim2.fromOffset(winW, winH),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Color3.fromRGB(12, 12, 18),
+        BorderSizePixel = 0,
+        ClipsDescendants = false,
+        ZIndex = 50,
+        Parent = ScreenGui,
+    })
+    corner(win, 16)
+    stroke(win, Color3.fromRGB(40, 40, 55), 1.5, 0)
+    dragify(win)
+
+    local header = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 48),
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 26),
+        BorderSizePixel = 0,
+        ZIndex = 52,
+        Parent = win,
+    })
+    corner(header, 16)
+    new("Frame", {
+        Size = UDim2.new(1, 0, 0, 16),
+        Position = UDim2.new(0, 0, 1, -16),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 26),
+        BorderSizePixel = 0,
+        ZIndex = 52,
+        Parent = header,
+    })
+
+    local mark = new("Frame", {
+        Size = UDim2.fromOffset(26, 26),
+        Position = UDim2.new(0, 12, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundColor3 = State.currentTheme.accent,
+        BorderSizePixel = 0,
+        ZIndex = 53,
+        Parent = header,
+    })
+    corner(mark, 8)
+    grad(mark, State.currentTheme.accent, State.currentTheme.userBubble, 45)
+    new("TextLabel", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        Text = "R",
+        Font = Enum.Font.GothamBlack,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        ZIndex = 54,
+        Parent = mark,
+    })
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -220, 0, 16),
+        Position = UDim2.new(0, 44, 0, 10),
+        BackgroundTransparency = 1,
+        Text = "RED HUB",
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 53,
+        Parent = header,
+    })
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -220, 0, 12),
+        Position = UDim2.new(0, 44, 0, 26),
+        BackgroundTransparency = 1,
+        Text = "AI Assistant",
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextColor3 = Color3.fromRGB(130, 130, 150),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 53,
+        Parent = header,
+    })
+
+    local closeBtn = new("TextButton", {
+        Size = UDim2.fromOffset(28, 28),
+        Position = UDim2.new(1, -10, 0.5, 0),
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Color3.fromRGB(40, 22, 26),
+        BorderSizePixel = 0,
+        Text = "✕",
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(248, 113, 113),
+        AutoButtonColor = false,
+        ZIndex = 53,
+        Parent = header,
+    })
+    corner(closeBtn, 8)
+    closeBtn.MouseButton1Click:Connect(KILL_EVERYTHING)
+
+    local minBtn = new("TextButton", {
+        Size = UDim2.fromOffset(28, 28),
+        Position = UDim2.new(1, -42, 0.5, 0),
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Color3.fromRGB(28, 28, 38),
+        BorderSizePixel = 0,
+        Text = "—",
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(180, 180, 200),
+        AutoButtonColor = false,
+        ZIndex = 53,
+        Parent = header,
+    })
+    corner(minBtn, 8)
+
+    local musicBtn = new("TextButton", {
+        Size = UDim2.fromOffset(28, 28),
+        Position = UDim2.new(1, -74, 0.5, 0),
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Color3.fromRGB(28, 28, 38),
+        BorderSizePixel = 0,
+        Text = "♪",
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(100, 100, 120),
+        AutoButtonColor = false,
+        ZIndex = 53,
+        Parent = header,
+    })
+    corner(musicBtn, 8)
+
+    local themeBtn = new("TextButton", {
+        Size = UDim2.fromOffset(28, 28),
+        Position = UDim2.new(1, -106, 0.5, 0),
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Color3.fromRGB(28, 28, 38),
+        BorderSizePixel = 0,
+        Text = "◉",
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextColor3 = State.currentTheme.accent,
+        AutoButtonColor = false,
+        ZIndex = 53,
+        Parent = header,
+    })
+    corner(themeBtn, 8)
+
+    local function updateMusicBtn()
+        if not musicBtn.Parent then return end
+        if State.musicOn then
+            musicBtn.TextColor3 = State.currentTheme.accent
+        else
+            musicBtn.TextColor3 = Color3.fromRGB(100, 100, 120)
+        end
+    end
+    table.insert(State.musicBtnRefs, { update = updateMusicBtn })
+    updateMusicBtn()
+
+    musicBtn.MouseButton1Click:Connect(function()
+        if State.musicOn then stopMusic() else playMusic() end
+    end)
+
+    local themeDD = new("Frame", {
+        Size = UDim2.fromOffset(220, 0),
+        Position = UDim2.new(1, -230, 0, 52),
+        BackgroundColor3 = Color3.fromRGB(22, 22, 30),
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        Visible = false,
+        ZIndex = 210,
+        Parent = win,
+    })
+    corner(themeDD, 10)
+    stroke(themeDD, Color3.fromRGB(50, 50, 70), 1, 0)
+
+    local themeRows = {}
+    for i = 1, #THEMES do
+        local t = THEMES[i]
+        local item = new("TextButton", {
+            Size = UDim2.new(1, 0, 0, 34),
+            Position = UDim2.new(0, 0, 0, (i - 1) * 34),
+            BackgroundColor3 = Color3.fromRGB(22, 22, 30),
+            BorderSizePixel = 0,
+            Text = "",
+            AutoButtonColor = false,
+            ZIndex = 212,
+            Parent = themeDD,
+        })
+
+        local swatch = new("Frame", {
+            Size = UDim2.fromOffset(16, 16),
+            Position = UDim2.new(0, 12, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundColor3 = t.accent,
+            BorderSizePixel = 0,
+            ZIndex = 213,
+            Parent = item,
+        })
+        corner(swatch, 8)
+
+        new("TextLabel", {
+            Size = UDim2.new(1, -60, 1, 0),
+            Position = UDim2.new(0, 38, 0, 0),
+            BackgroundTransparency = 1,
+            Text = t.name,
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = Color3.fromRGB(230, 230, 240),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 213,
+            Parent = item,
+        })
+
+        local chk = new("TextLabel", {
+            Size = UDim2.fromOffset(20, 20),
+            Position = UDim2.new(1, -26, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundTransparency = 1,
+            Text = (t == State.currentTheme) and "✓" or "",
+            Font = Enum.Font.GothamBold,
+            TextSize = 14,
+            TextColor3 = t.accent,
+            ZIndex = 213,
+            Parent = item,
+        })
+
+        table.insert(themeRows, { item = item, check = chk, theme = t })
+
+        item.MouseButton1Click:Connect(function()
+            State.currentTheme = t
+            saveConfig({ apiKey = State.apiKey, themeName = t.name })
+
+            themeBtn.TextColor3 = t.accent
+            mark.BackgroundColor3 = t.accent
+            sendBtn.BackgroundColor3 = t.accent
+
+            for j = 1, #themeRows do
+                themeRows[j].check.Text = (themeRows[j].theme == t) and "✓" or ""
+            end
+
+            for j = 1, #State.userBubbles do
+                local b = State.userBubbles[j]
+                if b and b.Parent then
+                    tween(b, 0.3, { BackgroundColor3 = t.userBubble })
+                end
+            end
+
+            refreshAllMusicButtons()
+
+            tween(themeDD, 0.2, { Size = UDim2.fromOffset(220, 0) })
+            task.wait(0.2)
+            themeDD.Visible = false
+        end)
+
+        item.MouseEnter:Connect(function()
+            tween(item, 0.12, { BackgroundColor3 = Color3.fromRGB(32, 32, 42) })
+        end)
+        item.MouseLeave:Connect(function()
+            tween(item, 0.12, { BackgroundColor3 = Color3.fromRGB(22, 22, 30) })
+        end)
+    end
+
+    local themeOpen = false
+    themeBtn.MouseButton1Click:Connect(function()
+        themeOpen = not themeOpen
+        if themeOpen then
+            themeDD.Visible = true
+            themeDD.Size = UDim2.fromOffset(220, 0)
+            tween(themeDD, 0.22, { Size = UDim2.fromOffset(220, #THEMES * 34) })
+        else
+            tween(themeDD, 0.2, { Size = UDim2.fromOffset(220, 0) })
+            task.delay(0.2, function()
+                if not themeOpen then themeDD.Visible = false end
+            end)
+        end
+    end)
+
+    local modelBtn = new("TextButton", {
+        Size = UDim2.new(1, -24, 0, 34),
+        Position = UDim2.new(0, 12, 0, 52),
+        BackgroundColor3 = Color3.fromRGB(20, 20, 28),
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
+        ZIndex = 53,
+        Parent = win,
+    })
+    corner(modelBtn, 17)
+    stroke(modelBtn, Color3.fromRGB(38, 38, 50), 1, 0)
+
+    local modelDot = new("Frame", {
+        Size = UDim2.fromOffset(6, 6),
+        Position = UDim2.new(0, 14, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundColor3 = State.currentModel.color,
+        BorderSizePixel = 0,
+        ZIndex = 54,
+        Parent = modelBtn,
+    })
+    corner(modelDot, 3)
+
+    local modelLabel = new("TextLabel", {
+        Size = UDim2.new(1, -60, 1, 0),
+        Position = UDim2.new(0, 26, 0, 0),
+        BackgroundTransparency = 1,
+        Text = State.currentModel.name .. "  •  " .. State.currentModel.full,
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(230, 230, 245),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 54,
+        Parent = modelBtn,
+    })
+
+    new("TextLabel", {
+        Size = UDim2.fromOffset(16, 34),
+        Position = UDim2.new(1, -22, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "^",
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextColor3 = Color3.fromRGB(150, 150, 175),
+        ZIndex = 54,
+        Parent = modelBtn,
+    })
+
+    local dropdown = new("Frame", {
+        Size = UDim2.fromOffset(winW - 24, 0),
+        Position = UDim2.new(0, 12, 0, 90),
+        BackgroundColor3 = Color3.fromRGB(22, 22, 30),
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        Visible = false,
+        ZIndex = 200,
+        Parent = win,
+    })
+    corner(dropdown, 10)
+    stroke(dropdown, Color3.fromRGB(50, 50, 70), 1, 0)
+
+    local itemH = 46
+    local dropdownItems = {}
+
+    for i = 1, #CONFIG.Models do
+        local m = CONFIG.Models[i]
+        local item = new("TextButton", {
+            Size = UDim2.new(1, 0, 0, itemH),
+            Position = UDim2.new(0, 0, 0, (i - 1) * itemH),
+            BackgroundColor3 = Color3.fromRGB(22, 22, 30),
+            BorderSizePixel = 0,
+            Text = "",
+            AutoButtonColor = false,
+            ZIndex = 201,
+            Parent = dropdown,
+        })
+
+        local idot = new("Frame", {
+            Size = UDim2.fromOffset(8, 8),
+            Position = UDim2.new(0, 14, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundColor3 = m.color,
+            BorderSizePixel = 0,
+            ZIndex = 202,
+            Parent = item,
+        })
+        corner(idot, 4)
+
+        new("TextLabel", {
+            Size = UDim2.new(1, -80, 0, 16),
+            Position = UDim2.new(0, 30, 0, 8),
+            BackgroundTransparency = 1,
+            Text = m.name,
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = Color3.fromRGB(230, 230, 240),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 202,
+            Parent = item,
+        })
+        new("TextLabel", {
+            Size = UDim2.new(1, -80, 0, 14),
+            Position = UDim2.new(0, 30, 0, 24),
+            BackgroundTransparency = 1,
+            Text = m.full,
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            TextColor3 = Color3.fromRGB(140, 140, 160),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 202,
+            Parent = item,
+        })
+
+        local check = new("TextLabel", {
+            Size = UDim2.fromOffset(20, 20),
+            Position = UDim2.new(1, -26, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundTransparency = 1,
+            Text = "",
+            Font = Enum.Font.GothamBold,
+            TextSize = 14,
+            TextColor3 = m.color,
+            ZIndex = 202,
+            Parent = item,
+        })
+
+        table.insert(dropdownItems, { item = item, check = check, model = m })
+
+        item.MouseButton1Click:Connect(function()
+            State.currentModel = m
+            modelLabel.Text = m.name .. "  •  " .. m.full
+            modelDot.BackgroundColor3 = m.color
+            for j = 1, #dropdownItems do
+                dropdownItems[j].check.Text = (dropdownItems[j].model == m) and "✓" or ""
+            end
+            tween(dropdown, 0.2, { Size = UDim2.fromOffset(winW - 24, 0) })
+            task.wait(0.2)
+            dropdown.Visible = false
+        end)
+
+        item.MouseEnter:Connect(function()
+            tween(item, 0.12, { BackgroundColor3 = Color3.fromRGB(32, 32, 42) })
+        end)
+        item.MouseLeave:Connect(function()
+            tween(item, 0.12, { BackgroundColor3 = Color3.fromRGB(22, 22, 30) })
+        end)
+    end
+
+    for j = 1, #dropdownItems do
+        dropdownItems[j].check.Text = (dropdownItems[j].model == State.currentModel) and "✓" or ""
+    end
+
+    local dropdownOpen = false
+    modelBtn.MouseButton1Click:Connect(function()
+        dropdownOpen = not dropdownOpen
+        if dropdownOpen then
+            dropdown.Visible = true
+            dropdown.Size = UDim2.fromOffset(winW - 24, 0)
+            tween(dropdown, 0.22, { Size = UDim2.fromOffset(winW - 24, itemH * #CONFIG.Models) })
+        else
+            tween(dropdown, 0.2, { Size = UDim2.fromOffset(winW - 24, 0) })
+            task.delay(0.2, function()
+                if not dropdownOpen then dropdown.Visible = false end
+            end)
+        end
+    end)
+
+    local chatTop = 92
+    local inputBarH = 52
+    local chatH = winH - chatTop - inputBarH - 12
+
+    local chatArea = new("Frame", {
+        Size = UDim2.new(1, 0, 0, chatH),
+        Position = UDim2.new(0, 0, 0, chatTop),
+        BackgroundColor3 = Color3.fromRGB(12, 12, 18),
+        BorderSizePixel = 0,
+        ZIndex = 51,
+        Parent = win,
+    })
+
+    local chatScroll = new("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Color3.fromRGB(70, 70, 90),
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        ZIndex = 52,
+        Parent = chatArea,
+    })
+
+    local layout = new("UIListLayout", {
+        Padding = UDim.new(0, 10),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
+        Parent = chatScroll,
+    })
+
+    pad(chatScroll, 12, 14, 12, 14)
+
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        chatScroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+    end)
+
+    local inputBar = new("Frame", {
+        Size = UDim2.new(1, -16, 0, inputBarH),
+        Position = UDim2.new(0, 8, 1, -(inputBarH + 6)),
+        BackgroundColor3 = Color3.fromRGB(22, 22, 30),
+        BorderSizePixel = 0,
+        ZIndex = 51,
+        Parent = win,
+    })
+    corner(inputBar, 26)
+    stroke(inputBar, Color3.fromRGB(45, 45, 60), 1, 0)
+
+    local input = new("TextBox", {
+        Size = UDim2.new(1, -60, 1, 0),
+        Position = UDim2.new(0, 18, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        PlaceholderText = "Message...",
+        PlaceholderColor3 = Color3.fromRGB(110, 110, 140),
+        Font = Enum.Font.Gotham,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(240, 240, 250),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false,
+        ZIndex = 52,
+        Parent = inputBar,
+    })
+
+    local sendBtn = new("TextButton", {
+        Size = UDim2.fromOffset(38, 38),
+        Position = UDim2.new(1, -44, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundColor3 = State.currentTheme.accent,
+        BorderSizePixel = 0,
+        Text = "➤",
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        AutoButtonColor = false,
+        ZIndex = 52,
+        Parent = inputBar,
+    })
+    corner(sendBtn, 19)
+
+    local function doSend()
+        local text = input.Text
+        if text == "" or State.isTyping then return end
+        input.Text = ""
+        task.spawn(sendToGroq, text, chatScroll, layout, sendBtn)
+    end
+
+    sendBtn.MouseButton1Click:Connect(doSend)
+    input.FocusLost:Connect(function(enter)
+        if enter then doSend() end
+    end)
+
+    task.delay(0.25, function()
+        if not win.Parent then return end
+        addMessage(layout, "assistant", "Hi! I'm RED HUB AI. Ask me anything.")
+    end)
+
+    local miniPanel
+
+    local function buildMiniPanel()
+        if miniPanel and miniPanel.Parent then return end
+
+        miniPanel = new("Frame", {
+            Name = "MiniPanel",
+            Size = UDim2.fromOffset(126, 42),
+            Position = UDim2.new(1, -136, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundColor3 = Color3.fromRGB(20, 20, 28),
+            BorderSizePixel = 0,
+            ZIndex = 500,
+            Parent = ScreenGui,
+        })
+        corner(miniPanel, 21)
+        stroke(miniPanel, State.currentTheme.accent, 1.5, 0.4)
+        dragify(miniPanel)
+
+        local expandBtn = new("TextButton", {
+            Size = UDim2.fromOffset(42, 42),
+            Position = UDim2.new(0, 0, 0, 0),
+            BackgroundTransparency = 1,
+            Text = "R",
+            Font = Enum.Font.GothamBlack,
+            TextSize = 15,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+            AutoButtonColor = false,
+            ZIndex = 501,
+            Parent = miniPanel,
+        })
+        local expandBg = new("Frame", {
+            Size = UDim2.fromOffset(30, 30),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = State.currentTheme.accent,
+            BorderSizePixel = 0,
+            ZIndex = 500,
+            Parent = expandBtn,
+        })
+        corner(expandBg, 15)
+        grad(expandBg, State.currentTheme.accent, State.currentTheme.userBubble, 45)
+
+        local miniMusic = new("TextButton", {
+            Size = UDim2.fromOffset(42, 42),
+            Position = UDim2.new(0, 42, 0, 0),
+            BackgroundTransparency = 1,
+            Text = "♪",
+            Font = Enum.Font.GothamBold,
+            TextSize = 16,
+            TextColor3 = State.musicOn and State.currentTheme.accent or Color3.fromRGB(120, 120, 140),
+            AutoButtonColor = false,
+            ZIndex = 501,
+            Parent = miniPanel,
+        })
+
+        local miniClose = new("TextButton", {
+            Size = UDim2.fromOffset(42, 42),
+            Position = UDim2.new(0, 84, 0, 0),
+            BackgroundTransparency = 1,
+            Text = "✕",
+            Font = Enum.Font.GothamBold,
+            TextSize = 14,
+            TextColor3 = Color3.fromRGB(248, 113, 113),
+            AutoButtonColor = false,
+            ZIndex = 501,
+            Parent = miniPanel,
+        })
+
+        expandBtn.MouseButton1Click:Connect(function()
+            if not State.minimized then return end
+            State.minimized = false
+            pcall(function() miniPanel:Destroy() end)
+            miniPanel = nil
+            win.Visible = true
+        end)
+
+        miniMusic.MouseButton1Click:Connect(function()
+            if State.musicOn then
+                stopMusic()
+                miniMusic.TextColor3 = Color3.fromRGB(120, 120, 140)
+            else
+                playMusic()
+                miniMusic.TextColor3 = State.currentTheme.accent
+            end
+        end)
+
+        miniClose.MouseButton1Click:Connect(KILL_EVERYTHING)
+
+        miniPanel.Size = UDim2.fromOffset(0, 42)
+        tween(miniPanel, 0.3, { Size = UDim2.fromOffset(126, 42) }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    end
+
+    minBtn.MouseButton1Click:Connect(function()
+        if State.minimized then return end
+        State.minimized = true
+        win.Visible = false
+        buildMiniPanel()
+    end)
+
+    win.BackgroundTransparency = 1
+    for _, d in ipairs(win:GetDescendants()) do
+        pcall(function()
+            if d:IsA("Frame") and d ~= win then
+                if d.BackgroundTransparency < 1 then
+                    local o = d.BackgroundTransparency
+                    if o > 0.01 then
+                        d.BackgroundTransparency = 1
+                        tween(d, 0.3, { BackgroundTransparency = o })
+                    end
+                end
+            end
+            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+                if d.TextTransparency < 1 then
+                    local o = d.TextTransparency
+                    d.TextTransparency = 1
+                    tween(d, 0.3, { TextTransparency = o })
+                end
+            end
+        end)
+    end
+    tween(win, 0.3, { BackgroundTransparency = 0 })
+end
+
+local function startFlow()
+    task.wait(0.15)
+
+    buildKeySystem(function()
+        task.wait(0.2)
+        if State.killed then return end
+
+        if State.apiKey and #State.apiKey > 10 then
+            buildMainWindow()
+            task.wait(0.3)
+            local toast = new("TextLabel", {
+                Size = UDim2.fromOffset(220, 32),
+                Position = UDim2.new(0.5, -110, 0, 12),
+                BackgroundColor3 = Color3.fromRGB(24, 40, 30),
+                BackgroundTransparency = 0.05,
+                Text = "  Auto-verified session",
+                Font = Enum.Font.GothamBold,
+                TextSize = 11,
+                TextColor3 = Color3.fromRGB(180, 240, 200),
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 400,
+                Parent = ScreenGui,
+            })
+            corner(toast, 8)
+            task.wait(1.4)
+            tween(toast, 0.3, { BackgroundTransparency = 1, TextTransparency = 1 })
+            task.delay(0.4, function() pcall(function() toast:Destroy() end) end)
+        else
+            buildApiKeySystem(function()
+                if State.killed then return end
+                task.wait(0.15)
+                buildMainWindow()
+            end)
+        end
+    end)
+end
+
+playMusic()
+createFloatingMusicBtn()
+
+playLoading(function()
+    if not State.killed then startFlow() end
+end)
+
+print("[RED HUB AI v14] Loaded. Discord: " .. CONFIG.DiscordInvite)
