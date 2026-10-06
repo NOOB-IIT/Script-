@@ -1,0 +1,1738 @@
+--=============================================================
+-- 🔴 RED HUB v9 — Music Fixed + All Tabs Visible
+-- Owner: INDIANGAMER6975 (NOT_IITIAN)
+--=============================================================
+
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local SoundService     = game:GetService("SoundService")
+local Debris           = game:GetService("Debris")
+
+local LP        = Players.LocalPlayer
+local PlayerGui = LP:WaitForChild("PlayerGui")
+
+local HUB = { active = true }
+
+--=============================================================
+-- 🔊 SOUND
+--=============================================================
+pcall(function() SoundService.RespectFilteringEnabled = false end)
+
+local S = {
+    Click   = "rbxassetid://9120386436",
+    Success = "rbxassetid://4612375231",
+    Error   = "rbxassetid://4612383887",
+    Whoosh  = "rbxassetid://6026984224",
+    Beam    = "rbxassetid://7146222146",
+    Pop     = "rbxassetid://4816706946",
+    Charge  = "rbxassetid://5237080215",
+    Power   = "rbxassetid://9118823101",
+    Flip    = "rbxassetid://1837635189",
+}
+
+local function snd(id, vol, pitch)
+    pcall(function()
+        local s = Instance.new("Sound")
+        s.SoundId = id
+        s.Volume = (vol or 0.5) * 1.6
+        s.PlaybackSpeed = pitch or 1
+        s.Parent = SoundService
+        s:Play()
+        Debris:AddItem(s, 4)
+    end)
+end
+
+local function click()   snd(S.Click, 0.45, 1) end
+local function hover()   snd(S.Click, 0.25, 1.6) end
+local function toggled(o) snd(S.Click, 0.45, o and 1.4 or 0.7) end
+local function win()     snd(S.Success, 0.55, 1.2) end
+local function fail()    snd(S.Error, 0.55, 1) end
+local function whoosh()  snd(S.Whoosh, 0.5, 1) end
+local function beam()    snd(S.Beam, 0.5, 1.2) end
+local function pop()     snd(S.Pop, 0.5, 1.4) end
+local function charge()  snd(S.Charge, 0.6, 1) end
+local function power()   snd(S.Power, 0.6, 1.2) end
+local function flip()    snd(S.Flip, 0.5, 1) end
+
+--=============================================================
+-- 🎨 THEME
+--=============================================================
+local RED     = Color3.fromRGB(220, 30, 40)
+local RED_DK  = Color3.fromRGB(150, 15, 25)
+local RED_LT  = Color3.fromRGB(255, 90, 100)
+local BLUE    = Color3.fromRGB(60, 130, 255)
+local BLUE_LT = Color3.fromRGB(120, 180, 255)
+local GREEN   = Color3.fromRGB(60, 200, 120)
+local GREEN_LT= Color3.fromRGB(120, 255, 180)
+local PURPLE  = Color3.fromRGB(160, 60, 220)
+local PURPLE_LT = Color3.fromRGB(210, 130, 255)
+local BLACK   = Color3.fromRGB(15, 15, 18)
+local BLACK_L = Color3.fromRGB(25, 25, 30)
+local WHITE   = Color3.fromRGB(240, 240, 240)
+local GRAY    = Color3.fromRGB(40, 40, 45)
+local BTN_BG  = Color3.fromRGB(60, 15, 20)
+
+--=============================================================
+-- 🎛️ CONFIG
+--=============================================================
+local CONFIG = {
+    VoidDistance      = 50,
+    RescueEnabled     = true,
+    FallOriginEnabled = true,
+    FallBackStuds     = 5,
+    BaseplateEnabled  = false,
+    BaseplateHeight   = -50,
+    BaseplateColor    = Color3.fromRGB(50, 50, 50),
+    BaseplateMaterial = Enum.Material.SmoothPlastic,
+}
+
+local AFB = { Mode = "OFF", SavedCFrame = nil, HighY = 5000 }
+
+local function getParent()
+    if gethui then
+        local ok, h = pcall(gethui)
+        if ok and h then return h end
+    end
+    return PlayerGui
+end
+
+--=============================================================
+-- 🎬 INTRO
+--=============================================================
+local introGui = Instance.new("ScreenGui")
+introGui.Name = "REDHUB_Intro"
+introGui.ResetOnSpawn = false
+introGui.IgnoreGuiInset = true
+introGui.DisplayOrder = 999
+pcall(function() introGui.Parent = getParent() end)
+if not introGui.Parent then introGui.Parent = PlayerGui end
+
+local introBg = Instance.new("Frame")
+introBg.Size = UDim2.new(1, 0, 1, 0)
+introBg.BackgroundColor3 = Color3.new(0, 0, 0)
+introBg.BorderSizePixel = 0
+introBg.BackgroundTransparency = 1
+introBg.Parent = introGui
+
+local glow = Instance.new("ImageLabel")
+glow.Size = UDim2.new(0, 500, 0, 200)
+glow.Position = UDim2.new(0.5, -250, 0.5, -80)
+glow.BackgroundTransparency = 1
+glow.Image = "rbxassetid://4996891970"
+glow.ImageColor3 = RED
+glow.ImageTransparency = 1
+glow.Parent = introBg
+
+local introTitle = Instance.new("TextLabel")
+introTitle.Size = UDim2.new(1, 0, 0, 90)
+introTitle.Position = UDim2.new(0, 0, 0.5, -60)
+introTitle.BackgroundTransparency = 1
+introTitle.Text = "RED HUB"
+introTitle.TextColor3 = RED
+introTitle.Font = Enum.Font.GothamBlack
+introTitle.TextSize = 72
+introTitle.TextStrokeTransparency = 0
+introTitle.TextStrokeColor3 = Color3.fromRGB(80, 0, 0)
+introTitle.TextTransparency = 1
+introTitle.Parent = introBg
+
+local introSub = Instance.new("TextLabel")
+introSub.Size = UDim2.new(1, 0, 0, 90)
+introSub.Position = UDim2.new(0, 0, 0.5, 40)
+introSub.BackgroundTransparency = 1
+introSub.Text = "Created by NOT_IITIAN."
+introSub.TextColor3 = WHITE
+introSub.Font = Enum.Font.GothamBlack
+introSub.TextSize = 44
+introSub.TextStrokeTransparency = 0
+introSub.TextStrokeColor3 = Color3.fromRGB(60, 60, 60)
+introSub.TextTransparency = 1
+introSub.Parent = introBg
+
+local loadBarBg = Instance.new("Frame")
+loadBarBg.Size = UDim2.new(0, 300, 0, 4)
+loadBarBg.Position = UDim2.new(0.5, -150, 1, -80)
+loadBarBg.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
+loadBarBg.BorderSizePixel = 0
+loadBarBg.BackgroundTransparency = 1
+loadBarBg.Parent = introBg
+Instance.new("UICorner", loadBarBg).CornerRadius = UDim.new(1, 0)
+
+local loadBarFill = Instance.new("Frame")
+loadBarFill.Size = UDim2.new(0, 0, 1, 0)
+loadBarFill.BackgroundColor3 = RED
+loadBarFill.BorderSizePixel = 0
+loadBarFill.Parent = loadBarBg
+Instance.new("UICorner", loadBarFill).CornerRadius = UDim.new(1, 0)
+
+local loadTxt = Instance.new("TextLabel")
+loadTxt.Size = UDim2.new(1, 0, 0, 20)
+loadTxt.Position = UDim2.new(0, 0, 0, -22)
+loadTxt.BackgroundTransparency = 1
+loadTxt.Text = "LOADING..."
+loadTxt.TextColor3 = RED_LT
+loadTxt.Font = Enum.Font.GothamBold
+loadTxt.TextSize = 12
+loadTxt.TextTransparency = 1
+loadTxt.Parent = loadBarBg
+
+task.spawn(function()
+    TweenService:Create(introBg, TweenInfo.new(0.8), {BackgroundTransparency = 0}):Play()
+    beam()
+    task.wait(0.5)
+    TweenService:Create(introTitle, TweenInfo.new(0.8, Enum.EasingStyle.Back), {TextTransparency = 0}):Play()
+    TweenService:Create(glow, TweenInfo.new(1), {ImageTransparency = 0.4}):Play()
+    task.spawn(function()
+        while introTitle.Parent do
+            TweenService:Create(introTitle, TweenInfo.new(0.6), {TextColor3 = RED_LT}):Play()
+            task.wait(0.6)
+            if not introTitle.Parent then break end
+            TweenService:Create(introTitle, TweenInfo.new(0.6), {TextColor3 = RED}):Play()
+            task.wait(0.6)
+        end
+    end)
+    task.wait(2)
+    win()
+    TweenService:Create(introSub, TweenInfo.new(0.8, Enum.EasingStyle.Back), {TextTransparency = 0}):Play()
+    task.wait(0.3)
+    TweenService:Create(loadBarBg, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+    TweenService:Create(loadTxt, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+    TweenService:Create(loadBarFill, TweenInfo.new(4, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+    task.wait(4)
+    whoosh()
+    for _, o in ipairs({introBg, introTitle, introSub, glow, loadBarBg, loadTxt}) do
+        local prop = o:IsA("TextLabel") and "TextTransparency" or (o:IsA("ImageLabel") and "ImageTransparency" or "BackgroundTransparency")
+        TweenService:Create(o, TweenInfo.new(0.6), {[prop] = 1}):Play()
+    end
+    task.wait(0.7)
+    introGui:Destroy()
+end)
+
+repeat task.wait(0.1) until not introGui.Parent
+
+--=============================================================
+-- 🏠 MAIN HUB
+--=============================================================
+local gui = Instance.new("ScreenGui")
+gui.Name = "RED_HUB_" .. math.random(1,999999)
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 100
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() gui.Parent = getParent() end)
+if not gui.Parent then gui.Parent = PlayerGui end
+
+local WIDTH  = 470
+local HEIGHT = 400
+local MIN_H  = 46
+
+local main = Instance.new("Frame")
+main.AnchorPoint = Vector2.new(0, 0)
+main.Size = UDim2.new(0, WIDTH, 0, HEIGHT)
+main.Position = UDim2.new(0.5, -WIDTH/2, 0.5, -HEIGHT/2 + 20)
+main.BackgroundColor3 = BLACK
+main.BorderSizePixel = 0
+main.Active = true
+main.Parent = gui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 14)
+local mainStroke = Instance.new("UIStroke", main)
+mainStroke.Color = RED
+mainStroke.Thickness = 2
+mainStroke.Transparency = 0.1
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 46)
+titleBar.BackgroundColor3 = RED_DK
+titleBar.BorderSizePixel = 0
+titleBar.Parent = main
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 14)
+
+local fixBar = Instance.new("Frame")
+fixBar.Size = UDim2.new(1, 0, 0, 14)
+fixBar.Position = UDim2.new(0, 0, 1, -14)
+fixBar.BackgroundColor3 = RED_DK
+fixBar.BorderSizePixel = 0
+fixBar.Parent = titleBar
+
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(0, 100, 1, 0)
+titleText.Position = UDim2.new(0, 12, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "RED HUB"
+titleText.TextColor3 = Color3.fromRGB(255, 60, 60)
+titleText.Font = Enum.Font.GothamBlack
+titleText.TextSize = 18
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.TextStrokeTransparency = 0
+titleText.TextStrokeColor3 = Color3.fromRGB(80, 0, 0)
+titleText.Parent = titleBar
+
+task.spawn(function()
+    while titleText.Parent and HUB.active do
+        TweenService:Create(titleText, TweenInfo.new(1.2), {TextColor3 = Color3.fromRGB(255, 130, 130)}):Play()
+        task.wait(1.2)
+        if not titleText.Parent or not HUB.active then break end
+        TweenService:Create(titleText, TweenInfo.new(1.2), {TextColor3 = Color3.fromRGB(255, 60, 60)}):Play()
+        task.wait(1.2)
+    end
+end)
+
+-- Title buttons
+local function makeTitleBtn(text, xOff, baseColor)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 52, 0, 30)
+    btn.Position = UDim2.new(1, xOff, 0, 8)
+    btn.BackgroundColor3 = BTN_BG
+    btn.Text = text
+    btn.TextColor3 = WHITE
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.BorderSizePixel = 0
+    btn.Parent = titleBar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", btn)
+    stroke.Color = baseColor
+    stroke.Thickness = 1.5
+    stroke.Transparency = 0.4
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 5, 0, 5)
+    dot.Position = UDim2.new(0, 3, 0, 3)
+    dot.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    dot.BorderSizePixel = 0
+    dot.Parent = btn
+    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+    btn.MouseEnter:Connect(function()
+        hover()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(90, 20, 30)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = BTN_BG}):Play()
+    end)
+    return btn, stroke, dot
+end
+
+local afbFBtn, afbFStroke, afbFDot = makeTitleBtn("AFB-F", -240, RED_LT)
+local afbBBtn, afbBStroke, afbBDot = makeTitleBtn("AFB-B", -184, BLUE_LT)
+local ahsBtn,  ahsStroke,  ahsDot  = makeTitleBtn("AHS",   -128, GREEN_LT)
+
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 30, 0, 30)
+minBtn.Position = UDim2.new(1, -72, 0, 8)
+minBtn.BackgroundColor3 = BTN_BG
+minBtn.Text = "—"
+minBtn.TextColor3 = WHITE
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 18
+minBtn.BorderSizePixel = 0
+minBtn.Parent = titleBar
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -38, 0, 8)
+closeBtn.BackgroundColor3 = BTN_BG
+closeBtn.Text = "×"
+closeBtn.TextColor3 = WHITE
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 20
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = titleBar
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+
+local function simpleHover(btn, hoverCol)
+    btn.MouseEnter:Connect(function()
+        hover()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = hoverCol}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = BTN_BG}):Play()
+    end)
+end
+simpleHover(minBtn, Color3.fromRGB(200, 120, 20))
+simpleHover(closeBtn, RED)
+
+-- Drag
+do
+    local dragging, dragInput, dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    titleBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local d = input.Position - dragStart
+            main.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+end
+
+-- Content
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, -20, 0, 220)
+content.Position = UDim2.new(0, 10, 0, 54)
+content.BackgroundTransparency = 1
+content.Parent = main
+local layout = Instance.new("UIListLayout", content)
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 10)
+
+local function createSection(name, width, height, order)
+    local sec = Instance.new("Frame")
+    sec.Size = UDim2.new(0, width, 0, height)
+    sec.BackgroundColor3 = BLACK_L
+    sec.BorderSizePixel = 0
+    sec.LayoutOrder = order
+    sec.Parent = content
+    Instance.new("UICorner", sec).CornerRadius = UDim.new(0, 10)
+    local st = Instance.new("UIStroke", sec)
+    st.Color = RED
+    st.Thickness = 1.5
+    st.Transparency = 0.7
+    local header = Instance.new("TextLabel")
+    header.Size = UDim2.new(1, -20, 0, 22)
+    header.Position = UDim2.new(0, 10, 0, 6)
+    header.BackgroundTransparency = 1
+    header.Text = name
+    header.TextColor3 = RED
+    header.Font = Enum.Font.GothamBold
+    header.TextSize = 12
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Parent = sec
+    local under = Instance.new("Frame")
+    under.Size = UDim2.new(1, -20, 0, 2)
+    under.Position = UDim2.new(0, 10, 0, 30)
+    under.BackgroundColor3 = RED
+    under.BorderSizePixel = 0
+    under.Parent = sec
+    Instance.new("UICorner", under).CornerRadius = UDim.new(1, 0)
+    return sec
+end
+
+local function createSlider(parent, yPos, labelText, minV, maxV, defaultV, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -20, 0, 40)
+    row.Position = UDim2.new(0, 10, 0, yPos)
+    row.BackgroundTransparency = 1
+    row.Parent = parent
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.7, 0, 0, 16)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextColor3 = WHITE
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextSize = 11
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+    local valLbl = Instance.new("TextLabel")
+    valLbl.Size = UDim2.new(0.3, 0, 0, 16)
+    valLbl.Position = UDim2.new(0.7, 0, 0, 0)
+    valLbl.BackgroundTransparency = 1
+    valLbl.Text = tostring(defaultV)
+    valLbl.TextColor3 = RED_LT
+    valLbl.Font = Enum.Font.GothamBold
+    valLbl.TextSize = 11
+    valLbl.TextXAlignment = Enum.TextXAlignment.Right
+    valLbl.Parent = row
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(1, 0, 0, 8)
+    bar.Position = UDim2.new(0, 0, 0, 22)
+    bar.BackgroundColor3 = GRAY
+    bar.BorderSizePixel = 0
+    bar.Parent = row
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((defaultV - minV) / (maxV - minV), 0, 1, 0)
+    fill.BackgroundColor3 = RED
+    fill.BorderSizePixel = 0
+    fill.Parent = bar
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 16, 0, 16)
+    knob.Position = UDim2.new(fill.Size.X.Scale, -8, 0.5, -8)
+    knob.BackgroundColor3 = WHITE
+    knob.BorderSizePixel = 0
+    knob.Parent = bar
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    local ks = Instance.new("UIStroke", knob)
+    ks.Color = RED
+    ks.Thickness = 2
+    local dragging = false
+    local function setValue(v, doCb)
+        v = math.clamp(v, minV, maxV)
+        local alpha = (v - minV) / (maxV - minV)
+        fill.Size = UDim2.new(alpha, 0, 1, 0)
+        knob.Position = UDim2.new(alpha, -8, 0.5, -8)
+        valLbl.Text = tostring(math.floor(v))
+        if doCb and callback then callback(v) end
+    end
+    local function inputToVal(input)
+        local rel = input.Position.X - bar.AbsolutePosition.X
+        local alpha = math.clamp(rel / bar.AbsoluteSize.X, 0, 1)
+        return minV + alpha * (maxV - minV)
+    end
+    bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            hover()
+            setValue(inputToVal(input), true)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            setValue(inputToVal(input), true)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+local function createToggle(parent, yPos, labelText, defaultState, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -20, 0, 30)
+    row.Position = UDim2.new(0, 10, 0, yPos)
+    row.BackgroundTransparency = 1
+    row.Parent = parent
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.7, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextColor3 = WHITE
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+    local toggleBg = Instance.new("Frame")
+    toggleBg.Size = UDim2.new(0, 42, 0, 22)
+    toggleBg.Position = UDim2.new(1, -42, 0.5, -11)
+    toggleBg.BackgroundColor3 = defaultState and RED or GRAY
+    toggleBg.BorderSizePixel = 0
+    toggleBg.Parent = row
+    Instance.new("UICorner", toggleBg).CornerRadius = UDim.new(1, 0)
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 18, 0, 18)
+    knob.Position = defaultState and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+    knob.BackgroundColor3 = WHITE
+    knob.BorderSizePixel = 0
+    knob.Parent = toggleBg
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    local state = defaultState
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.Parent = toggleBg
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        toggled(state)
+        toggleBg.BackgroundColor3 = state and RED or GRAY
+        TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+            Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9),
+        }):Play()
+        if callback then callback(state) end
+    end)
+end
+
+-- Build sections
+local sec1 = createSection("🛡 VOID RESCUE", 220, 220, 1)
+createToggle(sec1, 36, "Rescue System", CONFIG.RescueEnabled, function(s) CONFIG.RescueEnabled = s end)
+createToggle(sec1, 68, "Fall Origin", CONFIG.FallOriginEnabled, function(s) CONFIG.FallOriginEnabled = s end)
+createSlider(sec1, 100, "Void Distance", 10, 500, CONFIG.VoidDistance, function(v) CONFIG.VoidDistance = v end)
+createSlider(sec1, 142, "Fall Peeche", 0, 30, CONFIG.FallBackStuds, function(v) CONFIG.FallBackStuds = v end)
+
+local statusLbl = Instance.new("TextLabel")
+statusLbl.Size = UDim2.new(1, -20, 0, 36)
+statusLbl.Position = UDim2.new(0, 10, 0, 182)
+statusLbl.BackgroundTransparency = 1
+statusLbl.Text = "Y: --- | Void: ---\nOrigin: ---"
+statusLbl.TextColor3 = Color3.fromRGB(180, 180, 180)
+statusLbl.Font = Enum.Font.Code
+statusLbl.TextSize = 9
+statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+statusLbl.TextYAlignment = Enum.TextYAlignment.Top
+statusLbl.Parent = sec1
+
+local sec2 = createSection("🌐 BASEPLATE", 220, 220, 2)
+createToggle(sec2, 36, "Generate", CONFIG.BaseplateEnabled, function(s) CONFIG.BaseplateEnabled = s end)
+createSlider(sec2, 68, "Height (Y)", -500, 500, CONFIG.BaseplateHeight, function(v) CONFIG.BaseplateHeight = v end)
+
+local colorRow = Instance.new("Frame")
+colorRow.Size = UDim2.new(1, -20, 0, 24)
+colorRow.Position = UDim2.new(0, 10, 0, 112)
+colorRow.BackgroundTransparency = 1
+colorRow.Parent = sec2
+local colorLayout = Instance.new("UIListLayout", colorRow)
+colorLayout.FillDirection = Enum.FillDirection.Horizontal
+colorLayout.Padding = UDim.new(0, 3)
+
+local colors = {
+    Color3.fromRGB(50, 50, 50), Color3.fromRGB(255, 255, 255),
+    Color3.fromRGB(30, 30, 30), Color3.fromRGB(220, 30, 40),
+    Color3.fromRGB(30, 100, 255), Color3.fromRGB(30, 200, 80),
+    Color3.fromRGB(255, 200, 30), Color3.fromRGB(150, 30, 200),
+}
+
+for _, col in ipairs(colors) do
+    local swatch = Instance.new("TextButton")
+    swatch.Size = UDim2.new(0, 22, 0, 22)
+    swatch.BackgroundColor3 = col
+    swatch.Text = ""
+    swatch.BorderSizePixel = 0
+    swatch.Parent = colorRow
+    Instance.new("UICorner", swatch).CornerRadius = UDim.new(0, 5)
+    local sw = Instance.new("UIStroke", swatch)
+    sw.Color = WHITE
+    sw.Thickness = 2
+    sw.Transparency = (col == CONFIG.BaseplateColor) and 0 or 1
+    swatch.MouseButton1Click:Connect(function()
+        pop()
+        for _, c in ipairs(colorRow:GetChildren()) do
+            if c:IsA("TextButton") then
+                local cs = c:FindFirstChildOfClass("UIStroke")
+                if cs then cs.Transparency = 1 end
+            end
+        end
+        sw.Transparency = 0
+        CONFIG.BaseplateColor = col
+    end)
+end
+
+local materials = {
+    Enum.Material.SmoothPlastic, Enum.Material.Plastic, Enum.Material.Neon,
+    Enum.Material.Glass, Enum.Material.Metal, Enum.Material.Wood,
+    Enum.Material.Grass, Enum.Material.Concrete, Enum.Material.Marble,
+}
+local matIdx = 1
+for i, m in ipairs(materials) do if m == CONFIG.BaseplateMaterial then matIdx = i break end end
+
+local matBtn = Instance.new("TextButton")
+matBtn.Size = UDim2.new(1, -20, 0, 26)
+matBtn.Position = UDim2.new(0, 10, 0, 142)
+matBtn.BackgroundColor3 = GRAY
+matBtn.Text = "Mat: " .. tostring(materials[matIdx]):gsub("Enum.Material.", "")
+matBtn.TextColor3 = WHITE
+matBtn.Font = Enum.Font.GothamBold
+matBtn.TextSize = 10
+matBtn.BorderSizePixel = 0
+matBtn.Parent = sec2
+Instance.new("UICorner", matBtn).CornerRadius = UDim.new(0, 6)
+matBtn.MouseButton1Click:Connect(function()
+    matIdx = matIdx + 1
+    if matIdx > #materials then matIdx = 1 end
+    pop()
+    matBtn.Text = "Mat: " .. tostring(materials[matIdx]):gsub("Enum.Material.", "")
+    CONFIG.BaseplateMaterial = materials[matIdx]
+end)
+
+local infoLbl = Instance.new("TextLabel")
+infoLbl.Size = UDim2.new(1, -20, 0, 20)
+infoLbl.Position = UDim2.new(0, 10, 0, 180)
+infoLbl.BackgroundTransparency = 1
+infoLbl.Text = "Mode: OFF"
+infoLbl.TextColor3 = Color3.fromRGB(180, 180, 180)
+infoLbl.Font = Enum.Font.Code
+infoLbl.TextSize = 10
+infoLbl.TextXAlignment = Enum.TextXAlignment.Left
+infoLbl.Parent = sec2
+
+-- Middle row
+local middleRow = Instance.new("Frame")
+middleRow.Size = UDim2.new(1, -20, 0, 34)
+middleRow.Position = UDim2.new(0, 10, 0, 284)
+middleRow.BackgroundTransparency = 1
+middleRow.Parent = main
+local midLayout = Instance.new("UIListLayout", middleRow)
+midLayout.FillDirection = Enum.FillDirection.Horizontal
+midLayout.Padding = UDim.new(0, 8)
+
+local changeBtn = Instance.new("TextButton")
+changeBtn.Size = UDim2.new(0, 130, 1, 0)
+changeBtn.BackgroundColor3 = Color3.fromRGB(45, 20, 70)
+changeBtn.Text = "⚙ Script"
+changeBtn.TextColor3 = WHITE
+changeBtn.Font = Enum.Font.GothamBold
+changeBtn.TextSize = 11
+changeBtn.BorderSizePixel = 0
+changeBtn.Parent = middleRow
+Instance.new("UICorner", changeBtn).CornerRadius = UDim.new(0, 8)
+local csStroke = Instance.new("UIStroke", changeBtn)
+csStroke.Color = PURPLE_LT
+csStroke.Thickness = 1.5
+csStroke.Transparency = 0.4
+
+local musicBtn = Instance.new("TextButton")
+musicBtn.Size = UDim2.new(1, -138, 1, 0)
+musicBtn.BackgroundColor3 = Color3.fromRGB(20, 50, 80)
+musicBtn.Text = "🎵 Music  ▼"
+musicBtn.TextColor3 = WHITE
+musicBtn.Font = Enum.Font.GothamBold
+musicBtn.TextSize = 11
+musicBtn.BorderSizePixel = 0
+musicBtn.Parent = middleRow
+Instance.new("UICorner", musicBtn).CornerRadius = UDim.new(0, 8)
+local mStroke = Instance.new("UIStroke", musicBtn)
+mStroke.Color = BLUE_LT
+mStroke.Thickness = 1.5
+mStroke.Transparency = 0.4
+
+changeBtn.MouseEnter:Connect(function() hover(); TweenService:Create(changeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 30, 120)}):Play() end)
+changeBtn.MouseLeave:Connect(function() TweenService:Create(changeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(45, 20, 70)}):Play() end)
+musicBtn.MouseEnter:Connect(function() hover(); TweenService:Create(musicBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(30, 75, 120)}):Play() end)
+musicBtn.MouseLeave:Connect(function() TweenService:Create(musicBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(20, 50, 80)}):Play() end)
+
+-- Footer
+local footer = Instance.new("Frame")
+footer.Size = UDim2.new(1, -20, 0, 34)
+footer.Position = UDim2.new(0, 10, 1, -42)
+footer.BackgroundColor3 = Color3.fromRGB(30, 5, 10)
+footer.BorderSizePixel = 0
+footer.Parent = main
+Instance.new("UICorner", footer).CornerRadius = UDim.new(0, 8)
+
+local footerText = Instance.new("TextLabel")
+footerText.Size = UDim2.new(1, -20, 1, 0)
+footerText.Position = UDim2.new(0, 10, 0, 0)
+footerText.BackgroundTransparency = 1
+footerText.Text = "Owner -: INDIANGAMER6975(NOT_IITIAN)"
+footerText.TextColor3 = Color3.fromRGB(255, 180, 180)
+footerText.Font = Enum.Font.GothamBold
+footerText.TextSize = 11
+footerText.TextXAlignment = Enum.TextXAlignment.Center
+footerText.Parent = footer
+
+-- Baseplate
+local baseplate = nil
+local function updateBaseplate()
+    if not baseplate or not baseplate.Parent then return end
+    baseplate.Color = CONFIG.BaseplateColor
+    baseplate.Material = CONFIG.BaseplateMaterial
+    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        baseplate.Position = Vector3.new(hrp.Position.X, CONFIG.BaseplateHeight, hrp.Position.Z)
+    end
+end
+local function createBaseplate()
+    if baseplate and baseplate.Parent then baseplate:Destroy() end
+    local p = Instance.new("Part")
+    p.Name = "REDHUB_InfiniteBaseplate"
+    p.Size = Vector3.new(2000, 4, 2000)
+    p.Position = Vector3.new(0, CONFIG.BaseplateHeight, 0)
+    p.Anchored = true
+    p.CanCollide = true
+    p.CanTouch = true
+    p.CanQuery = true
+    p.TopSurface = Enum.SurfaceType.Smooth
+    p.BottomSurface = Enum.SurfaceType.Smooth
+    p.Color = CONFIG.BaseplateColor
+    p.Material = CONFIG.BaseplateMaterial
+    p.Parent = workspace
+    baseplate = p
+    win()
+end
+local function removeBaseplate()
+    if baseplate and baseplate.Parent then
+        baseplate:Destroy()
+        baseplate = nil
+    end
+    fail()
+end
+
+task.spawn(function()
+    local last = CONFIG.BaseplateEnabled
+    while HUB.active do
+        task.wait(0.1)
+        if CONFIG.BaseplateEnabled ~= last then
+            last = CONFIG.BaseplateEnabled
+            if CONFIG.BaseplateEnabled then createBaseplate() else removeBaseplate() end
+        end
+        if baseplate and baseplate.Parent then updateBaseplate() end
+    end
+end)
+
+-- Rescue
+local char     = LP.Character or LP.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+local hrp      = char:WaitForChild("HumanoidRootPart")
+
+local lastSafePos   = hrp.Position
+local fallOriginPos = nil
+local wasOnGround   = true
+local rescuing      = false
+
+local function isOnGround()
+    local fm = humanoid.FloorMaterial
+    return fm and fm ~= Enum.Material.Air
+end
+
+local function updateFallOrigin()
+    if not hrp or not hrp.Parent then return end
+    local grounded = isOnGround()
+    if grounded then
+        lastSafePos = hrp.Position
+        wasOnGround = true
+    else
+        if wasOnGround then
+            fallOriginPos = lastSafePos
+            wasOnGround = false
+        end
+    end
+end
+
+local function doRescue()
+    if rescuing then return end
+    if not hrp or not hrp.Parent then return end
+    if not humanoid or humanoid.Health <= 0 then return end
+    if AFB.Mode ~= "OFF" then return end
+    rescuing = true
+    win()
+    hrp.AssemblyLinearVelocity  = Vector3.zero
+    hrp.AssemblyAngularVelocity = Vector3.zero
+    local target = nil
+    if CONFIG.FallOriginEnabled and fallOriginPos then
+        local look = hrp.CFrame.LookVector
+        local back = -look * CONFIG.FallBackStuds
+        target = fallOriginPos + back + Vector3.new(0, 5, 0)
+    elseif lastSafePos then
+        target = lastSafePos + Vector3.new(0, 5, 0)
+    end
+    if target then
+        pcall(function()
+            hrp.CFrame = CFrame.new(target)
+            hrp.AssemblyLinearVelocity  = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end)
+    end
+    local flash = Instance.new("Frame")
+    flash.Size = UDim2.new(1, 0, 1, 0)
+    flash.BackgroundColor3 = RED
+    flash.BackgroundTransparency = 0.6
+    flash.BorderSizePixel = 0
+    flash.ZIndex = 100
+    flash.Parent = gui
+    TweenService:Create(flash, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    Debris:AddItem(flash, 0.6)
+    task.wait(1.5)
+    rescuing = false
+end
+
+LP.CharacterAdded:Connect(function(c)
+    char     = c
+    humanoid = c:WaitForChild("Humanoid")
+    hrp      = c:WaitForChild("HumanoidRootPart")
+    lastSafePos   = hrp.Position
+    fallOriginPos = nil
+    wasOnGround   = true
+    rescuing      = false
+    if AFB.Mode ~= "OFF" then
+        AFB.Mode = "OFF"
+        AFB.SavedCFrame = nil
+    end
+end)
+
+-- AFB
+local function getRotation(mode)
+    if mode == "FRONT" then return CFrame.Angles(math.rad(90), 0, 0) end
+    if mode == "BACK"  then return CFrame.Angles(math.rad(-90), 0, 0) end
+    if mode == "HEAD"  then return CFrame.Angles(math.rad(180), 0, 0) end
+    return CFrame.Angles(0, 0, 0)
+end
+
+local function resetAllButtonVisuals()
+    afbFBtn.BackgroundColor3 = BTN_BG
+    afbBBtn.BackgroundColor3 = BTN_BG
+    ahsBtn.BackgroundColor3  = BTN_BG
+    afbFDot.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    afbBDot.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    ahsDot.BackgroundColor3  = Color3.fromRGB(100, 100, 100)
+end
+
+local function activateMode(newMode)
+    if not hrp or not hrp.Parent then return end
+    if AFB.Mode == newMode then
+        if AFB.SavedCFrame and hrp.Parent then
+            pcall(function()
+                hrp.AssemblyLinearVelocity  = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+                hrp.CFrame = AFB.SavedCFrame
+            end)
+        end
+        AFB.Mode = "OFF"
+        AFB.SavedCFrame = nil
+        resetAllButtonVisuals()
+        whoosh()
+        return
+    end
+    if AFB.Mode == "OFF" then
+        AFB.SavedCFrame = hrp.CFrame
+        charge()
+    end
+    resetAllButtonVisuals()
+    AFB.Mode = newMode
+    local activeColor = RED
+    if newMode == "FRONT" then
+        afbFDot.BackgroundColor3 = RED_LT
+        afbFBtn.BackgroundColor3 = RED_DK
+    elseif newMode == "BACK" then
+        activeColor = BLUE
+        afbBDot.BackgroundColor3 = BLUE_LT
+        afbBBtn.BackgroundColor3 = Color3.fromRGB(20, 40, 90)
+    elseif newMode == "HEAD" then
+        activeColor = GREEN
+        ahsDot.BackgroundColor3 = GREEN_LT
+        ahsBtn.BackgroundColor3 = Color3.fromRGB(20, 80, 40)
+        flip()
+    end
+    local rot = getRotation(newMode)
+    local savedPos = AFB.SavedCFrame.Position
+    local target = CFrame.new(savedPos.X, AFB.HighY, savedPos.Z) * rot
+    pcall(function()
+        hrp.AssemblyLinearVelocity  = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        hrp.CFrame = target
+    end)
+    local fx = Instance.new("Frame")
+    fx.Size = UDim2.new(1, 0, 1, 0)
+    fx.BackgroundColor3 = activeColor
+    fx.BackgroundTransparency = 0.7
+    fx.BorderSizePixel = 0
+    fx.ZIndex = 90
+    fx.Parent = gui
+    TweenService:Create(fx, TweenInfo.new(0.7), {BackgroundTransparency = 1}):Play()
+    Debris:AddItem(fx, 0.8)
+    power()
+end
+
+afbFBtn.MouseButton1Click:Connect(function() activateMode("FRONT") end)
+afbBBtn.MouseButton1Click:Connect(function() activateMode("BACK")  end)
+ahsBtn.MouseButton1Click:Connect(function()  activateMode("HEAD")  end)
+
+--=============================================================
+-- 🎵 MUSIC DATABASE — Fixed (working IDs + Custom input)
+--=============================================================
+local MUSIC_DB = {
+    Bolly = {
+        { name = "Kesariya",         id = "rbxassetid://132607663870198" },
+        { name = "Tum Hi Ho",        id = "rbxassetid://1837833014" },
+        { name = "Channa Mereya",    id = "rbxassetid://1840046392" },
+        { name = "Kal Ho Naa Ho",    id = "rbxassetid://1837763651" },
+        { name = "Tera Ban Jaunga",  id = "rbxassetid://3256519499" },
+        { name = "Apna Bana Le",     id = "rbxassetid://11654370212" },
+        { name = "Raataan Lambiyan", id = "rbxassetid://12337415282" },
+        { name = "Shayad",           id = "rbxassetid://4812793123" },
+        { name = "Ranjha",           id = "rbxassetid://12337462367" },
+    },
+    Holly = {
+        { name = "Shape of You",     id = "rbxassetid://1837879082" },
+        { name = "Blinding Lights",  id = "rbxassetid://5774554864" },
+        { name = "Perfect",          id = "rbxassetid://1837725325" },
+        { name = "Faded",            id = "rbxassetid://1842963110" },
+        { name = "Believer",         id = "rbxassetid://4505137930" },
+        { name = "Thunder",          id = "rbxassetid://4505126518" },
+        { name = "Heat Waves",       id = "rbxassetid://6023426926" },
+        { name = "Stay",             id = "rbxassetid://6464665178" },
+        { name = "Sunflower",        id = "rbxassetid://4525876382" },
+    },
+    Hig = {
+        { name = "Boss Battle",      id = "rbxassetid://9046863575" },
+        { name = "Epic Drop",        id = "rbxassetid://9118823101" },
+        { name = "Rage Mode",        id = "rbxassetid://5237080215" },
+        { name = "Charge Up",        id = "rbxassetid://7146222146" },
+    },
+}
+
+-- Music Panel
+local musicPanel = Instance.new("Frame")
+musicPanel.Size = UDim2.new(0, 300, 0, 0)
+musicPanel.Position = UDim2.new(1, 12, 0, 0)
+musicPanel.BackgroundColor3 = BLACK
+musicPanel.BorderSizePixel = 0
+musicPanel.ClipsDescendants = true
+musicPanel.Visible = false
+musicPanel.Parent = main
+Instance.new("UICorner", musicPanel).CornerRadius = UDim.new(0, 12)
+local mpStroke = Instance.new("UIStroke", musicPanel)
+mpStroke.Color = BLUE_LT
+mpStroke.Thickness = 1.5
+mpStroke.Transparency = 0.2
+
+local mpTitle = Instance.new("TextLabel")
+mpTitle.Size = UDim2.new(1, -20, 0, 22)
+mpTitle.Position = UDim2.new(0, 10, 0, 4)
+mpTitle.BackgroundTransparency = 1
+mpTitle.Text = "🎵 MUSIC"
+mpTitle.TextColor3 = BLUE_LT
+mpTitle.Font = Enum.Font.GothamBlack
+mpTitle.TextSize = 13
+mpTitle.TextXAlignment = Enum.TextXAlignment.Left
+mpTitle.Parent = musicPanel
+
+-- Tabs Row (4 tabs, scale-based to fit perfectly)
+local tabsRow = Instance.new("Frame")
+tabsRow.Size = UDim2.new(1, -20, 0, 22)
+tabsRow.Position = UDim2.new(0, 10, 0, 30)
+tabsRow.BackgroundTransparency = 1
+tabsRow.Parent = musicPanel
+local tabsLayout = Instance.new("UIListLayout", tabsRow)
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.Padding = UDim.new(0, 3)
+
+-- Song list
+local songListFrame = Instance.new("ScrollingFrame")
+songListFrame.Size = UDim2.new(1, -20, 0, 140)
+songListFrame.Position = UDim2.new(0, 10, 0, 58)
+songListFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+songListFrame.BorderSizePixel = 0
+songListFrame.ScrollBarThickness = 3
+songListFrame.ScrollBarImageColor3 = BLUE_LT
+songListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+songListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+songListFrame.Parent = musicPanel
+Instance.new("UICorner", songListFrame).CornerRadius = UDim.new(0, 8)
+local listLayout = Instance.new("UIListLayout", songListFrame)
+listLayout.Padding = UDim.new(0, 3)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Now Playing label
+local npLbl = Instance.new("TextLabel")
+npLbl.Size = UDim2.new(1, -20, 0, 14)
+npLbl.Position = UDim2.new(0, 10, 0, 202)
+npLbl.BackgroundTransparency = 1
+npLbl.Text = "▶ No song"
+npLbl.TextColor3 = Color3.fromRGB(180, 180, 180)
+npLbl.Font = Enum.Font.Code
+npLbl.TextSize = 10
+npLbl.TextXAlignment = Enum.TextXAlignment.Left
+npLbl.TextTruncate = Enum.TextTruncate.AtEnd
+npLbl.Parent = musicPanel
+
+-- Custom input row
+local customRow = Instance.new("Frame")
+customRow.Size = UDim2.new(1, -20, 0, 26)
+customRow.Position = UDim2.new(0, 10, 0, 220)
+customRow.BackgroundTransparency = 1
+customRow.Parent = musicPanel
+
+local customBox = Instance.new("TextBox")
+customBox.Size = UDim2.new(1, -76, 1, 0)
+customBox.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+customBox.BorderSizePixel = 0
+customBox.Text = ""
+customBox.PlaceholderText = "Paste ID (eg: 123456789)"
+customBox.TextColor3 = WHITE
+customBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
+customBox.Font = Enum.Font.GothamMedium
+customBox.TextSize = 10
+customBox.ClearTextOnFocus = false
+customBox.Parent = customRow
+Instance.new("UICorner", customBox).CornerRadius = UDim.new(0, 6)
+
+local customPlayBtn = Instance.new("TextButton")
+customPlayBtn.Size = UDim2.new(0, 72, 1, 0)
+customPlayBtn.Position = UDim2.new(1, -72, 0, 0)
+customPlayBtn.BackgroundColor3 = GREEN
+customPlayBtn.Text = "▶ PLAY"
+customPlayBtn.TextColor3 = WHITE
+customPlayBtn.Font = Enum.Font.GothamBold
+customPlayBtn.TextSize = 10
+customPlayBtn.BorderSizePixel = 0
+customPlayBtn.Parent = customRow
+Instance.new("UICorner", customPlayBtn).CornerRadius = UDim.new(0, 6)
+
+-- Controls
+local controls = Instance.new("Frame")
+controls.Size = UDim2.new(1, -20, 0, 30)
+controls.Position = UDim2.new(0, 10, 1, -36)
+controls.BackgroundTransparency = 1
+controls.Parent = musicPanel
+
+local prevBtn = Instance.new("TextButton")
+prevBtn.Size = UDim2.new(0, 42, 1, 0)
+prevBtn.BackgroundColor3 = GRAY
+prevBtn.Text = "⏮"
+prevBtn.TextColor3 = WHITE
+prevBtn.Font = Enum.Font.GothamBold
+prevBtn.TextSize = 14
+prevBtn.BorderSizePixel = 0
+prevBtn.Parent = controls
+Instance.new("UICorner", prevBtn).CornerRadius = UDim.new(0, 6)
+
+local playBtn = Instance.new("TextButton")
+playBtn.Size = UDim2.new(0, 42, 1, 0)
+playBtn.Position = UDim2.new(0, 46, 0, 0)
+playBtn.BackgroundColor3 = BLUE
+playBtn.Text = "▶"
+playBtn.TextColor3 = WHITE
+playBtn.Font = Enum.Font.GothamBold
+playBtn.TextSize = 14
+playBtn.BorderSizePixel = 0
+playBtn.Parent = controls
+Instance.new("UICorner", playBtn).CornerRadius = UDim.new(0, 6)
+
+local stopBtn = Instance.new("TextButton")
+stopBtn.Size = UDim2.new(0, 42, 1, 0)
+stopBtn.Position = UDim2.new(0, 92, 0, 0)
+stopBtn.BackgroundColor3 = RED
+stopBtn.Text = "⏹"
+stopBtn.TextColor3 = WHITE
+stopBtn.Font = Enum.Font.GothamBold
+stopBtn.TextSize = 14
+stopBtn.BorderSizePixel = 0
+stopBtn.Parent = controls
+Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0, 6)
+
+local nextBtn = Instance.new("TextButton")
+nextBtn.Size = UDim2.new(0, 42, 1, 0)
+nextBtn.Position = UDim2.new(0, 138, 0, 0)
+nextBtn.BackgroundColor3 = GRAY
+nextBtn.Text = "⏭"
+nextBtn.TextColor3 = WHITE
+nextBtn.Font = Enum.Font.GothamBold
+nextBtn.TextSize = 14
+nextBtn.BorderSizePixel = 0
+nextBtn.Parent = controls
+Instance.new("UICorner", nextBtn).CornerRadius = UDim.new(0, 6)
+
+local volLabel = Instance.new("TextLabel")
+volLabel.Size = UDim2.new(0, 30, 1, 0)
+volLabel.Position = UDim2.new(1, -80, 0, 0)
+volLabel.BackgroundTransparency = 1
+volLabel.Text = "🔊"
+volLabel.TextColor3 = WHITE
+volLabel.Font = Enum.Font.GothamBold
+volLabel.TextSize = 14
+volLabel.Parent = controls
+
+local volSlider = Instance.new("Frame")
+volSlider.Size = UDim2.new(1, -230, 0, 6)
+volSlider.Position = UDim2.new(1, -46, 0.5, -3)
+volSlider.BackgroundColor3 = GRAY
+volSlider.BorderSizePixel = 0
+volSlider.Parent = controls
+Instance.new("UICorner", volSlider).CornerRadius = UDim.new(1, 0)
+
+local volFill = Instance.new("Frame")
+volFill.Size = UDim2.new(0.6, 0, 1, 0)
+volFill.BackgroundColor3 = BLUE
+volFill.BorderSizePixel = 0
+volFill.Parent = volSlider
+Instance.new("UICorner", volFill).CornerRadius = UDim.new(1, 0)
+
+local volKnob = Instance.new("Frame")
+volKnob.Size = UDim2.new(0, 12, 0, 12)
+volKnob.Position = UDim2.new(0.6, -6, 0.5, -6)
+volKnob.BackgroundColor3 = WHITE
+volKnob.BorderSizePixel = 0
+volKnob.Parent = volSlider
+Instance.new("UICorner", volKnob).CornerRadius = UDim.new(1, 0)
+
+-- Music Player Engine
+local MusicPlayer = { current = nil, song = nil, paused = false, volume = 0.6, activeTab = "Bolly", customSong = nil }
+
+function MusicPlayer.stop()
+    if MusicPlayer.current then
+        pcall(function() MusicPlayer.current:Stop() end)
+        pcall(function() MusicPlayer.current:Destroy() end)
+        MusicPlayer.current = nil
+    end
+    MusicPlayer.song = nil
+    npLbl.Text = "▶ No song"
+    playBtn.Text = "▶"
+end
+
+function MusicPlayer.play(song, isCustom)
+    MusicPlayer.stop()
+    MusicPlayer.paused = false
+    MusicPlayer.song = song
+    npLbl.Text = "▶ " .. song.name
+
+    local s = Instance.new("Sound")
+    s.Name = "REDHUB_Music"
+    s.SoundId = song.id
+    s.Volume = MusicPlayer.volume
+    s.Looped = false
+    s.Parent = SoundService
+    s:Play()
+    MusicPlayer.current = s
+    playBtn.Text = "⏸"
+
+    -- Detect if sound loaded
+    task.delay(0.8, function()
+        if MusicPlayer.current == s then
+            if s.TimeLength == 0 then
+                npLbl.Text = "⚠ Not playing — try Custom ID"
+                npLbl.TextColor3 = Color3.fromRGB(255, 150, 100)
+            else
+                npLbl.TextColor3 = Color3.fromRGB(180, 180, 180)
+            end
+        end
+    end)
+
+    s.Ended:Connect(function()
+        if HUB.active and MusicPlayer.current == s then
+            if not isCustom then MusicPlayer.next() end
+        end
+    end)
+end
+
+function MusicPlayer.toggle()
+    if not MusicPlayer.current then return end
+    MusicPlayer.paused = not MusicPlayer.paused
+    if MusicPlayer.paused then
+        MusicPlayer.current:Pause()
+        playBtn.Text = "▶"
+    else
+        MusicPlayer.current:Resume()
+        playBtn.Text = "⏸"
+    end
+end
+
+function MusicPlayer.next()
+    local songs = MUSIC_DB[MusicPlayer.activeTab]
+    if not songs or #songs == 0 then return end
+    local idx = 1
+    for i, s in ipairs(songs) do
+        if MusicPlayer.song and s.name == MusicPlayer.song.name then idx = i break end
+    end
+    idx = idx % #songs + 1
+    MusicPlayer.play(songs[idx])
+end
+
+function MusicPlayer.prev()
+    local songs = MUSIC_DB[MusicPlayer.activeTab]
+    if not songs or #songs == 0 then return end
+    local idx = 1
+    for i, s in ipairs(songs) do
+        if MusicPlayer.song and s.name == MusicPlayer.song.name then idx = i break end
+    end
+    idx = idx - 1
+    if idx < 1 then idx = #songs end
+    MusicPlayer.play(songs[idx])
+end
+
+-- Highlight helper
+local function clearHighlights()
+    for _, c in ipairs(songListFrame:GetChildren()) do
+        if c:IsA("TextButton") then
+            c.Text = c.Text:gsub("▶ ", "   "):gsub("♪ ", "   ")
+            c.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+        end
+    end
+end
+
+-- Build song list
+local function buildSongList(cat)
+    for _, c in ipairs(songListFrame:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    local songs = MUSIC_DB[cat] or {}
+    for i, song in ipairs(songs) do
+        local sb = Instance.new("TextButton")
+        sb.Size = UDim2.new(1, -8, 0, 26)
+        sb.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+        sb.Text = "▶  " .. song.name
+        sb.TextColor3 = WHITE
+        sb.Font = Enum.Font.GothamMedium
+        sb.TextSize = 11
+        sb.TextXAlignment = Enum.TextXAlignment.Left
+        sb.BorderSizePixel = 0
+        sb.Parent = songListFrame
+        Instance.new("UICorner", sb).CornerRadius = UDim.new(0, 6)
+
+        sb.MouseEnter:Connect(function()
+            TweenService:Create(sb, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(50, 50, 70)}):Play()
+        end)
+        sb.MouseLeave:Connect(function()
+            if MusicPlayer.song ~= song then
+                TweenService:Create(sb, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(28, 28, 35)}):Play()
+            end
+        end)
+        sb.MouseButton1Click:Connect(function()
+            click()
+            MusicPlayer.activeTab = cat
+            MusicPlayer.play(song)
+            clearHighlights()
+            sb.Text = "♪  " .. song.name
+            sb.BackgroundColor3 = Color3.fromRGB(20, 70, 120)
+        end)
+    end
+end
+
+-- Create tabs (4 tabs, sized to fit 260px wide row)
+local tabsList = {
+    { label = "Bolly",  cat = "Bolly" },
+    { label = "Holly",  cat = "Holly" },
+    { label = "Hig",    cat = "Hig" },
+}
+
+for _, t in ipairs(tabsList) do
+    local tb = Instance.new("TextButton")
+    tb.Size = UDim2.new(0, 70, 1, 0)
+    tb.BackgroundColor3 = (t.cat == "Bolly") and BLUE or GRAY
+    tb.Text = t.label
+    tb.TextColor3 = WHITE
+    tb.Font = Enum.Font.GothamBold
+    tb.TextSize = 10
+    tb.BorderSizePixel = 0
+    tb.Parent = tabsRow
+    Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 5)
+
+    tb.MouseButton1Click:Connect(function()
+        click()
+        for _, child in ipairs(tabsRow:GetChildren()) do
+            if child:IsA("TextButton") then
+                child.BackgroundColor3 = (child.Text == t.label) and BLUE or GRAY
+            end
+        end
+        MusicPlayer.activeTab = t.cat
+        buildSongList(t.cat)
+    end)
+end
+
+buildSongList("Bolly")
+
+prevBtn.MouseButton1Click:Connect(function() click(); MusicPlayer.prev() end)
+nextBtn.MouseButton1Click:Connect(function() click(); MusicPlayer.next() end)
+playBtn.MouseButton1Click:Connect(function() click(); MusicPlayer.toggle() end)
+stopBtn.MouseButton1Click:Connect(function() click(); MusicPlayer.stop() end)
+
+customPlayBtn.MouseButton1Click:Connect(function()
+    local id = customBox.Text:gsub("%s", "")
+    if id == "" then
+        npLbl.Text = "⚠ Enter audio ID"
+        fail()
+        return
+    end
+    -- Auto format
+    if not id:match("^rbxassetid") then
+        if id:match("^%d+$") then
+            id = "rbxassetid://" .. id
+        end
+    end
+    click()
+    MusicPlayer.play({ name = "Custom: " .. id:sub(-12), id = id }, true)
+    npLbl.TextColor3 = Color3.fromRGB(120, 255, 180)
+end)
+
+-- Volume slider
+do
+    local dragging = false
+    local function setVol(input)
+        local rel = input.Position.X - volSlider.AbsolutePosition.X
+        local alpha = math.clamp(rel / volSlider.AbsoluteSize.X, 0, 1)
+        volFill.Size = UDim2.new(alpha, 0, 1, 0)
+        volKnob.Position = UDim2.new(alpha, -6, 0.5, -6)
+        MusicPlayer.volume = alpha
+        if MusicPlayer.current then
+            MusicPlayer.current.Volume = alpha
+        end
+    end
+    volSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            setVol(input)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            setVol(input)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- Music toggle
+local musicOpen = false
+musicBtn.MouseButton1Click:Connect(function()
+    click()
+    musicOpen = not musicOpen
+    if musicOpen then
+        musicPanel.Visible = true
+        musicPanel.Size = UDim2.new(0, 300, 0, 0)
+        TweenService:Create(musicPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back), {
+            Size = UDim2.new(0, 300, 0, 300),
+        }):Play()
+        musicBtn.Text = "🎵 Music  ▲"
+    else
+        TweenService:Create(musicPanel, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 300, 0, 0),
+        }):Play()
+        task.delay(0.35, function() musicPanel.Visible = false end)
+        musicBtn.Text = "🎵 Music  ▼"
+    end
+end)
+
+--=============================================================
+-- ⚙️ CHANGE SCRIPT
+--=============================================================
+local changePanel = Instance.new("Frame")
+changePanel.AnchorPoint = Vector2.new(0.5, 0.5)
+changePanel.Size = UDim2.new(0, 0, 0, 0)
+changePanel.Position = UDim2.new(0.5, 0, 0.5, 0)
+changePanel.BackgroundColor3 = BLACK
+changePanel.BorderSizePixel = 0
+changePanel.ZIndex = 300
+changePanel.Visible = false
+changePanel.Parent = gui
+Instance.new("UICorner", changePanel).CornerRadius = UDim.new(0, 12)
+local cpStroke = Instance.new("UIStroke", changePanel)
+cpStroke.Color = PURPLE_LT
+cpStroke.Thickness = 2
+cpStroke.Transparency = 0.2
+
+local cpTitle = Instance.new("TextLabel")
+cpTitle.Size = UDim2.new(1, 0, 0, 32)
+cpTitle.Position = UDim2.new(0, 0, 0, 6)
+cpTitle.BackgroundTransparency = 1
+cpTitle.Text = "⚙ CHANGE SCRIPT"
+cpTitle.TextColor3 = PURPLE_LT
+cpTitle.Font = Enum.Font.GothamBlack
+cpTitle.TextSize = 16
+cpTitle.ZIndex = 301
+cpTitle.Parent = changePanel
+
+local cpHint = Instance.new("TextLabel")
+cpHint.Size = UDim2.new(1, -20, 0, 16)
+cpHint.Position = UDim2.new(0, 10, 0, 36)
+cpHint.BackgroundTransparency = 1
+cpHint.Text = "Paste URL or loadstring code:"
+cpHint.TextColor3 = Color3.fromRGB(200, 200, 200)
+cpHint.Font = Enum.Font.GothamMedium
+cpHint.TextSize = 11
+cpHint.TextXAlignment = Enum.TextXAlignment.Left
+cpHint.ZIndex = 301
+cpHint.Parent = changePanel
+
+local cpBox = Instance.new("TextBox")
+cpBox.Size = UDim2.new(1, -20, 0, 80)
+cpBox.Position = UDim2.new(0, 10, 0, 56)
+cpBox.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+cpBox.BorderSizePixel = 0
+cpBox.Text = ""
+cpBox.PlaceholderText = "https://... ya loadstring('...')()"
+cpBox.TextColor3 = WHITE
+cpBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
+cpBox.Font = Enum.Font.Code
+cpBox.TextSize = 10
+cpBox.TextXAlignment = Enum.TextXAlignment.Left
+cpBox.TextYAlignment = Enum.TextYAlignment.Top
+cpBox.TextWrapped = true
+cpBox.ClearTextOnFocus = false
+cpBox.MultiLine = true
+cpBox.ZIndex = 301
+cpBox.Parent = changePanel
+Instance.new("UICorner", cpBox).CornerRadius = UDim.new(0, 8)
+
+local cpLoadBtn = Instance.new("TextButton")
+cpLoadBtn.Size = UDim2.new(0.55, -15, 0, 34)
+cpLoadBtn.Position = UDim2.new(0, 10, 1, -44)
+cpLoadBtn.BackgroundColor3 = PURPLE
+cpLoadBtn.Text = "▶ LOAD"
+cpLoadBtn.TextColor3 = WHITE
+cpLoadBtn.Font = Enum.Font.GothamBold
+cpLoadBtn.TextSize = 12
+cpLoadBtn.BorderSizePixel = 0
+cpLoadBtn.ZIndex = 301
+cpLoadBtn.Parent = changePanel
+Instance.new("UICorner", cpLoadBtn).CornerRadius = UDim.new(0, 8)
+
+local cpCancelBtn = Instance.new("TextButton")
+cpCancelBtn.Size = UDim2.new(0.4, -15, 0, 34)
+cpCancelBtn.Position = UDim2.new(0.55, 5, 1, -44)
+cpCancelBtn.BackgroundColor3 = GRAY
+cpCancelBtn.Text = "CANCEL"
+cpCancelBtn.TextColor3 = WHITE
+cpCancelBtn.Font = Enum.Font.GothamBold
+cpCancelBtn.TextSize = 12
+cpCancelBtn.BorderSizePixel = 0
+cpCancelBtn.ZIndex = 301
+cpCancelBtn.Parent = changePanel
+Instance.new("UICorner", cpCancelBtn).CornerRadius = UDim.new(0, 8)
+
+local cpStatus = Instance.new("TextLabel")
+cpStatus.Size = UDim2.new(1, -20, 0, 14)
+cpStatus.Position = UDim2.new(0, 10, 0, 140)
+cpStatus.BackgroundTransparency = 1
+cpStatus.Text = ""
+cpStatus.TextColor3 = Color3.fromRGB(180, 180, 180)
+cpStatus.Font = Enum.Font.Code
+cpStatus.TextSize = 10
+cpStatus.TextXAlignment = Enum.TextXAlignment.Left
+cpStatus.ZIndex = 301
+cpStatus.Parent = changePanel
+
+changeBtn.MouseButton1Click:Connect(function()
+    click()
+    changePanel.Visible = true
+    changePanel.Size = UDim2.new(0, 0, 0, 0)
+    TweenService:Create(changePanel, TweenInfo.new(0.35, Enum.EasingStyle.Back), {
+        Size = UDim2.new(0, 380, 0, 200),
+    }):Play()
+    beam()
+end)
+
+cpCancelBtn.MouseButton1Click:Connect(function()
+    click()
+    TweenService:Create(changePanel, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0),
+    }):Play()
+    task.delay(0.3, function()
+        changePanel.Visible = false
+        cpBox.Text = ""
+        cpStatus.Text = ""
+    end)
+end)
+
+cpLoadBtn.MouseButton1Click:Connect(function()
+    local txt = cpBox.Text
+    if txt == "" then
+        cpStatus.Text = "❌ Empty"
+        cpStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
+        fail()
+        return
+    end
+    cpStatus.Text = "⏳ Loading..."
+    cpStatus.TextColor3 = Color3.fromRGB(255, 200, 100)
+    charge()
+    task.spawn(function()
+        local ok, err = pcall(function()
+            local code = txt
+            if txt:match("^https?://") then
+                code = game:HttpGet(txt)
+            end
+            local fn = loadstring or load
+            if fn then fn(code)() else error("no loadstring") end
+        end)
+        if ok then
+            cpStatus.Text = "✔ Loaded!"
+            cpStatus.TextColor3 = Color3.fromRGB(100, 255, 150)
+            win()
+        else
+            cpStatus.Text = "❌ " .. tostring(err):sub(1, 50)
+            cpStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
+            fail()
+        end
+    end)
+end)
+
+--=============================================================
+-- ❌ CLOSE = STOP EVERYTHING
+--=============================================================
+local function stopEverything()
+    HUB.active = false
+    MusicPlayer.stop()
+    if AFB.Mode ~= "OFF" and AFB.SavedCFrame and hrp and hrp.Parent then
+        pcall(function()
+            hrp.AssemblyLinearVelocity  = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            hrp.CFrame = AFB.SavedCFrame
+        end)
+    end
+    AFB.Mode = "OFF"
+    AFB.SavedCFrame = nil
+    if baseplate and baseplate.Parent then
+        baseplate:Destroy()
+        baseplate = nil
+    end
+    CONFIG.RescueEnabled    = false
+    CONFIG.BaseplateEnabled = false
+    gui.Enabled = false
+    print("[RED HUB] All stopped ✔")
+end
+
+local function showConfirmDialog()
+    local dialog = Instance.new("Frame")
+    dialog.AnchorPoint = Vector2.new(0.5, 0.5)
+    dialog.Size = UDim2.new(0, 0, 0, 0)
+    dialog.Position = UDim2.new(0.5, 0, 0.5, 0)
+    dialog.BackgroundColor3 = BLACK
+    dialog.BorderSizePixel = 0
+    dialog.ZIndex = 200
+    dialog.Parent = gui
+    Instance.new("UICorner", dialog).CornerRadius = UDim.new(0, 12)
+    local dst = Instance.new("UIStroke", dialog)
+    dst.Color = RED
+    dst.Thickness = 2
+    dst.Transparency = 0.2
+    dst.Parent = dialog
+    TweenService:Create(dialog, TweenInfo.new(0.35, Enum.EasingStyle.Back), {
+        Size = UDim2.new(0, 320, 0, 160),
+    }):Play()
+    beam()
+    local dTitle = Instance.new("TextLabel")
+    dTitle.Size = UDim2.new(1, 0, 0, 40)
+    dTitle.Position = UDim2.new(0, 0, 0, 10)
+    dTitle.BackgroundTransparency = 1
+    dTitle.Text = "⚠ CONFIRM"
+    dTitle.TextColor3 = RED
+    dTitle.Font = Enum.Font.GothamBlack
+    dTitle.TextSize = 20
+    dTitle.ZIndex = 201
+    dTitle.Parent = dialog
+    local dMsg = Instance.new("TextLabel")
+    dMsg.Size = UDim2.new(1, -40, 0, 50)
+    dMsg.Position = UDim2.new(0, 20, 0, 50)
+    dMsg.BackgroundTransparency = 1
+    dMsg.Text = "Close RED HUB & stop all?"
+    dMsg.TextColor3 = WHITE
+    dMsg.Font = Enum.Font.GothamMedium
+    dMsg.TextSize = 14
+    dMsg.TextWrapped = true
+    dMsg.ZIndex = 201
+    dMsg.Parent = dialog
+    local yesBtn = Instance.new("TextButton")
+    yesBtn.Size = UDim2.new(0, 130, 0, 40)
+    yesBtn.Position = UDim2.new(0, 15, 1, -55)
+    yesBtn.BackgroundColor3 = RED
+    yesBtn.Text = "YES"
+    yesBtn.TextColor3 = WHITE
+    yesBtn.Font = Enum.Font.GothamBold
+    yesBtn.TextSize = 14
+    yesBtn.BorderSizePixel = 0
+    yesBtn.ZIndex = 201
+    yesBtn.Parent = dialog
+    Instance.new("UICorner", yesBtn).CornerRadius = UDim.new(0, 8)
+    local noBtn = Instance.new("TextButton")
+    noBtn.Size = UDim2.new(0, 130, 0, 40)
+    noBtn.Position = UDim2.new(1, -145, 1, -55)
+    noBtn.BackgroundColor3 = GRAY
+    noBtn.Text = "NO"
+    noBtn.TextColor3 = WHITE
+    noBtn.Font = Enum.Font.GothamBold
+    noBtn.TextSize = 14
+    noBtn.BorderSizePixel = 0
+    noBtn.ZIndex = 201
+    noBtn.Parent = dialog
+    Instance.new("UICorner", noBtn).CornerRadius = UDim.new(0, 8)
+    yesBtn.MouseButton1Click:Connect(function()
+        win()
+        TweenService:Create(dialog, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+        }):Play()
+        task.wait(0.35)
+        dialog:Destroy()
+        stopEverything()
+    end)
+    noBtn.MouseButton1Click:Connect(function()
+        fail()
+        TweenService:Create(dialog, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+        }):Play()
+        task.delay(0.35, function() dialog:Destroy() end)
+    end)
+end
+
+closeBtn.MouseButton1Click:Connect(function()
+    click()
+    showConfirmDialog()
+end)
+
+-- Minimize
+local minimized = false
+local savedSize = UDim2.new(0, WIDTH, 0, HEIGHT)
+local savedPos  = main.Position
+minBtn.MouseButton1Click:Connect(function()
+    click()
+    minimized = not minimized
+    if minimized then
+        savedPos = main.Position
+        content.Visible = false
+        footer.Visible = false
+        middleRow.Visible = false
+        musicPanel.Visible = false
+        musicOpen = false
+        musicBtn.Text = "🎵 Music  ▼"
+        TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(0, WIDTH, 0, MIN_H),
+        }):Play()
+        minBtn.Text = "□"
+    else
+        TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {
+            Size = savedSize,
+        }):Play()
+        main.Position = savedPos
+        task.delay(0.15, function()
+            content.Visible = true
+            footer.Visible = true
+            middleRow.Visible = true
+        end)
+        minBtn.Text = "—"
+    end
+end)
+
+-- Main loop
+RunService.Heartbeat:Connect(function()
+    if not HUB.active then return end
+    if not gui.Enabled then return end
+    if AFB.Mode ~= "OFF" and AFB.SavedCFrame then
+        local currentHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if currentHrp then
+            local rot = getRotation(AFB.Mode)
+            local sp = AFB.SavedCFrame.Position
+            currentHrp.CFrame = CFrame.new(sp.X, AFB.HighY, sp.Z) * rot
+            currentHrp.AssemblyLinearVelocity  = Vector3.zero
+            currentHrp.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+    if not hrp or not hrp.Parent then return end
+    if not humanoid or humanoid.Health <= 0 then return end
+    updateFallOrigin()
+    local pos = hrp.Position
+    local voidY = workspace.FallenPartsDestroyHeight
+    if typeof(voidY) ~= "number" or voidY ~= voidY or voidY == -math.huge or voidY == math.huge then
+        voidY = -500
+    end
+    local triggerY = voidY + CONFIG.VoidDistance
+    if CONFIG.RescueEnabled and not rescuing and AFB.Mode == "OFF" and pos.Y <= triggerY then
+        task.spawn(doRescue)
+    end
+    statusLbl.Text = string.format("Y: %.0f | Void: %.0f\nOrigin: %s",
+        pos.Y, voidY,
+        fallOriginPos and string.format("%.0f,%.0f,%.0f", fallOriginPos.X, fallOriginPos.Y, fallOriginPos.Z) or "---")
+    infoLbl.Text = "Mode: " .. AFB.Mode
+end)
+
+-- Entry
+main.BackgroundTransparency = 1
+titleBar.BackgroundTransparency = 1
+task.wait(0.1)
+beam()
+TweenService:Create(main, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
+TweenService:Create(titleBar, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.K then
+        if not HUB.active then return end
+        click()
+        gui.Enabled = not gui.Enabled
+    end
+end)
+
+print("[RED HUB v9] ✔ Loaded | Owner: INDIANGAMER6975 (NOT_IITIAN)")
