@@ -1,0 +1,1682 @@
+--[[═══════════════════════════════════════════════════════════════
+  ⚡ WELDER PRO V8 — DANCE COLLECTION EDITION ⚡
+  ─────────────────────────────────────────────────────────────
+  RightShift = Toggle
+  Credits: Failedmite • Janmandio • deerius
+  
+  FEATURES:
+  ✓ Bang 2.0 (rhythmic thrust)
+  ✓ F.Bang (face-lock, fixed direction + height)
+  ✓ Bang 3.0 - 8.0 (dance collection in Anims tab)
+  ✓ Live Dist/Spd sliders
+  ✓ Animation copy (rig-matched)
+  ✓ Anti-Sit protection
+  ✓ Custom animation ID player
+  ✓ Full Guide tab
+═══════════════════════════════════════════════════════════════]]
+
+local RunService    = game:GetService("RunService")
+local Players       = game:GetService("Players")
+local UIS           = game:GetService("UserInputService")
+local TweenService  = game:GetService("TweenService")
+local Debris        = game:GetService("Debris")
+local SoundService  = game:GetService("SoundService")
+local StarterGui    = game:GetService("StarterGui")
+
+local LP    = Players.LocalPlayer
+local PGui  = LP:WaitForChild("PlayerGui")
+local sethiddenproperty = sethiddenproperty or set_hidden_property or set_hidden_prop
+local InstanceHandleNew; pcall(function() InstanceHandleNew = InstanceHandle.new end)
+
+-- ═══════════ THEME ═══════════
+local T = {
+    BG       = Color3.fromRGB(10, 10, 16),
+    BG2      = Color3.fromRGB(18, 18, 28),
+    Panel    = Color3.fromRGB(24, 24, 36),
+    PanelLt  = Color3.fromRGB(40, 40, 56),
+    Accent   = Color3.fromRGB(99, 102, 241),
+    Accent2  = Color3.fromRGB(168, 85, 247),
+    Neon     = Color3.fromRGB(34, 211, 238),
+    Success  = Color3.fromRGB(16, 185, 129),
+    Danger   = Color3.fromRGB(239, 68, 68),
+    Warning  = Color3.fromRGB(245, 158, 11),
+    Pink     = Color3.fromRGB(236, 72, 153),
+    Purple   = Color3.fromRGB(217, 70, 239),
+    Text     = Color3.fromRGB(245, 245, 250),
+    Muted    = Color3.fromRGB(139, 139, 158),
+}
+
+-- ═══════════ SOUND ═══════════
+local function sfx(id, vol, pitch)
+    pcall(function()
+        local s = Instance.new("Sound")
+        s.SoundId = "rbxassetid://" .. id
+        s.Volume = vol or 0.4
+        s.PlaybackSpeed = pitch or 1
+        s.Parent = SoundService
+        s:Play(); Debris:AddItem(s, 4)
+    end)
+end
+local sClick    = function() sfx(12221967, 0.35, 1.8) end
+local sHover    = function() sfx(12221967, 0.12, 2.5) end
+local sSuccess  = function() sfx(5696552322, 0.5, 1.2) end
+local sError    = function() sfx(5766952670, 0.5, 0.9) end
+local sToggleOn = function() sfx(5696552322, 0.4, 1.6) end
+local sToggleOff= function() sfx(5696552322, 0.4, 0.7) end
+local sBoot     = function() sfx(6895079853, 0.4, 0.9) end
+local sWhoosh   = function() sfx(6895079853, 0.5, 1.4) end
+
+local function notify(title, text)
+    pcall(function() StarterGui:SetCore("SendNotification", {Title=title, Text=text, Duration=3}) end)
+end
+
+-- ═══════════ STATE ═══════════
+local V = {X=0, Y=0, Z=1.3, RX=0, RY=0, RZ=0, Speed=1}
+local CurrentWeld, CurrentTarget, selectedPlayer
+local AnimCopyEnabled = false
+local PlayedAnims, CopiedTracks = {}, {}
+local AnimCopyConn
+local OriginalFPDH = workspace.FallenPartsDestroyHeight
+if OriginalFPDH ~= OriginalFPDH then OriginalFPDH = -500 end
+
+-- Thrust state
+local ThrustActive = false
+local ThrustConn   = nil
+local ThrustBaseZ  = 1.3
+local ThrustAmp    = 0.55
+local ThrustSpeed  = 2.2
+
+-- Anti-sit
+local AntiSitEnabled = false
+local AntiSitConn, AntiSitCharConn
+local AntiSitCount = 0
+local AntiSitCountLabel
+
+-- ═══════════ HELPERS ═══════════
+local function getRig(p)
+    if not p or not p.Character then return nil end
+    local h = p.Character:FindFirstChildOfClass("Humanoid")
+    return h and h.RigType or nil
+end
+local function isR15(p) return getRig(p) == Enum.HumanoidRigType.R15 end
+
+local function stopAllMyAnims()
+    for _, t in ipairs(PlayedAnims) do pcall(function() t:Stop() end); pcall(function() t:Destroy() end) end
+    PlayedAnims = {}
+end
+local function stopCopying()
+    if AnimCopyConn then AnimCopyConn:Disconnect(); AnimCopyConn = nil end
+    for _, t in ipairs(CopiedTracks) do pcall(function() t:Stop() end); pcall(function() t:Destroy() end) end
+    CopiedTracks = {}
+end
+
+-- ═══════════ THRUST ENGINE ═══════════
+local function stopThrust()
+    ThrustActive = false
+    if ThrustConn then ThrustConn:Disconnect(); ThrustConn = nil end
+end
+
+local function startThrust()
+    stopThrust()
+    ThrustActive = true
+    local t0 = tick()
+    ThrustConn = RunService.Heartbeat:Connect(function()
+        if not ThrustActive then return end
+        local elapsed = tick() - t0
+        V.Z = ThrustBaseZ + math.sin(elapsed * ThrustSpeed * math.pi * 2) * ThrustAmp
+    end)
+end
+
+-- ═══════════ ANTI-SIT ═══════════
+local function antiSitTick()
+    if not AntiSitEnabled then return end
+    local c = LP.Character; if not c then return end
+    local h = c:FindFirstChildOfClass("Humanoid"); if not h then return end
+    if h.Sit then
+        h.Sit = false; h.Jump = true
+        AntiSitCount = AntiSitCount + 1
+        if AntiSitCountLabel then AntiSitCountLabel.Text = "🛡 Blocked: " .. AntiSitCount .. " times" end
+    end
+    for _, obj in ipairs(c:GetDescendants()) do
+        if obj:IsA("Weld") and obj.Name == "SeatWeld" then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+end
+
+local function hookCharAntiSit(char)
+    local h = char:FindFirstChildOfClass("Humanoid")
+    if not h then return end
+    h:GetPropertyChangedSignal("Sit"):Connect(function()
+        if h.Sit and AntiSitEnabled then
+            h.Sit = false; h.Jump = true
+            AntiSitCount = AntiSitCount + 1
+            if AntiSitCountLabel then AntiSitCountLabel.Text = "🛡 Blocked: " .. AntiSitCount .. " times" end
+        end
+    end)
+end
+
+local function enableAntiSit()
+    AntiSitEnabled = true
+    AntiSitCount = 0
+    if AntiSitCountLabel then AntiSitCountLabel.Text = "🛡 Blocked: 0 times" end
+    if AntiSitConn then AntiSitConn:Disconnect() end
+    AntiSitConn = RunService.Heartbeat:Connect(antiSitTick)
+    if AntiSitCharConn then AntiSitCharConn:Disconnect() end
+    AntiSitCharConn = LP.CharacterAdded:Connect(function(char)
+        task.wait(0.2); hookCharAntiSit(char)
+    end)
+    if LP.Character then hookCharAntiSit(LP.Character) end
+end
+
+local function disableAntiSit()
+    AntiSitEnabled = false
+    if AntiSitConn then AntiSitConn:Disconnect(); AntiSitConn = nil end
+end
+
+-- ═══════════ ANIMATION COPY ═══════════
+local function startCopying(tp)
+    stopCopying()
+    if not tp or not AnimCopyEnabled then return end
+    local myRig, tRig = getRig(LP), getRig(tp)
+    if not myRig or not tRig then return end
+    if myRig ~= tRig then notify("Copy", "Rig mismatch"); return end
+    local tc, mc = tp.Character, LP.Character
+    if not tc or not mc then return end
+    local tH, mH = tc:FindFirstChildOfClass("Humanoid"), mc:FindFirstChildOfClass("Humanoid")
+    if not tH or not mH then return end
+    local tA, mA = tH:FindFirstChildOfClass("Animator"), mH:FindFirstChildOfClass("Animator")
+    if not tA or not mA then return end
+
+    for _, track in ipairs(tA:GetPlayingAnimationTracks()) do
+        local ok, nt = pcall(function()
+            local a = Instance.new("Animation")
+            a.AnimationId = track.Animation.AnimationId
+            local t = mA:LoadAnimation(a)
+            t:AdjustSpeed(V.Speed); t:Play(track.TimePosition or 0)
+            return t
+        end)
+        if ok and nt then table.insert(CopiedTracks, nt) end
+    end
+    AnimCopyConn = tA.AnimationPlayed:Connect(function(track)
+        if not AnimCopyEnabled then return end
+        for _, t in ipairs(CopiedTracks) do pcall(function() t:Stop() end) end
+        CopiedTracks = {}
+        local ok, nt = pcall(function()
+            local a = Instance.new("Animation")
+            a.AnimationId = track.Animation.AnimationId
+            local t = mA:LoadAnimation(a)
+            t:AdjustSpeed(V.Speed); t:Play(0)
+            return t
+        end)
+        if ok and nt then table.insert(CopiedTracks, nt) end
+    end)
+end
+
+local function updateCopySpeed()
+    for _, t in ipairs(CopiedTracks) do pcall(function() t:AdjustSpeed(V.Speed) end) end
+end
+
+-- ═══════════ WELD ═══════════
+local function WeldTo(TPart, AnimId, UseCopy)
+    local char = LP.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root or not char:FindFirstChildOfClass("Humanoid") then return nil end
+    stopAllMyAnims()
+    if UseCopy then
+        startCopying(CurrentTarget)
+    elseif AnimId and AnimId ~= 0 then
+        stopCopying()
+        local anim = char:FindFirstChildWhichIsA("Animator", true)
+        if anim then
+            local a = Instance.new("Animation")
+            a.AnimationId = "rbxassetid://" .. tostring(AnimId)
+            local ok, tr = pcall(function() return anim:LoadAnimation(a) end)
+            if ok and tr then
+                pcall(function() tr:AdjustSpeed(V.Speed); tr:Play() end)
+                table.insert(PlayedAnims, tr)
+            end
+        end
+    end
+    for _, p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then p.CanCollide = false; p.Massless = true end
+    end
+    local Weld = {}; local conn
+    conn = RunService.Heartbeat:Connect(function()
+        if not char.Parent or not TPart.Parent then
+            if Weld.Destroy then Weld:Destroy() end
+            return
+        end
+        local offset = CFrame.new(V.X, V.Y, V.Z)
+            * CFrame.Angles(math.rad(V.RX), math.rad(V.RY), math.rad(V.RZ))
+        root.CFrame = TPart.CFrame * offset
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+        if sethiddenproperty then
+            pcall(function()
+                sethiddenproperty(root, "PhysicsRepRootPart", TPart)
+                if InstanceHandleNew then
+                    sethiddenproperty(root, "PhysicsRepRootRef", InstanceHandleNew(TPart))
+                end
+            end)
+        end
+    end)
+    function Weld:Destroy()
+        if conn then conn:Disconnect(); conn = nil end
+        stopCopying(); stopAllMyAnims(); stopThrust()
+        if root then
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+    return Weld
+end
+
+local function cleanAll()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld = nil end
+    stopAllMyAnims(); stopCopying(); stopThrust()
+end
+
+-- ═══════════ GUI BASE ═══════════
+local cam = workspace.CurrentCamera
+local W = math.clamp(cam.ViewportSize.X - 30, 400, 480)
+local H = 360
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "WelderProV8"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.IgnoreGuiInset = true
+gui.Parent = PGui
+
+-- FX helpers
+local function ripple(btn, input)
+    local r = Instance.new("Frame")
+    r.AnchorPoint = Vector2.new(0.5, 0.5)
+    r.Position = UDim2.new(0, input.Position.X - btn.AbsolutePosition.X, 0, input.Position.Y - btn.AbsolutePosition.Y)
+    r.Size = UDim2.new(0, 0, 0, 0)
+    r.BackgroundColor3 = Color3.new(1,1,1)
+    r.BackgroundTransparency = 0.5
+    r.ZIndex = btn.ZIndex + 2; r.Parent = btn
+    Instance.new("UICorner", r).CornerRadius = UDim.new(1, 0)
+    local maxSize = math.max(btn.AbsoluteSize.X, btn.AbsoluteSize.Y) * 2
+    TweenService:Create(r, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, maxSize, 0, maxSize), BackgroundTransparency = 1
+    }):Play()
+    Debris:AddItem(r, 0.7)
+end
+
+local function screenFlash(color)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1,0,1,0); f.BackgroundColor3 = color
+    f.BackgroundTransparency = 0.7; f.BorderSizePixel = 0
+    f.ZIndex = 150; f.Parent = gui
+    TweenService:Create(f, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    Debris:AddItem(f, 0.6)
+end
+
+local function burst(centerFrame, color, count)
+    count = count or 16
+    for i = 1, count do
+        local p = Instance.new("Frame")
+        p.Size = UDim2.new(0, 8, 0, 8)
+        p.Position = UDim2.new(0.5, -4, 0.5, -4)
+        p.BackgroundColor3 = color; p.BorderSizePixel = 0
+        p.ZIndex = 160; p.Parent = centerFrame
+        Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
+        local ang = (i / count) * math.pi * 2 + math.random() * 0.3
+        local dist = 80 + math.random(-20, 30)
+        local dx, dy = math.cos(ang) * dist, math.sin(ang) * dist
+        TweenService:Create(p, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, dx - 4, 0.5, dy - 4),
+            Size = UDim2.new(0, 2, 0, 2), BackgroundTransparency = 1,
+        }):Play()
+        Debris:AddItem(p, 1)
+    end
+end
+
+local function shake(frame, intensity)
+    intensity = intensity or 4
+    local orig = frame.Position
+    for i = 1, 6 do
+        TweenService:Create(frame, TweenInfo.new(0.04), {
+            Position = orig + UDim2.new(0, math.random(-intensity, intensity), 0, math.random(-intensity, intensity))
+        }):Play()
+        task.wait(0.04)
+    end
+    TweenService:Create(frame, TweenInfo.new(0.1), {Position = orig}):Play()
+end
+
+-- ═══════════ BOOT SCREEN ═══════════
+local boot = Instance.new("Frame")
+boot.Size = UDim2.new(1,0,1,0)
+boot.BackgroundColor3 = Color3.new(0,0,0)
+boot.ZIndex = 200; boot.Parent = gui
+
+local bootTitle = Instance.new("TextLabel")
+bootTitle.Size = UDim2.new(1,0,0,60); bootTitle.Position = UDim2.new(0,0,0.35,-80)
+bootTitle.BackgroundTransparency = 1
+bootTitle.Text = "⚡"; bootTitle.TextColor3 = T.Neon
+bootTitle.Font = Enum.Font.GothamBlack; bootTitle.TextSize = 50
+bootTitle.TextTransparency = 1; bootTitle.ZIndex = 201; bootTitle.Parent = boot
+
+local bootText = Instance.new("TextLabel")
+bootText.Size = UDim2.new(1,0,0,40); bootText.Position = UDim2.new(0,0,0.35,-15)
+bootText.BackgroundTransparency = 1
+bootText.Text = "WELDER PRO"; bootText.TextColor3 = T.Text
+bootText.Font = Enum.Font.GothamBlack; bootText.TextSize = 28
+bootText.TextTransparency = 1; bootText.ZIndex = 201; bootText.Parent = boot
+
+local bootSub = Instance.new("TextLabel")
+bootSub.Size = UDim2.new(1,0,0,20); bootSub.Position = UDim2.new(0,0,0.35,20)
+bootSub.BackgroundTransparency = 1
+bootSub.Text = "V8  •  DANCE COLLECTION"; bootSub.TextColor3 = T.Neon
+bootSub.Font = Enum.Font.GothamBold; bootSub.TextSize = 11
+bootSub.TextTransparency = 1; bootSub.ZIndex = 201; bootSub.Parent = boot
+
+local bootBar = Instance.new("Frame")
+bootBar.Size = UDim2.new(0,200,0,4); bootBar.Position = UDim2.new(0.5,-100,0.35,80)
+bootBar.BackgroundColor3 = T.Panel; bootBar.BorderSizePixel = 0
+bootBar.ZIndex = 201; bootBar.BackgroundTransparency = 1; bootBar.Parent = boot
+Instance.new("UICorner", bootBar).CornerRadius = UDim.new(1,0)
+
+local bootFill = Instance.new("Frame")
+bootFill.Size = UDim2.new(0,0,1,0); bootFill.BackgroundColor3 = T.Neon
+bootFill.BorderSizePixel = 0; bootFill.ZIndex = 202; bootFill.Parent = bootBar
+Instance.new("UICorner", bootFill).CornerRadius = UDim.new(1,0)
+
+task.spawn(function()
+    sBoot()
+    TweenService:Create(bootTitle, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+    task.wait(0.15)
+    TweenService:Create(bootText, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+    task.wait(0.1)
+    TweenService:Create(bootSub, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+    task.wait(0.2)
+    bootBar.BackgroundTransparency = 0
+    TweenService:Create(bootFill, TweenInfo.new(1.3, Enum.EasingStyle.Quad), {Size = UDim2.new(1,0,1,0)}):Play()
+    task.wait(1.4)
+    sWhoosh(); burst(boot, T.Neon, 24)
+    task.wait(0.2)
+    TweenService:Create(boot, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(bootTitle, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+    TweenService:Create(bootText, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+    TweenService:Create(bootSub, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+    TweenService:Create(bootBar, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+    task.wait(0.45); boot:Destroy()
+end)
+
+-- ═══════════ MAIN WINDOW ═══════════
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0,0,0,0)
+main.Position = UDim2.new(0.5,0,0.5,0)
+main.BackgroundColor3 = T.BG
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+main.Active = true; main.ZIndex = 5
+main.Parent = gui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,14)
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(70, 70, 90)
+mainStroke.Thickness = 1
+mainStroke.Transparency = 0.5
+mainStroke.Parent = main
+
+local mainGrad = Instance.new("UIGradient")
+mainGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, T.BG),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(14,14,22)),
+    ColorSequenceKeypoint.new(1, T.BG2),
+})
+mainGrad.Rotation = 135
+mainGrad.Parent = main
+
+-- Header
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1,0,0,44)
+header.BackgroundColor3 = T.Panel; header.BorderSizePixel = 0
+header.ZIndex = 6; header.Parent = main
+Instance.new("UICorner", header).CornerRadius = UDim.new(0,14)
+
+local hFix = Instance.new("Frame")
+hFix.Size = UDim2.new(1,0,0,12); hFix.Position = UDim2.new(0,0,1,-12)
+hFix.BackgroundColor3 = T.Panel; hFix.BorderSizePixel = 0; hFix.ZIndex = 7
+hFix.Parent = header
+
+local hGrad = Instance.new("UIGradient")
+hGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(35,35,50)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(28,28,42)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(35,35,50)),
+})
+hGrad.Rotation = 90; hGrad.Parent = header
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,-140,1,0); title.Position = UDim2.new(0,14,0,0)
+title.BackgroundTransparency = 1
+title.Text = "⚡ WELDER PRO"; title.TextColor3 = T.Text
+title.Font = Enum.Font.GothamBlack; title.TextSize = 15
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 8; title.Parent = header
+
+local vTag = Instance.new("TextLabel")
+vTag.Size = UDim2.new(0,40,0,16); vTag.Position = UDim2.new(0,138,0,14)
+vTag.BackgroundColor3 = T.Accent; vTag.Text = "V8"
+vTag.TextColor3 = Color3.new(1,1,1)
+vTag.Font = Enum.Font.GothamBlack; vTag.TextSize = 9
+vTag.ZIndex = 8; vTag.Parent = header
+Instance.new("UICorner", vTag).CornerRadius = UDim.new(0,4)
+
+-- Button styling
+local BtnColors = setmetatable({}, {__mode = "k"})
+local function setBtnColor(b, c)
+    BtnColors[b] = c
+    TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = c}):Play()
+end
+
+local function styleBtn(b, initialColor)
+    BtnColors[b] = initialColor
+    b.BackgroundColor3 = initialColor
+    b.AutoButtonColor = false
+    b.ClipsDescendants = true
+    b.MouseEnter:Connect(function()
+        sHover()
+        if BtnColors[b] then
+            TweenService:Create(b, TweenInfo.new(0.12), {
+                BackgroundColor3 = BtnColors[b]:Lerp(Color3.new(1,1,1), 0.18)
+            }):Play()
+        end
+    end)
+    b.MouseLeave:Connect(function()
+        if BtnColors[b] then
+            TweenService:Create(b, TweenInfo.new(0.18), {
+                BackgroundColor3 = BtnColors[b]
+            }):Play()
+        end
+    end)
+    b.MouseButton1Down:Connect(function(input)
+        if input and b.AbsoluteSize.X > 20 then
+            pcall(function() ripple(b, input) end)
+        end
+    end)
+end
+
+-- Window buttons (MINUS + CLOSE only — plus removed)
+local function makeWinBtn(xPos, bgColor)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 28, 0, 28)
+    b.Position = UDim2.new(1, xPos, 0, 8)
+    b.BackgroundColor3 = bgColor
+    b.Text = ""; b.AutoButtonColor = false
+    b.ZIndex = 8; b.Parent = header
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    b.MouseEnter:Connect(function()
+        sHover()
+        TweenService:Create(b, TweenInfo.new(0.12), {
+            BackgroundColor3 = bgColor:Lerp(Color3.new(1,1,1), 0.25)
+        }):Play()
+    end)
+    b.MouseLeave:Connect(function()
+        TweenService:Create(b, TweenInfo.new(0.18), {
+            BackgroundColor3 = bgColor
+        }):Play()
+    end)
+    b.MouseButton1Down:Connect(function(input)
+        pcall(function() ripple(b, input) end)
+    end)
+    return b
+end
+
+-- Minus
+local btnMin = makeWinBtn(-90, T.PanelLt)
+local minLine = Instance.new("Frame")
+minLine.Size = UDim2.new(0, 12, 0, 2)
+minLine.Position = UDim2.new(0.5, -6, 0.5, -1)
+minLine.BackgroundColor3 = T.Text; minLine.BorderSizePixel = 0
+minLine.ZIndex = 9; minLine.Parent = btnMin
+
+-- Close
+local btnClose = makeWinBtn(-58, T.Danger)
+local x1 = Instance.new("Frame")
+x1.Size = UDim2.new(0, 14, 0, 2)
+x1.Position = UDim2.new(0.5, -7, 0.5, -1)
+x1.BackgroundColor3 = Color3.new(1,1,1); x1.BorderSizePixel = 0
+x1.Rotation = 45; x1.ZIndex = 9; x1.Parent = btnClose
+local x2 = Instance.new("Frame")
+x2.Size = UDim2.new(0, 14, 0, 2)
+x2.Position = UDim2.new(0.5, -7, 0.5, -1)
+x2.BackgroundColor3 = Color3.new(1,1,1); x2.BorderSizePixel = 0
+x2.Rotation = -45; x2.ZIndex = 9; x2.Parent = btnClose
+
+-- Dragging
+local dragging, dragStart, startPos
+header.InputBegan:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; dragStart = inp.Position; startPos = main.Position
+    end
+end)
+UIS.InputChanged:Connect(function(inp)
+    if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+        local d = inp.Position - dragStart
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- Tabs bar
+local tabsBar = Instance.new("ScrollingFrame")
+tabsBar.Size = UDim2.new(1,0,0,40)
+tabsBar.Position = UDim2.new(0,0,0,44)
+tabsBar.BackgroundColor3 = T.BG2; tabsBar.BorderSizePixel = 0
+tabsBar.ScrollBarThickness = 0
+tabsBar.ScrollingDirection = Enum.ScrollingDirection.X
+tabsBar.CanvasSize = UDim2.new(0,0,0,0)
+tabsBar.AutomaticCanvasSize = Enum.AutomaticSize.X
+tabsBar.ZIndex = 6; tabsBar.Parent = main
+
+local tabsLayout = Instance.new("UIListLayout")
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.Padding = UDim.new(0,4)
+tabsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+tabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tabsLayout.Parent = tabsBar
+
+local tabsPad = Instance.new("UIPadding")
+tabsPad.PaddingLeft = UDim.new(0,8); tabsPad.PaddingRight = UDim.new(0,8)
+tabsPad.Parent = tabsBar
+
+-- Content
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1,0,1,-140)
+content.Position = UDim2.new(0,0,0,84)
+content.BackgroundTransparency = 1
+content.ZIndex = 6; content.Parent = main
+
+-- Footer
+local footer = Instance.new("Frame")
+footer.Size = UDim2.new(1,0,0,56)
+footer.Position = UDim2.new(0,0,1,-56)
+footer.BackgroundColor3 = T.Panel; footer.BorderSizePixel = 0
+footer.ZIndex = 6; footer.Parent = main
+
+local fTop = Instance.new("Frame")
+fTop.Size = UDim2.new(1,0,0,2); fTop.BackgroundColor3 = T.Accent
+fTop.BorderSizePixel = 0; fTop.ZIndex = 7; fTop.Parent = footer
+
+local footerLabel = Instance.new("TextLabel")
+footerLabel.Size = UDim2.new(1,-220,0,20); footerLabel.Position = UDim2.new(0,14,0,8)
+footerLabel.BackgroundTransparency = 1
+footerLabel.Text = "👤 No player selected"; footerLabel.TextColor3 = T.Muted
+footerLabel.Font = Enum.Font.GothamBold; footerLabel.TextSize = 11
+footerLabel.TextXAlignment = Enum.TextXAlignment.Left
+footerLabel.ZIndex = 8; footerLabel.Parent = footer
+
+local footerSub = Instance.new("TextLabel")
+footerSub.Size = UDim2.new(1,-220,0,16); footerSub.Position = UDim2.new(0,14,0,28)
+footerSub.BackgroundTransparency = 1
+footerSub.Text = "Select a player to begin"; footerSub.TextColor3 = T.Muted
+footerSub.Font = Enum.Font.Gotham; footerSub.TextSize = 9
+footerSub.TextXAlignment = Enum.TextXAlignment.Left
+footerSub.ZIndex = 8; footerSub.Parent = footer
+
+local btnWeld = Instance.new("TextButton")
+btnWeld.Size = UDim2.new(0,95,0,38); btnWeld.Position = UDim2.new(1,-207,0,9)
+btnWeld.Text = "🔗 WELD"; btnWeld.TextColor3 = Color3.new(1,1,1)
+btnWeld.Font = Enum.Font.GothamBlack; btnWeld.TextSize = 12
+btnWeld.ZIndex = 8; btnWeld.Parent = footer
+Instance.new("UICorner", btnWeld).CornerRadius = UDim.new(0,8)
+styleBtn(btnWeld, T.Accent)
+
+local btnUnweld = Instance.new("TextButton")
+btnUnweld.Size = UDim2.new(0,95,0,38); btnUnweld.Position = UDim2.new(1,-105,0,9)
+btnUnweld.Text = "🔓 UNWELD"; btnUnweld.TextColor3 = Color3.new(1,1,1)
+btnUnweld.Font = Enum.Font.GothamBlack; btnUnweld.TextSize = 12
+btnUnweld.ZIndex = 8; btnUnweld.Parent = footer
+Instance.new("UICorner", btnUnweld).CornerRadius = UDim.new(0,8)
+styleBtn(btnUnweld, T.Danger)
+
+-- ═══════════ TAB SYSTEM ═══════════
+local TabPages, TabButtons = {}, {}
+
+local function showTab(name)
+    for n, p in pairs(TabPages) do p.Visible = (n == name) end
+    for n, b in pairs(TabButtons) do
+        local act = (n == name)
+        TweenService:Create(b, TweenInfo.new(0.15), {
+            BackgroundColor3 = act and T.Accent or T.Panel,
+            TextColor3 = act and Color3.new(1,1,1) or T.Muted,
+        }):Play()
+    end
+end
+
+local function createTab(name, icon)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 82, 0, 26)
+    btn.BackgroundColor3 = T.Panel
+    btn.Text = icon .. " " .. name
+    btn.TextColor3 = T.Muted
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9
+    btn.ZIndex = 7; btn.Parent = tabsBar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+    styleBtn(btn, T.Panel)
+    btn.MouseButton1Click:Connect(function() sClick(); showTab(name) end)
+    TabButtons[name] = btn
+
+    local page = Instance.new("ScrollingFrame")
+    page.Size = UDim2.new(1,0,1,0)
+    page.BackgroundTransparency = 1; page.BorderSizePixel = 0
+    page.ScrollBarThickness = 0
+    page.CanvasSize = UDim2.new(0,0,0,0)
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.Visible = false
+    page.ZIndex = 6; page.Parent = content
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop = UDim.new(0,6); pad.PaddingBottom = UDim.new(0,6)
+    pad.PaddingLeft = UDim.new(0,8); pad.PaddingRight = UDim.new(0,8)
+    pad.Parent = page
+    local lst = Instance.new("UIListLayout")
+    lst.Padding = UDim.new(0,5); lst.SortOrder = Enum.SortOrder.LayoutOrder
+    lst.Parent = page
+    TabPages[name] = page
+    return page
+end
+
+-- ═══════════ SLIDER ═══════════
+local function makeSlider(parent, order, label, minV, maxV, defV, onChange)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,0,0,34)
+    row.BackgroundColor3 = T.Panel
+    row.BorderSizePixel = 0; row.LayoutOrder = order
+    row.ClipsDescendants = true; row.ZIndex = 7
+    row.Parent = parent
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0,7)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0,32,1,0); lbl.Position = UDim2.new(0,8,0,0)
+    lbl.BackgroundTransparency = 1; lbl.Text = label
+    lbl.TextColor3 = T.Text; lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 11; lbl.ZIndex = 8; lbl.Parent = row
+
+    local bg = Instance.new("TextButton")
+    bg.Size = UDim2.new(1,-100,0,8); bg.Position = UDim2.new(0,44,0.5,-4)
+    bg.BackgroundColor3 = T.PanelLt; bg.Text = ""; bg.AutoButtonColor = false
+    bg.ZIndex = 8; bg.Parent = row
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(1,0)
+
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0,0,1,0); fill.BackgroundColor3 = T.Accent
+    fill.BorderSizePixel = 0; fill.ZIndex = 9; fill.Parent = bg
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1,0)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0,18,0,18); knob.Position = UDim2.new(0,-9,0.5,-9)
+    knob.BackgroundColor3 = Color3.new(1,1,1); knob.BorderSizePixel = 0
+    knob.ZIndex = 10; knob.Parent = bg
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
+    local knobStroke = Instance.new("UIStroke")
+    knobStroke.Color = T.Accent; knobStroke.Thickness = 2
+    knobStroke.Parent = knob
+
+    local vb = Instance.new("TextBox")
+    vb.Size = UDim2.new(0,50,0,24); vb.Position = UDim2.new(1,-54,0.5,-12)
+    vb.BackgroundColor3 = T.PanelLt; vb.Text = tostring(defV)
+    vb.TextColor3 = T.Text; vb.Font = Enum.Font.Gotham; vb.TextSize = 11
+    vb.ClearTextOnFocus = false; vb.ZIndex = 8; vb.Parent = row
+    Instance.new("UICorner", vb).CornerRadius = UDim.new(0,4)
+
+    local cur = defV
+    local function setVal(v, fire)
+        v = math.clamp(v, minV, maxV); cur = v
+        vb.Text = tostring(math.floor(v*100+0.5)/100)
+        local pct = (v - minV) / (maxV - minV)
+        fill.Size = UDim2.new(pct, 0, 1, 0)
+        knob.Position = UDim2.new(pct, -9, 0.5, -9)
+        if fire and onChange then onChange(v) end
+    end
+    local drag = false
+    local function upd(inp)
+        local rX = inp.Position.X - bg.AbsolutePosition.X
+        local pct = math.clamp(rX / bg.AbsoluteSize.X, 0, 1)
+        setVal(minV + pct * (maxV - minV), true)
+    end
+    bg.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+            drag = true; upd(inp); sHover()
+        end
+    end)
+    bg.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+            drag = false
+        end
+    end)
+    UIS.InputChanged:Connect(function(inp)
+        if drag and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+            upd(inp)
+        end
+    end)
+    vb.FocusLost:Connect(function()
+        local n = tonumber(vb.Text)
+        if n then setVal(n, true); sClick() else setVal(cur, false) end
+    end)
+    setVal(defV, false)
+    return { set = setVal, get = function() return cur end }
+end
+
+local function sectionLbl(parent, order, txt, color)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1,0,0,16); l.BackgroundTransparency = 1
+    l.Text = txt; l.TextColor3 = color or T.Accent
+    l.Font = Enum.Font.GothamBlack; l.TextSize = 10
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.LayoutOrder = order; l.ZIndex = 7; l.Parent = parent
+    return l
+end
+
+-- ═══════════ TAB 1: PLAYERS ═══════════
+local playersTab = createTab("Players", "👥")
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1,0,0,32); searchBox.BackgroundColor3 = T.Panel
+searchBox.PlaceholderText = "🔍 Search player..."
+searchBox.Text = ""; searchBox.TextColor3 = T.Text; searchBox.PlaceholderColor3 = T.Muted
+searchBox.Font = Enum.Font.Gotham; searchBox.TextSize = 12
+searchBox.LayoutOrder = 1; searchBox.ClearTextOnFocus = false
+searchBox.ZIndex = 7; searchBox.Parent = playersTab
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0,7)
+
+local listFrame = Instance.new("Frame")
+listFrame.Size = UDim2.new(1,0,0,152); listFrame.BackgroundColor3 = T.Panel
+listFrame.BorderSizePixel = 0; listFrame.LayoutOrder = 2
+listFrame.ClipsDescendants = true; listFrame.ZIndex = 7; listFrame.Parent = playersTab
+Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0,7)
+
+local listScroll = Instance.new("ScrollingFrame")
+listScroll.Size = UDim2.new(1,-6,1,-6); listScroll.Position = UDim2.new(0,3,0,3)
+listScroll.BackgroundTransparency = 1; listScroll.BorderSizePixel = 0
+listScroll.ScrollBarThickness = 0
+listScroll.CanvasSize = UDim2.new(0,0,0,0)
+listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+listScroll.ZIndex = 8; listScroll.Parent = listFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0,4); listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = listScroll
+
+-- ═══════════ TAB 2: ADJUST ═══════════
+local adjustTab = createTab("Adjust", "📐")
+sectionLbl(adjustTab, 1, "📐 POSITION OFFSET", T.Accent)
+local SlX = makeSlider(adjustTab, 2, "X", -10, 10, 0, function(v) V.X = v end)
+local SlY = makeSlider(adjustTab, 3, "Y", -10, 10, 0, function(v) V.Y = v end)
+local SlZ = makeSlider(adjustTab, 4, "Z", -10, 10, 1.3, function(v) V.Z = v end)
+sectionLbl(adjustTab, 5, "🔄 ROTATION (degrees)", T.Warning)
+local SlRX = makeSlider(adjustTab, 6, "RX", -180, 180, 0, function(v) V.RX = v end)
+local SlRY = makeSlider(adjustTab, 7, "RY", -180, 180, 0, function(v) V.RY = v end)
+local SlRZ = makeSlider(adjustTab, 8, "RZ", -180, 180, 0, function(v) V.RZ = v end)
+sectionLbl(adjustTab, 9, "🎬 ANIMATION SPEED", T.Success)
+local SlSpeed = makeSlider(adjustTab, 10, "Spd", 0.1, 3, 1, function(v)
+    V.Speed = v; updateCopySpeed()
+end)
+
+local rowApply = Instance.new("Frame")
+rowApply.Size = UDim2.new(1,0,0,34); rowApply.BackgroundTransparency = 1
+rowApply.LayoutOrder = 11; rowApply.ZIndex = 7; rowApply.Parent = adjustTab
+
+local applyBtn = Instance.new("TextButton")
+applyBtn.Size = UDim2.new(0.65,-3,1,0); applyBtn.Position = UDim2.new(0,0,0,0)
+applyBtn.Text = "⚡ APPLY & WELD"; applyBtn.TextColor3 = Color3.new(1,1,1)
+applyBtn.Font = Enum.Font.GothamBlack; applyBtn.TextSize = 12
+applyBtn.ZIndex = 8; applyBtn.Parent = rowApply
+Instance.new("UICorner", applyBtn).CornerRadius = UDim.new(0,7)
+styleBtn(applyBtn, T.Accent)
+
+local resetBtn = Instance.new("TextButton")
+resetBtn.Size = UDim2.new(0.35,-3,1,0); resetBtn.Position = UDim2.new(0.65,3,0,0)
+resetBtn.Text = "↺ RESET"; resetBtn.TextColor3 = T.Text
+resetBtn.Font = Enum.Font.GothamBlack; resetBtn.TextSize = 11
+resetBtn.ZIndex = 8; resetBtn.Parent = rowApply
+Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0,7)
+styleBtn(resetBtn, T.PanelLt)
+
+resetBtn.MouseButton1Click:Connect(function()
+    sClick()
+    SlX.set(0, true); SlY.set(0, true); SlZ.set(1.3, true)
+    SlRX.set(0, true); SlRY.set(0, true); SlRZ.set(0, true)
+    SlSpeed.set(1, true)
+end)
+
+-- ═══════════ TAB 3: PRESETS ═══════════
+local presetsTab = createTab("Presets", "⚡")
+
+local function runPreset(x, y, z, rx, ry, rz, animId)
+    if not selectedPlayer then notify("Welder","Select player"); sError(); shake(main,5); return end
+    stopThrust()
+    pcall(function() SlX.set(x, false); SlY.set(y, false); SlZ.set(z, false)
+        SlRX.set(rx, false); SlRY.set(ry, false); SlRZ.set(rz, false) end)
+    V.X, V.Y, V.Z = x, y, z; V.RX, V.RY, V.RZ = rx, ry, rz
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld = nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget = selectedPlayer
+    local tc = selectedPlayer.Character
+    if not tc then return end
+    local th = tc:FindFirstChildOfClass("Humanoid")
+    local tr = ((th and th.RigType == Enum.HumanoidRigType.R15)
+        and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local ok, w = pcall(function() return WeldTo(tr, animId, false) end)
+    if ok and w then
+        CurrentWeld = w; sSuccess(); screenFlash(T.Success); burst(main, T.Success, 12)
+        notify("Welder", "Preset → " .. selectedPlayer.Name)
+    end
+end
+
+-- F.Bang (fixed facing + height)
+local function runFBang()
+    if not selectedPlayer then notify("Welder","Select player"); sError(); shake(main,5); return end
+    stopThrust()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld = nil end
+    stopAllMyAnims(); stopCopying()
+
+    local tc = selectedPlayer.Character
+    if not tc then notify("F.Bang","Target missing"); sError(); return end
+    local head = tc:FindFirstChild("Head")
+    if not head then notify("F.Bang","No head part found"); sError(); return end
+
+    CurrentTarget = selectedPlayer
+
+    local myRig = getRig(LP)
+    local yOff = (myRig == Enum.HumanoidRigType.R15) and -1.8 or -1.2
+
+    V.X = 0
+    V.Y = yOff
+    V.Z = -1.8
+    V.RX, V.RY, V.RZ = 0, 180, 0   -- face target
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local ok, w = pcall(function() return WeldTo(head, 148840371, false) end)
+    if ok and w then
+        CurrentWeld = w
+        ThrustBaseZ = -1.8
+        startThrust()
+        sSuccess(); screenFlash(T.Pink); burst(main, T.Pink, 16)
+        notify("F.Bang", "🎯 Facing " .. selectedPlayer.Name)
+    else
+        sError(); shake(main, 5)
+    end
+end
+
+local function presetRow(order, btns)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,0,0,34); row.BackgroundTransparency = 1
+    row.LayoutOrder = order; row.ZIndex = 7; row.Parent = presetsTab
+    for i, cfg in ipairs(btns) do
+        local bw = 1 / #btns
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.new(bw,-2,1,0); b.Position = UDim2.new((i-1)*bw,2,0,0)
+        b.Text = cfg.text; b.TextColor3 = Color3.new(1,1,1)
+        b.Font = Enum.Font.GothamBold; b.TextSize = 10
+        b.ZIndex = 8; b.Parent = row
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0,7)
+        styleBtn(b, cfg.color)
+        b.MouseButton1Click:Connect(function() sClick(); pcall(cfg.cb) end)
+    end
+end
+
+presetRow(1, {
+    {text="🎭 Stand", color=Color3.fromRGB(60,100,200), cb=function()
+        if isR15(LP) then runPreset(1.8,1.8,2,0,0,0,96658788627102) else runPreset(1.5,1.25,2,0,0,0,313762630) end end},
+    {text="⚔ Attack", color=Color3.fromRGB(200,60,60), cb=function()
+        if isR15(LP) then runPreset(0,0.5,-2.55,0,180,0,117183737438245) else runPreset(0,0,-1.25,0,180,0,259438880) end end},
+    {text="🪑 HeadSit", color=Color3.fromRGB(100,180,100), cb=function()
+        runPreset(0,3,0,0,0,0,178130996) end},
+})
+
+presetRow(2, {
+    {text="💥 Bang 2.0", color=Color3.fromRGB(255,50,150), cb=function()
+        runPreset(0, 0, 1.3, 0, 0, 0, 148840371)
+        task.wait(0.1)
+        ThrustBaseZ = 1.3
+        startThrust()
+    end},
+    {text="🎒 Backpack", color=Color3.fromRGB(120,80,220), cb=function()
+        runPreset(0,0,1.05,0,180,0,178130996) end},
+    {text="🛏 Carpet", color=Color3.fromRGB(200,180,60), cb=function()
+        runPreset(0,-1,0,0,0,0,282574440) end},
+})
+
+-- F.Bang full-width
+local fBangRow = Instance.new("Frame")
+fBangRow.Size = UDim2.new(1,0,0,38); fBangRow.BackgroundTransparency = 1
+fBangRow.LayoutOrder = 3; fBangRow.ZIndex = 7; fBangRow.Parent = presetsTab
+
+local fBangBtn = Instance.new("TextButton")
+fBangBtn.Size = UDim2.new(1,0,1,0)
+fBangBtn.Text = "💦 F.BANG — FACE LOCK"
+fBangBtn.TextColor3 = Color3.new(1,1,1)
+fBangBtn.Font = Enum.Font.GothamBlack; fBangBtn.TextSize = 13
+fBangBtn.ZIndex = 8; fBangBtn.Parent = fBangRow
+Instance.new("UICorner", fBangBtn).CornerRadius = UDim.new(0, 8)
+styleBtn(fBangBtn, T.Pink)
+fBangBtn.MouseButton1Click:Connect(function() sClick(); pcall(runFBang) end)
+
+-- Bang settings
+sectionLbl(presetsTab, 4, "💥 BANG DISTANCE & SPEED", T.Warning)
+local SlThrustDist = makeSlider(presetsTab, 5, "Dist", 0.1, 2, 0.55, function(v) ThrustAmp = v end)
+local SlThrustSpd  = makeSlider(presetsTab, 6, "Spd", 0.5, 6, 2.2, function(v) ThrustSpeed = v end)
+
+-- Carry/Leap/Throne
+presetRow(7, {
+    {text="🎪 Carry", color=Color3.fromRGB(80,160,220), cb=function()
+        if isR15(LP) then runPreset(0,1,2,0,0,0,178130996) else runPreset(0,1,1.5,0,0,0,178130996) end end},
+    {text="🤸 Leap", color=Color3.fromRGB(220,120,80), cb=function()
+        runPreset(0,2.5,1.5,15,0,0,178130996) end},
+    {text="🪁 Throne", color=Color3.fromRGB(160,60,200), cb=function()
+        runPreset(0,3.2,0.5,0,0,0,282574440) end},
+})
+
+sectionLbl(presetsTab, 8, "🎬 ANIMATION COPY", T.Success)
+
+local copyBtn = Instance.new("TextButton")
+copyBtn.Size = UDim2.new(1,0,0,38); copyBtn.LayoutOrder = 9
+copyBtn.Text = "📋 COPY ANIMATION: OFF"; copyBtn.TextColor3 = Color3.new(1,1,1)
+copyBtn.Font = Enum.Font.GothamBlack; copyBtn.TextSize = 12
+copyBtn.ZIndex = 8; copyBtn.Parent = presetsTab
+Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0,8)
+styleBtn(copyBtn, T.PanelLt)
+
+local function updateCopyVisual()
+    if AnimCopyEnabled then
+        setBtnColor(copyBtn, T.Success)
+        copyBtn.Text = "✅ COPY ANIMATION: ON"
+    else
+        setBtnColor(copyBtn, T.PanelLt)
+        copyBtn.Text = "📋 COPY ANIMATION: OFF"
+    end
+end
+
+copyBtn.MouseButton1Click:Connect(function()
+    AnimCopyEnabled = not AnimCopyEnabled
+    updateCopyVisual()
+    if AnimCopyEnabled then
+        sToggleOn(); burst(copyBtn, T.Success, 8)
+        if CurrentWeld and CurrentTarget then startCopying(CurrentTarget) end
+    else
+        sToggleOff(); stopCopying()
+    end
+end)
+
+-- ═══════════ TAB 4: ANIMS (DANCE COLLECTION) ═══════════
+local animsTab = createTab("Anims", "🎬")
+sectionLbl(animsTab, 1, "🎬 CUSTOM ANIMATION PLAYER", T.Accent)
+
+local animInput = Instance.new("TextBox")
+animInput.Size = UDim2.new(1,0,0,34); animInput.BackgroundColor3 = T.Panel
+animInput.PlaceholderText = "Enter Animation ID..."
+animInput.Text = ""; animInput.TextColor3 = T.Text; animInput.PlaceholderColor3 = T.Muted
+animInput.Font = Enum.Font.Gotham; animInput.TextSize = 12
+animInput.LayoutOrder = 2; animInput.ClearTextOnFocus = false
+animInput.ZIndex = 7; animInput.Parent = animsTab
+Instance.new("UICorner", animInput).CornerRadius = UDim.new(0,7)
+
+local animRow = Instance.new("Frame")
+animRow.Size = UDim2.new(1,0,0,34); animRow.BackgroundTransparency = 1
+animRow.LayoutOrder = 3; animRow.ZIndex = 7; animRow.Parent = animsTab
+
+local playBtn = Instance.new("TextButton")
+playBtn.Size = UDim2.new(0.5,-2,1,0); playBtn.Position = UDim2.new(0,0,0,0)
+playBtn.Text = "▶ PLAY ON SELF"; playBtn.TextColor3 = Color3.new(1,1,1)
+playBtn.Font = Enum.Font.GothamBlack; playBtn.TextSize = 11
+playBtn.ZIndex = 8; playBtn.Parent = animRow
+Instance.new("UICorner", playBtn).CornerRadius = UDim.new(0,7)
+styleBtn(playBtn, T.Success)
+
+playBtn.MouseButton1Click:Connect(function()
+    sClick()
+    local id = tonumber(animInput.Text)
+    if not id then notify("Anims","Invalid ID"); sError(); shake(main,3); return end
+    local char = LP.Character; if not char then return end
+    local animator = char:FindFirstChildWhichIsA("Animator", true); if not animator then return end
+    local a = Instance.new("Animation")
+    a.AnimationId = "rbxassetid://" .. id
+    local ok, tr = pcall(function() return animator:LoadAnimation(a) end)
+    if ok and tr then
+        pcall(function() tr:AdjustSpeed(V.Speed); tr:Play() end)
+        table.insert(PlayedAnims, tr)
+        notify("Anims", "Playing: " .. id)
+        sSuccess(); burst(playBtn, T.Success, 6)
+    else
+        notify("Anims", "Load failed"); sError(); shake(main,3)
+    end
+end)
+
+local stopBtn = Instance.new("TextButton")
+stopBtn.Size = UDim2.new(0.5,-2,1,0); stopBtn.Position = UDim2.new(0.5,2,0,0)
+stopBtn.Text = "⏹ STOP ALL"; stopBtn.TextColor3 = Color3.new(1,1,1)
+stopBtn.Font = Enum.Font.GothamBlack; stopBtn.TextSize = 11
+stopBtn.ZIndex = 8; stopBtn.Parent = animRow
+Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0,7)
+styleBtn(stopBtn, T.Danger)
+
+stopBtn.MouseButton1Click:Connect(function()
+    sClick(); stopAllMyAnims(); stopCopying(); stopThrust()
+    notify("Anims", "Stopped")
+end)
+
+-- ═══════════ BANG DANCE COLLECTION (3.0 - 8.0) ═══════════
+sectionLbl(animsTab, 4, "💃 BANG DANCE COLLECTION", T.Purple)
+
+local function runDanceBang(name, animId)
+    if not selectedPlayer then
+        -- No target: just play on self
+        local char = LP.Character; if not char then return end
+        local animator = char:FindFirstChildWhichIsA("Animator", true); if not animator then return end
+        local a = Instance.new("Animation")
+        a.AnimationId = "rbxassetid://" .. tostring(animId)
+        local ok, tr = pcall(function() return animator:LoadAnimation(a) end)
+        if ok and tr then
+            pcall(function() tr:AdjustSpeed(V.Speed); tr:Play() end)
+            table.insert(PlayedAnims, tr)
+            notify(name, "Playing on self (no target)")
+            sSuccess()
+        else
+            notify(name, "Load failed"); sError()
+        end
+        return
+    end
+    -- Target selected: weld + dance + thrust
+    runPreset(0, 0, 1.3, 0, 0, 0, animId)
+    task.wait(0.1)
+    ThrustBaseZ = 1.3
+    startThrust()
+    notify(name, "💃 Dancing → " .. selectedPlayer.Name)
+end
+
+-- Row 1: Bang 3.0, 4.0, 5.0
+local danceRow1 = Instance.new("Frame")
+danceRow1.Size = UDim2.new(1,0,0,38); danceRow1.BackgroundTransparency = 1
+danceRow1.LayoutOrder = 5; danceRow1.ZIndex = 7; danceRow1.Parent = animsTab
+
+local danceBtns1 = {
+    {text="Bang 3.0\nFloss",     color=Color3.fromRGB(217,70,239),  id=507771019},
+    {text="Bang 4.0\nDefault",   color=Color3.fromRGB(59,130,246),  id=507766666},
+    {text="Bang 5.0\nOrange J.", color=Color3.fromRGB(249,115,22),  id=507777826},
+}
+for i, cfg in ipairs(danceBtns1) do
+    local bw = 1/3
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(bw,-2,1,0); b.Position = UDim2.new((i-1)*bw,2,0,0)
+    b.Text = cfg.text; b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold; b.TextSize = 10
+    b.TextWrapped = true
+    b.ZIndex = 8; b.Parent = danceRow1
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,7)
+    styleBtn(b, cfg.color)
+    b.MouseButton1Click:Connect(function()
+        sClick()
+        local nm = cfg.text:match("^([^\n]+)")
+        pcall(function() runDanceBang(nm, cfg.id) end)
+    end)
+end
+
+-- Row 2: Bang 6.0, 7.0, 8.0
+local danceRow2 = Instance.new("Frame")
+danceRow2.Size = UDim2.new(1,0,0,38); danceRow2.BackgroundTransparency = 1
+danceRow2.LayoutOrder = 6; danceRow2.ZIndex = 7; danceRow2.Parent = animsTab
+
+local danceBtns2 = {
+    {text="Bang 6.0\nGangnam",   color=Color3.fromRGB(236,72,153),  id=182435998},
+    {text="Bang 7.0\nHype",      color=Color3.fromRGB(16,185,129),  id=507770677},
+    {text="Bang 8.0\nParty",     color=Color3.fromRGB(245,158,11),  id=4555808220},
+}
+for i, cfg in ipairs(danceBtns2) do
+    local bw = 1/3
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(bw,-2,1,0); b.Position = UDim2.new((i-1)*bw,2,0,0)
+    b.Text = cfg.text; b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold; b.TextSize = 10
+    b.TextWrapped = true
+    b.ZIndex = 8; b.Parent = danceRow2
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,7)
+    styleBtn(b, cfg.color)
+    b.MouseButton1Click:Connect(function()
+        sClick()
+        local nm = cfg.text:match("^([^\n]+)")
+        pcall(function() runDanceBang(nm, cfg.id) end)
+    end)
+end
+
+-- Row 3: Bang 9.0, 10.0, 11.0 (bonus dances)
+local danceRow3 = Instance.new("Frame")
+danceRow3.Size = UDim2.new(1,0,0,38); danceRow3.BackgroundTransparency = 1
+danceRow3.LayoutOrder = 7; danceRow3.ZIndex = 7; danceRow3.Parent = animsTab
+
+local danceBtns3 = {
+    {text="Bang 9.0\nDontStart",  color=Color3.fromRGB(139,92,246), id=507772104},
+    {text="Bang 10.0\nCha Cha",   color=Color3.fromRGB(6,182,212),  id=3696763549},
+    {text="Bang 11.0\nDance",     color=Color3.fromRGB(239,68,68),  id=5918726674},
+}
+for i, cfg in ipairs(danceBtns3) do
+    local bw = 1/3
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(bw,-2,1,0); b.Position = UDim2.new((i-1)*bw,2,0,0)
+    b.Text = cfg.text; b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold; b.TextSize = 10
+    b.TextWrapped = true
+    b.ZIndex = 8; b.Parent = danceRow3
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,7)
+    styleBtn(b, cfg.color)
+    b.MouseButton1Click:Connect(function()
+        sClick()
+        local nm = cfg.text:match("^([^\n]+)")
+        pcall(function() runDanceBang(nm, cfg.id) end)
+    end)
+end
+
+-- Info card
+sectionLbl(animsTab, 8, "ℹ DANCE INFO", T.Muted)
+
+local infoCard = Instance.new("Frame")
+infoCard.Size = UDim2.new(1,0,0,72); infoCard.BackgroundColor3 = T.Panel
+infoCard.BorderSizePixel = 0; infoCard.LayoutOrder = 9
+infoCard.ZIndex = 7; infoCard.Parent = animsTab
+Instance.new("UICorner", infoCard).CornerRadius = UDim.new(0,7)
+
+local infoTxt = Instance.new("TextLabel")
+infoTxt.Size = UDim2.new(1,-16,1,-8); infoTxt.Position = UDim2.new(0,8,0,4)
+infoTxt.BackgroundTransparency = 1
+infoTxt.Text = "• Select target → dance welds + thrusts\n• No target → dance plays on self\n• Dist/Spd sliders work on all dances\n• Unweld stops dance + thrust\n• If ID fails, replace in script with your own"
+infoTxt.TextColor3 = T.Muted; infoTxt.Font = Enum.Font.Gotham
+infoTxt.TextSize = 10; infoTxt.TextWrapped = true
+infoTxt.TextXAlignment = Enum.TextXAlignment.Left
+infoTxt.TextYAlignment = Enum.TextYAlignment.Top
+infoTxt.ZIndex = 8; infoTxt.Parent = infoCard
+
+-- ═══════════ TAB 5: ANTI-SIT ═══════════
+local antiSitTab = createTab("Anti-Sit", "🛡")
+sectionLbl(antiSitTab, 1, "🛡 ANTI-SIT PROTECTION", T.Neon)
+
+local antiDesc = Instance.new("Frame")
+antiDesc.Size = UDim2.new(1,0,0,64); antiDesc.BackgroundColor3 = T.Panel
+antiDesc.BorderSizePixel = 0; antiDesc.LayoutOrder = 2
+antiDesc.ZIndex = 7; antiDesc.Parent = antiSitTab
+Instance.new("UICorner", antiDesc).CornerRadius = UDim.new(0,7)
+
+local antiDescTxt = Instance.new("TextLabel")
+antiDescTxt.Size = UDim2.new(1,-16,1,-8); antiDescTxt.Position = UDim2.new(0,8,0,4)
+antiDescTxt.BackgroundTransparency = 1
+antiDescTxt.Text = "Prevents you from sitting — instantly stands you back up the moment you sit. Works against all forced-sit scripts."
+antiDescTxt.TextColor3 = T.Muted; antiDescTxt.Font = Enum.Font.Gotham
+antiDescTxt.TextSize = 10; antiDescTxt.TextWrapped = true
+antiDescTxt.TextXAlignment = Enum.TextXAlignment.Left
+antiDescTxt.TextYAlignment = Enum.TextYAlignment.Top
+antiDescTxt.ZIndex = 8; antiDescTxt.Parent = antiDesc
+
+AntiSitCountLabel = Instance.new("TextLabel")
+AntiSitCountLabel.Size = UDim2.new(1,0,0,30)
+AntiSitCountLabel.BackgroundColor3 = T.Panel
+AntiSitCountLabel.Text = "🛡 Blocked: 0 times"
+AntiSitCountLabel.TextColor3 = T.Neon
+AntiSitCountLabel.Font = Enum.Font.GothamBlack
+AntiSitCountLabel.TextSize = 12
+AntiSitCountLabel.LayoutOrder = 3
+AntiSitCountLabel.ZIndex = 7; AntiSitCountLabel.Parent = antiSitTab
+Instance.new("UICorner", AntiSitCountLabel).CornerRadius = UDim.new(0,7)
+
+local antiSitBtn = Instance.new("TextButton")
+antiSitBtn.Size = UDim2.new(1,0,0,42); antiSitBtn.LayoutOrder = 4
+antiSitBtn.Text = "🛡 ENABLE ANTI-SIT"; antiSitBtn.TextColor3 = Color3.new(1,1,1)
+antiSitBtn.Font = Enum.Font.GothamBlack; antiSitBtn.TextSize = 13
+antiSitBtn.ZIndex = 8; antiSitBtn.Parent = antiSitTab
+Instance.new("UICorner", antiSitBtn).CornerRadius = UDim.new(0,8)
+styleBtn(antiSitBtn, T.PanelLt)
+
+antiSitBtn.MouseButton1Click:Connect(function()
+    if AntiSitEnabled then
+        disableAntiSit()
+        setBtnColor(antiSitBtn, T.PanelLt)
+        antiSitBtn.Text = "🛡 ENABLE ANTI-SIT"
+        sToggleOff(); notify("Anti-Sit", "Disabled")
+    else
+        enableAntiSit()
+        setBtnColor(antiSitBtn, T.Success)
+        antiSitBtn.Text = "✅ ANTI-SIT ACTIVE"
+        sToggleOn(); burst(antiSitBtn, T.Success, 10)
+        notify("Anti-Sit", "Enabled")
+    end
+end)
+
+sectionLbl(antiSitTab, 5, "ℹ HOW IT WORKS", T.Muted)
+local howFrame = Instance.new("Frame")
+howFrame.Size = UDim2.new(1,0,0,80); howFrame.BackgroundColor3 = T.Panel
+howFrame.BorderSizePixel = 0; howFrame.LayoutOrder = 6
+howFrame.ZIndex = 7; howFrame.Parent = antiSitTab
+Instance.new("UICorner", howFrame).CornerRadius = UDim.new(0,7)
+
+local howTxt = Instance.new("TextLabel")
+howTxt.Size = UDim2.new(1,-16,1,-8); howTxt.Position = UDim2.new(0,8,0,4)
+howTxt.BackgroundTransparency = 1
+howTxt.Text = "• Checks Sit state every frame\n• Force-stands + jumps instantly\n• Removes SeatWelds that form\n• Counts each successful block\n• Survives respawn automatically"
+howTxt.TextColor3 = T.Muted; howTxt.Font = Enum.Font.Gotham
+howTxt.TextSize = 10; howTxt.TextWrapped = true
+howTxt.TextXAlignment = Enum.TextXAlignment.Left
+howTxt.TextYAlignment = Enum.TextYAlignment.Top
+howTxt.ZIndex = 8; howTxt.Parent = howFrame
+
+-- ═══════════ TAB 6: GUIDE ═══════════
+local guideTab = createTab("Guide", "📖")
+
+local function guideCard(order, titleTxt, bodyTxt, color)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1,0,0,0); card.AutomaticSize = Enum.AutomaticSize.Y
+    card.BackgroundColor3 = T.Panel; card.BorderSizePixel = 0
+    card.LayoutOrder = order; card.ZIndex = 7; card.Parent = guideTab
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0,7)
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop = UDim.new(0,8); pad.PaddingBottom = UDim.new(0,8)
+    pad.PaddingLeft = UDim.new(0,10); pad.PaddingRight = UDim.new(0,10)
+    pad.Parent = card
+    local list = Instance.new("UIListLayout")
+    list.Padding = UDim.new(0,4); list.Parent = card
+    local h = Instance.new("TextLabel")
+    h.Size = UDim2.new(1,0,0,18); h.BackgroundTransparency = 1
+    h.Text = titleTxt; h.TextColor3 = color or T.Neon
+    h.Font = Enum.Font.GothamBlack; h.TextSize = 11
+    h.TextXAlignment = Enum.TextXAlignment.Left
+    h.LayoutOrder = 1; h.ZIndex = 8; h.Parent = card
+    local b = Instance.new("TextLabel")
+    b.Size = UDim2.new(1,0,0,0); b.AutomaticSize = Enum.AutomaticSize.Y
+    b.BackgroundTransparency = 1; b.Text = bodyTxt
+    b.TextColor3 = T.Text; b.Font = Enum.Font.Gotham; b.TextSize = 10
+    b.TextWrapped = true; b.TextXAlignment = Enum.TextXAlignment.Left
+    b.TextYAlignment = Enum.TextYAlignment.Top
+    b.LayoutOrder = 2; b.ZIndex = 8; b.Parent = card
+    return card
+end
+
+guideCard(1, "🎯 RIG COMPATIBILITY",
+[[R15 → R15  ✅  COPIES
+R6  → R6   ✅  COPIES
+R15 → R6   ❌  BLOCKED
+R6  → R15  ❌  BLOCKED
+
+Your rig detects automatically.
+Copy toggle checks on each weld.]], T.Neon)
+
+guideCard(2, "❓ WHY CROSS-RIG FAILS",
+[[R15: 15 body parts (upper/lower torso, hands, feet)
+R6: 6 parts (head, torso, arms, legs)
+
+Animation bones differ. Cross-rig won't 
+fit physically.
+
+This is Roblox Engine limitation — 
+no script can bypass.]], T.Warning)
+
+guideCard(3, "✅ WHAT COPIES",
+[[Same-rig only:
+• Custom emotes & dances
+• Tool hold animations
+• Custom idle / walk / run
+• Any Animation ID on target
+
+Flow:
+1. Target emote → you follow
+2. AnimationPlayed fires
+3. Loads on your Animator
+4. Plays at matching time]], T.Success)
+
+guideCard(4, "❌ WHAT CAN'T COPY",
+[[• Roblox CORE anims (locked):
+  - Default idle, walk, run, jump
+  - Animation IDs are empty
+  - Roblox asset protection
+
+• Cross-rig (R15 ↔ R6)
+
+• Other-game animations
+  - Only what's used in this server]], T.Danger)
+
+guideCard(5, "💥 BANG 2.0",
+[[Rhythmic forward-back thrust welded 
+to target torso.
+
+Controls:
+• Dist slider = amplitude (0.1-2.0)
+• Spd slider = frequency (0.5-6 Hz)
+
+Live tuning — no re-weld needed.]], T.Pink)
+
+guideCard(6, "💦 F.BANG (FIXED)",
+[[Same thrust, but face-locked:
+• Welds to Head (not torso)
+• RY = 180 → faces target
+• Positioned in front of face
+• Head turns → you follow
+• Auto height adjust R15/R6
+
+Result: you appear face-to-face, 
+facing the target, with rhythm.]], T.Pink)
+
+guideCard(7, "💃 BANG 3.0 - 11.0 (DANCES)",
+[[Anims tab → BANG DANCE COLLECTION
+
+9 preset dances:
+• Bang 3.0  Floss
+• Bang 4.0  Default Dance
+• Bang 5.0  Orange Justice
+• Bang 6.0  Gangnam Style
+• Bang 7.0  Hype
+• Bang 8.0  Party
+• Bang 9.0  DontStartNow
+• Bang 10.0 Cha Cha Slide
+• Bang 11.0 Dance
+
+How to use:
+1. Select target (Players tab)
+2. Anims tab → click any Bang X.0
+3. Player welds + dances + thrusts
+4. Dist/Spd sliders affect motion
+5. Unweld stops everything
+
+No target → dance plays on self
+
+If ID fails (some games block certain
+anims), change ID in the script to
+your own custom dance ID.]], T.Purple)
+
+guideCard(8, "🛡 ANTI-SIT",
+[[Stops you from sitting — instantly
+stands + jumps the moment you sit.
+
+Layers:
+• Heartbeat check (every frame)
+• Sit property listener (instant)
+• SeatWeld auto-destroy
+• Respawn safe
+
+Toggle in Anti-Sit tab. Counter shows
+how many times blocked.]], T.Neon)
+
+guideCard(9, "🎮 COPY — HOW TO USE",
+[[1. Select target (Players tab)
+2. Presets → COPY ON (green)
+3. Tap WELD
+4. Target emotes → you follow
+5. Speed slider = playback speed
+6. Toggle OFF = stop copying]], T.Accent)
+
+guideCard(10, "⚡ PRO TIPS",
+[[• Dist/Spd sliders work LIVE
+• F.Bang auto-follows head turns
+• Dances work without target (self)
+• Copy + weld = full sync mode
+• Custom IDs in Anims input box
+• RightShift toggles GUI
+• Minus = minimize
+• Close shows confirmation]], T.Muted)
+
+guideCard(11, "🏆 CREDITS",
+[[Failedmite  •  Janmandio  •  deerius
+
+Welder Pro V8 — "Dance Collection"
+Made with ❤ for the community]], T.Muted)
+
+-- ═══════════ PLAYER LIST ═══════════
+local function findPlayers(q)
+    q = (q or ""):lower()
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            if q == "" or p.Name:lower():sub(1,#q) == q or p.DisplayName:lower():sub(1,#q) == q then
+                table.insert(list, p)
+            end
+        end
+    end
+    return list
+end
+
+local function refreshList()
+    for _, c in ipairs(listScroll:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
+    end
+    local plrs = findPlayers(searchBox.Text)
+    if #plrs == 0 then
+        local e = Instance.new("TextLabel")
+        e.Size = UDim2.new(1,0,0,30); e.BackgroundTransparency = 1
+        e.Text = "No players online"; e.TextColor3 = T.Muted
+        e.Font = Enum.Font.Gotham; e.TextSize = 11
+        e.LayoutOrder = 1; e.ZIndex = 9; e.Parent = listScroll
+        return
+    end
+    for i, p in ipairs(plrs) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,-6,0,32)
+        btn.BackgroundColor3 = (selectedPlayer == p) and T.Accent or T.PanelLt
+        btn.Text = ""; btn.AutoButtonColor = false
+        btn.LayoutOrder = i; btn.ZIndex = 9
+        btn.ClipsDescendants = true; btn.Parent = listScroll
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+        styleBtn(btn, (selectedPlayer == p) and T.Accent or T.PanelLt)
+
+        local av = Instance.new("ImageLabel")
+        av.Size = UDim2.new(0,24,0,24); av.Position = UDim2.new(0,4,0.5,-12)
+        av.BackgroundColor3 = T.Panel
+        av.Image = "rbxthumb://type=AvatarHeadShot&id=" .. p.UserId .. "&w=48&h=48"
+        av.ZIndex = 10; av.Parent = btn
+        Instance.new("UICorner", av).CornerRadius = UDim.new(1,0)
+
+        local nm = Instance.new("TextLabel")
+        nm.Size = UDim2.new(1,-36,1,0); nm.Position = UDim2.new(0,32,0,0)
+        nm.BackgroundTransparency = 1
+        nm.Text = p.Name .. (p.DisplayName ~= p.Name and (" (" .. p.DisplayName .. ")") or "")
+        nm.TextColor3 = Color3.new(1,1,1)
+        nm.Font = Enum.Font.GothamBold; nm.TextSize = 11
+        nm.TextXAlignment = Enum.TextXAlignment.Left
+        nm.ZIndex = 10; nm.Parent = btn
+
+        btn.MouseButton1Click:Connect(function()
+            selectedPlayer = p
+            footerLabel.Text = "👤 " .. p.Name
+            footerSub.Text = "Target selected — tap WELD"
+            sClick(); refreshList()
+        end)
+    end
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(refreshList)
+Players.PlayerAdded:Connect(function() task.wait(0.5); refreshList() end)
+Players.PlayerRemoving:Connect(function(p)
+    if selectedPlayer == p then
+        selectedPlayer = nil
+        footerLabel.Text = "👤 No player selected"
+        footerSub.Text = "Select a player to begin"
+    end
+    task.wait(0.1); refreshList()
+end)
+refreshList()
+
+-- ═══════════ FOOTER ACTIONS ═══════════
+btnWeld.MouseButton1Click:Connect(function()
+    sClick()
+    if not selectedPlayer then notify("Welder","Select player"); sError(); shake(main,5); return end
+    if not selectedPlayer.Character then notify("Welder","Target missing"); sError(); shake(main,5); return end
+    cleanAll(); CurrentTarget = selectedPlayer
+    local tc = selectedPlayer.Character
+    local th = tc:FindFirstChildOfClass("Humanoid")
+    local tr = ((th and th.RigType == Enum.HumanoidRigType.R15)
+        and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then notify("Welder","No torso"); sError(); shake(main,5); return end
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local ok, w = pcall(function() return WeldTo(tr, 0, AnimCopyEnabled) end)
+    if ok and w then
+        CurrentWeld = w; sSuccess(); screenFlash(T.Success); burst(main, T.Success, 16)
+        notify("Welder", "Welded → " .. selectedPlayer.Name)
+    else
+        sError(); shake(main,5); notify("Welder", "Weld failed")
+    end
+end)
+
+btnUnweld.MouseButton1Click:Connect(function()
+    sClick(); cleanAll(); CurrentTarget = nil
+    pcall(function() workspace.FallenPartsDestroyHeight = OriginalFPDH end)
+    screenFlash(T.Accent); notify("Welder", "Unwelded"); sSuccess()
+end)
+
+applyBtn.MouseButton1Click:Connect(function()
+    sClick()
+    if not selectedPlayer then notify("Welder","Select player"); sError(); shake(main,5); return end
+    cleanAll(); CurrentTarget = selectedPlayer
+    local tc = selectedPlayer.Character; if not tc then return end
+    local th = tc:FindFirstChildOfClass("Humanoid")
+    local tr = ((th and th.RigType == Enum.HumanoidRigType.R15)
+        and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local ok, w = pcall(function() return WeldTo(tr, 0, AnimCopyEnabled) end)
+    if ok and w then
+        CurrentWeld = w; sSuccess(); screenFlash(T.Success); burst(main, T.Success, 12)
+        notify("Welder", "Applied → " .. selectedPlayer.Name)
+    end
+end)
+
+-- ═══════════ WINDOW STATES (Minus only) ═══════════
+local minimized = false
+local fullSize  = UDim2.new(0, W, 0, H)
+local fullPos   = UDim2.new(0.5, -W/2, 0.5, -H/2)
+local minSize   = UDim2.new(0, W, 0, 44)
+
+btnMin.MouseButton1Click:Connect(function()
+    sClick()
+    minimized = not minimized
+    if minimized then
+        TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = minSize}):Play()
+        tabsBar.Visible = false; content.Visible = false; footer.Visible = false
+    else
+        TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = fullSize, Position = fullPos
+        }):Play()
+        task.delay(0.1, function()
+            tabsBar.Visible = true; content.Visible = true; footer.Visible = true
+        end)
+    end
+end)
+
+-- ═══════════ CLOSE CONFIRM ═══════════
+local function shutdown()
+    cleanAll()
+    pcall(function() workspace.FallenPartsDestroyHeight = OriginalFPDH end)
+    gui:Destroy()
+    print("[Welder V8] Closed")
+end
+
+local function showCloseConfirm()
+    local overlay = Instance.new("Frame")
+    overlay.Size = UDim2.new(1,0,1,0); overlay.BackgroundColor3 = Color3.new(0,0,0)
+    overlay.BackgroundTransparency = 1; overlay.ZIndex = 100; overlay.Parent = gui
+
+    local dlg = Instance.new("Frame")
+    dlg.Size = UDim2.new(0,0,0,0); dlg.Position = UDim2.new(0.5,0,0.5,0)
+    dlg.BackgroundColor3 = T.Panel; dlg.BorderSizePixel = 0
+    dlg.ZIndex = 101; dlg.Parent = gui
+    Instance.new("UICorner", dlg).CornerRadius = UDim.new(0,14)
+
+    local ds = Instance.new("UIStroke")
+    ds.Color = T.Accent; ds.Thickness = 1.5; ds.Transparency = 0.3
+    ds.Parent = dlg
+
+    local dt = Instance.new("TextLabel")
+    dt.Size = UDim2.new(1,-20,0,28); dt.Position = UDim2.new(0,10,0,14)
+    dt.BackgroundTransparency = 1; dt.Text = "⚠  Close Script?"
+    dt.TextColor3 = T.Text; dt.Font = Enum.Font.GothamBlack
+    dt.TextSize = 15; dt.ZIndex = 102; dt.Parent = dlg
+
+    local dm = Instance.new("TextLabel")
+    dm.Size = UDim2.new(1,-20,0,44); dm.Position = UDim2.new(0,10,0,48)
+    dm.BackgroundTransparency = 1
+    dm.Text = "Do you want to close the script?\nAll welds and animations will stop."
+    dm.TextColor3 = T.Muted; dm.Font = Enum.Font.Gotham
+    dm.TextSize = 11; dm.TextWrapped = true
+    dm.ZIndex = 102; dm.Parent = dlg
+
+    local yb = Instance.new("TextButton")
+    yb.Size = UDim2.new(0,110,0,34); yb.Position = UDim2.new(0.5,-115,1,-48)
+    yb.Text = "YES"; yb.TextColor3 = Color3.new(1,1,1)
+    yb.Font = Enum.Font.GothamBlack; yb.TextSize = 12
+    yb.ZIndex = 102; yb.Parent = dlg
+    Instance.new("UICorner", yb).CornerRadius = UDim.new(0,8)
+    styleBtn(yb, T.Danger)
+
+    local nb = Instance.new("TextButton")
+    nb.Size = UDim2.new(0,110,0,34); nb.Position = UDim2.new(0.5,5,1,-48)
+    nb.Text = "NO"; nb.TextColor3 = T.Text
+    nb.Font = Enum.Font.GothamBlack; nb.TextSize = 12
+    nb.ZIndex = 102; nb.Parent = dlg
+    Instance.new("UICorner", nb).CornerRadius = UDim.new(0,8)
+    styleBtn(nb, T.PanelLt)
+
+    TweenService:Create(overlay, TweenInfo.new(0.2), {BackgroundTransparency = 0.5}):Play()
+    TweenService:Create(dlg, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0,260,0,190), Position = UDim2.new(0.5,-130,0.5,-95),
+    }):Play()
+
+    local function dismiss()
+        sClick()
+        TweenService:Create(overlay, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
+        TweenService:Create(dlg, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0),
+        }):Play()
+        task.wait(0.16); overlay:Destroy(); dlg:Destroy()
+    end
+
+    yb.MouseButton1Click:Connect(function() sToggleOff(); shutdown() end)
+    nb.MouseButton1Click:Connect(dismiss)
+    overlay.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+            dismiss()
+        end
+    end)
+end
+
+btnClose.MouseButton1Click:Connect(function() sClick(); showCloseConfirm() end)
+
+-- ═══════════ ENTRY ANIMATION ═══════════
+task.spawn(function()
+    task.wait(2.0)
+    TweenService:Create(main, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = fullSize, Position = fullPos,
+    }):Play()
+    sWhoosh()
+    task.wait(0.4)
+    for i, btn in ipairs(tabsBar:GetChildren()) do
+        if btn:IsA("TextButton") then
+            local orig = btn.Size
+            btn.Size = UDim2.new(0, 0, orig.Y.Scale, orig.Y.Offset)
+            task.delay(i * 0.05, function()
+                TweenService:Create(btn, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = orig}):Play()
+            end)
+        end
+    end
+    local fo = footer.Position
+    footer.Position = fo + UDim2.new(0, 0, 0, 60)
+    TweenService:Create(footer, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = fo}):Play()
+end)
+
+-- ═══════════ INIT ═══════════
+showTab("Players")
+
+UIS.InputBegan:Connect(function(inp, gp)
+    if gp then return end
+    if inp.KeyCode == Enum.KeyCode.RightShift then
+        gui.Enabled = not gui.Enabled
+        if gui.Enabled then sWhoosh() else sToggleOff() end
+    end
+end)
+
+notify("Welder Pro V8", "Loaded! Dance collection ready")
+print("[Welder Pro V8] Ready — Dance Collection Edition")
