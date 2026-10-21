@@ -1,0 +1,1218 @@
+--[[═══════════════════════════════════════════════════════════════
+  🔴 RED HUB — V14 ULTRA
+  RightShift = Toggle | Failedmite • Janmandio • deerius
+═══════════════════════════════════════════════════════════════]]
+print("[RED HUB] Starting...")
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local SoundService = game:GetService("SoundService")
+local StarterGui = game:GetService("StarterGui")
+
+local LP = Players.LocalPlayer
+if not LP then warn("No player"); return end
+local PGui = LP:WaitForChild("PlayerGui")
+local sethiddenproperty = sethiddenproperty or set_hidden_property or set_hidden_prop
+local InstanceHandleNew; pcall(function() InstanceHandleNew = InstanceHandle.new end)
+
+local cam = workspace.CurrentCamera or workspace:WaitForChild("Camera", 5)
+if not cam then warn("No camera"); return end
+
+local T = {
+    BG=Color3.fromRGB(10,8,10), BG2=Color3.fromRGB(20,12,14),
+    Panel=Color3.fromRGB(28,14,18), PanelLt=Color3.fromRGB(48,22,28),
+    Accent=Color3.fromRGB(220,38,38), Accent2=Color3.fromRGB(153,27,27),
+    Neon=Color3.fromRGB(255,80,80), Success=Color3.fromRGB(16,185,129),
+    Danger=Color3.fromRGB(239,68,68), Warning=Color3.fromRGB(245,158,11),
+    Pink=Color3.fromRGB(239,68,68), Text=Color3.fromRGB(250,240,240),
+    Muted=Color3.fromRGB(170,130,130),
+}
+
+local function sfx(id,v,p) pcall(function() local s=Instance.new("Sound") s.SoundId="rbxassetid://"..id s.Volume=v or 0.4 s.PlaybackSpeed=p or 1 s.Parent=SoundService s:Play() Debris:AddItem(s,4) end) end
+local sClick=function() sfx(12221967,0.35,1.8) end
+local sHover=function() sfx(12221967,0.12,2.5) end
+local sSuccess=function() sfx(5696552322,0.5,1.2) end
+local sError=function() sfx(5766952670,0.5,0.9) end
+local sTOn=function() sfx(5696552322,0.4,1.6) end
+local sTOff=function() sfx(5696552322,0.4,0.7) end
+local sWhoosh=function() sfx(6895079853,0.5,1.4) end
+local sScream=function() sfx(5235775702,1,1) end
+
+local function notify(t,x) pcall(function() StarterGui:SetCore("SendNotification",{Title=t,Text=x,Duration=3}) end) end
+
+-- STATE
+local V={X=0,Y=0,Z=1.3,RX=0,RY=0,RZ=0,Speed=1}
+local CurrentWeld,CurrentTarget,selectedPlayer
+local AnimCopyEnabled=false
+local PlayedAnims,CopiedTracks={},{}
+local AnimCopyConn
+local OriginalFPDH=workspace.FallenPartsDestroyHeight
+if OriginalFPDH~=OriginalFPDH then OriginalFPDH=-500 end
+local ThrustActive=false; local ThrustConn=nil
+local ThrustTouchZ=1.0; local ThrustDirection=1; local ThrustRange=0.7; local ThrustSpeed=2.2
+local MotionMode="none"; local MotionConn=nil
+local OrbitRadius,OrbitSpeed=3,1.2
+local BounceHeight,BounceSpeed=3,1.5
+local SuckDuration=2
+local AntiSitEnabled=false; local AntiSitConn,AntiSitCharConn; local AntiSitCount=0; local AntiSitCountLabel
+local OriginalCameraSubject=nil
+local BANG_AGGRESSIVE_ANIM=507770677
+local AutoReweldEnabled=true
+local LastWeldTargetUserId,LastWeldAnimId,LastWeldWasThrust,LastWeldType
+local UIRefs={}
+local FlingActive=false; local FlingConn=nil
+local SavedCFrame=nil
+
+-- HELPERS
+local function getRig(p) if not p or not p.Character then return nil end local h=p.Character:FindFirstChildOfClass("Humanoid") return h and h.RigType or nil end
+local function isR15(p) return getRig(p)==Enum.HumanoidRigType.R15 end
+local function getHeadHeight(c) if not c then return 1.5 end local h=c:FindFirstChild("Head") local hrp=c:FindFirstChild("HumanoidRootPart") if not h or not hrp then return 1.5 end return h.Position.Y-hrp.Position.Y end
+local function getTorsoDepth(c) if not c then return 1 end local t=c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso") if t then return t.Size.Z end return 1 end
+
+local function stopAllMyAnims() for _,t in ipairs(PlayedAnims) do pcall(function() t:Stop() end) pcall(function() t:Destroy() end) end PlayedAnims={} end
+local function stopCopying() if AnimCopyConn then AnimCopyConn:Disconnect(); AnimCopyConn=nil end for _,t in ipairs(CopiedTracks) do pcall(function() t:Stop() end) pcall(function() t:Destroy() end) end CopiedTracks={} end
+local function stopThrust() ThrustActive=false; if ThrustConn then ThrustConn:Disconnect(); ThrustConn=nil end end
+local function startThrust()
+    stopThrust(); ThrustActive=true; local t0=tick()
+    ThrustConn=RunService.Heartbeat:Connect(function()
+        if not ThrustActive then return end
+        local e=tick()-t0; local ph=(math.sin(e*ThrustSpeed*math.pi*2)+1)/2
+        V.Z=ThrustTouchZ+ThrustDirection*ph*ThrustRange
+    end)
+end
+local function stopMotion() MotionMode="none"; if MotionConn then MotionConn:Disconnect(); MotionConn=nil end end
+local function stopPOV() if OriginalCameraSubject then pcall(function() cam.CameraSubject=OriginalCameraSubject end) OriginalCameraSubject=nil end end
+local function stopFling() FlingActive=false; if FlingConn then FlingConn:Disconnect(); FlingConn=nil end end
+
+local function startMotion(mode)
+    stopMotion(); MotionMode=mode; local t0=tick()
+    MotionConn=RunService.Heartbeat:Connect(function()
+        if MotionMode=="none" then return end
+        local t=tick()-t0
+        if MotionMode=="orbit" then
+            local a=t*OrbitSpeed*math.pi*2
+            V.X=math.cos(a)*OrbitRadius; V.Z=math.sin(a)*OrbitRadius; V.Y=0
+        elseif MotionMode=="bounce" then
+            V.Y=math.abs(math.sin(t*BounceSpeed*math.pi))*BounceHeight
+        elseif MotionMode=="suck" then
+            local pr=math.min(t/SuckDuration,1)
+            V.Z=-1-(4)*pr  -- from front to further front (was sucking from far)
+            V.Z=-1-4*pr
+            V.Z=-1*(1- pr*0.8)  -- hmm let me use different formula
+            V.Z=-1-3*math.sin(t*math.pi)  -- oscillate
+            if pr>=1 then stopMotion() end
+        end
+    end)
+end
+
+-- ANTI-SIT
+local function antiSitTick()
+    if not AntiSitEnabled then return end
+    local c=LP.Character; if not c then return end
+    local h=c:FindFirstChildOfClass("Humanoid"); if not h then return end
+    if h.Sit then h.Sit=false; h.Jump=true; AntiSitCount=AntiSitCount+1; if AntiSitCountLabel then AntiSitCountLabel.Text="🛡 Blocked: "..AntiSitCount.." times" end end
+    for _,o in ipairs(c:GetDescendants()) do if o:IsA("Weld") and o.Name=="SeatWeld" then pcall(function() o:Destroy() end) end end
+end
+local function hookCharAntiSit(ch)
+    local h=ch:FindFirstChildOfClass("Humanoid"); if not h then return end
+    h:GetPropertyChangedSignal("Sit"):Connect(function()
+        if h.Sit and AntiSitEnabled then h.Sit=false; h.Jump=true; AntiSitCount=AntiSitCount+1; if AntiSitCountLabel then AntiSitCountLabel.Text="🛡 Blocked: "..AntiSitCount.." times" end end
+    end)
+end
+local function enableAntiSit()
+    AntiSitEnabled=true; AntiSitCount=0
+    if AntiSitCountLabel then AntiSitCountLabel.Text="🛡 Blocked: 0 times" end
+    if AntiSitConn then AntiSitConn:Disconnect() end
+    AntiSitConn=RunService.Heartbeat:Connect(antiSitTick)
+    if AntiSitCharConn then AntiSitCharConn:Disconnect() end
+    AntiSitCharConn=LP.CharacterAdded:Connect(function(c) task.wait(0.2); hookCharAntiSit(c) end)
+    if LP.Character then hookCharAntiSit(LP.Character) end
+end
+local function disableAntiSit() AntiSitEnabled=false; if AntiSitConn then AntiSitConn:Disconnect(); AntiSitConn=nil end end
+
+-- COPY
+local function startCopying(tp)
+    stopCopying()
+    if not tp or not AnimCopyEnabled then return end
+    local mr,tr=getRig(LP),getRig(tp)
+    if not mr or not tr then return end
+    if mr~=tr then notify("RED HUB","Rig mismatch"); return end
+    local tc,mc=tp.Character,LP.Character
+    if not tc or not mc then return end
+    local tH,mH=tc:FindFirstChildOfClass("Humanoid"),mc:FindFirstChildOfClass("Humanoid")
+    if not tH or not mH then return end
+    local tA,mA=tH:FindFirstChildOfClass("Animator"),mH:FindFirstChildOfClass("Animator")
+    if not tA or not mA then return end
+    for _,track in ipairs(tA:GetPlayingAnimationTracks()) do
+        local ok,nt=pcall(function()
+            local a=Instance.new("Animation"); a.AnimationId=track.Animation.AnimationId
+            local t=mA:LoadAnimation(a); t:AdjustSpeed(V.Speed); t:Play(track.TimePosition or 0); return t
+        end)
+        if ok and nt then table.insert(CopiedTracks,nt) end
+    end
+    AnimCopyConn=tA.AnimationPlayed:Connect(function(track)
+        if not AnimCopyEnabled then return end
+        for _,t in ipairs(CopiedTracks) do pcall(function() t:Stop() end) end
+        CopiedTracks={}
+        local ok,nt=pcall(function()
+            local a=Instance.new("Animation"); a.AnimationId=track.Animation.AnimationId
+            local t=mA:LoadAnimation(a); t:AdjustSpeed(V.Speed); t:Play(0); return t
+        end)
+        if ok and nt then table.insert(CopiedTracks,nt) end
+    end)
+end
+local function updateCopySpeed() for _,t in ipairs(CopiedTracks) do pcall(function() t:AdjustSpeed(V.Speed) end) end end
+
+-- WELD
+local function WeldTo(TPart,AnimId,UseCopy)
+    local char=LP.Character; if not char then return nil end
+    local root=char:FindFirstChild("HumanoidRootPart")
+    if not root or not char:FindFirstChildOfClass("Humanoid") then return nil end
+    stopAllMyAnims()
+    if UseCopy then startCopying(CurrentTarget)
+    elseif AnimId and AnimId~=0 then
+        stopCopying()
+        local anim=char:FindFirstChildWhichIsA("Animator",true)
+        if anim then
+            local a=Instance.new("Animation"); a.AnimationId="rbxassetid://"..tostring(AnimId)
+            local ok,tr=pcall(function() return anim:LoadAnimation(a) end)
+            if ok and tr then pcall(function() tr:AdjustSpeed(V.Speed); tr:Play() end); table.insert(PlayedAnims,tr) end
+        end
+    end
+    for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false; p.Massless=true end end
+    local W={}; local conn
+    conn=RunService.Heartbeat:Connect(function()
+        if not char.Parent or not TPart.Parent then if W.Destroy then W:Destroy() end return end
+        local off=CFrame.new(V.X,V.Y,V.Z)*CFrame.Angles(math.rad(V.RX),math.rad(V.RY),math.rad(V.RZ))
+        root.CFrame=TPart.CFrame*off
+        root.AssemblyLinearVelocity=Vector3.zero; root.AssemblyAngularVelocity=Vector3.zero
+        if sethiddenproperty then
+            pcall(function()
+                sethiddenproperty(root,"PhysicsRepRootPart",TPart)
+                if InstanceHandleNew then sethiddenproperty(root,"PhysicsRepRootRef",InstanceHandleNew(TPart)) end
+            end)
+        end
+    end)
+    function W:Destroy()
+        if conn then conn:Disconnect(); conn=nil end
+        stopCopying(); stopAllMyAnims(); stopThrust(); stopMotion(); stopFling()
+        if root then root.AssemblyLinearVelocity=Vector3.zero; root.AssemblyAngularVelocity=Vector3.zero end
+    end
+    return W
+end
+
+local function cleanAll()
+    stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying(); stopThrust(); stopMotion(); stopPOV()
+    local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if h then pcall(function() h.PlatformStand=false end) end
+end
+
+local function storeWeldInfo(tp,a,t,ty) if not tp then return end LastWeldTargetUserId=tp.UserId; LastWeldAnimId=a or 0; LastWeldWasThrust=t or false; LastWeldType=ty or "weld" end
+
+local performAutoReweld
+
+local function hookTargetRespawn(tp)
+    if not tp then return end
+    if tp:FindFirstChild("__RedHubV14") then return end
+    local m=Instance.new("BoolValue"); m.Name="__RedHubV14"; m.Parent=tp
+    tp.CharacterAdded:Connect(function()
+        if not AutoReweldEnabled then return end
+        if tp~=selectedPlayer then return end
+        if LastWeldTargetUserId~=tp.UserId then return end
+        -- RETRY LOGIC (fix for reset)
+        for attempt=1,6 do
+            task.wait(0.5)
+            if not AutoReweldEnabled then return end
+            if tp.Character and tp.Character:FindFirstChild("HumanoidRootPart") and tp.Character:FindFirstChildOfClass("Humanoid") then
+                performAutoReweld(tp,"Respawn re-weld ("..attempt..")")
+                break
+            end
+        end
+    end)
+end
+
+-- GUI
+local W=math.clamp(cam.ViewportSize.X-30,400,480)
+local H=360
+local gui=Instance.new("ScreenGui")
+gui.Name="RedHub"; gui.ResetOnSpawn=false
+gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.IgnoreGuiInset=true; gui.Parent=PGui
+
+local function ripple(b,i)
+    local r=Instance.new("Frame"); r.AnchorPoint=Vector2.new(0.5,0.5)
+    r.Position=UDim2.new(0,i.Position.X-b.AbsolutePosition.X,0,i.Position.Y-b.AbsolutePosition.Y)
+    r.Size=UDim2.new(0,0,0,0); r.BackgroundColor3=Color3.new(1,1,1); r.BackgroundTransparency=0.5
+    r.ZIndex=b.ZIndex+2; r.Parent=b
+    Instance.new("UICorner",r).CornerRadius=UDim.new(1,0)
+    local ms=math.max(b.AbsoluteSize.X,b.AbsoluteSize.Y)*2
+    TweenService:Create(r,TweenInfo.new(0.6,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(0,ms,0,ms),BackgroundTransparency=1}):Play()
+    Debris:AddItem(r,0.7)
+end
+local function screenFlash(c)
+    local f=Instance.new("Frame"); f.Size=UDim2.new(1,0,1,0); f.BackgroundColor3=c
+    f.BackgroundTransparency=0.7; f.BorderSizePixel=0; f.ZIndex=150; f.Parent=gui
+    TweenService:Create(f,TweenInfo.new(0.5),{BackgroundTransparency=1}):Play(); Debris:AddItem(f,0.6)
+end
+local function burst(cf,c,ct)
+    ct=ct or 16
+    for i=1,ct do
+        local p=Instance.new("Frame"); p.Size=UDim2.new(0,8,0,8); p.Position=UDim2.new(0.5,-4,0.5,-4)
+        p.BackgroundColor3=c; p.BorderSizePixel=0; p.ZIndex=160; p.Parent=cf
+        Instance.new("UICorner",p).CornerRadius=UDim.new(1,0)
+        local a=(i/ct)*math.pi*2+math.random()*0.3; local d=80+math.random(-20,30)
+        local dx,dy=math.cos(a)*d,math.sin(a)*d
+        TweenService:Create(p,TweenInfo.new(0.8,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(0.5,dx-4,0.5,dy-4),Size=UDim2.new(0,2,0,2),BackgroundTransparency=1}):Play()
+        Debris:AddItem(p,1)
+    end
+end
+local function shake(f,intens)
+    intens=intens or 4; local orig=f.Position
+    for i=1,6 do TweenService:Create(f,TweenInfo.new(0.04),{Position=orig+UDim2.new(0,math.random(-intens,intens),0,math.random(-intens,intens))}):Play() task.wait(0.04) end
+    TweenService:Create(f,TweenInfo.new(0.1),{Position=orig}):Play()
+end
+
+-- Simple boot
+local boot=Instance.new("Frame"); boot.Size=UDim2.new(1,0,1,0); boot.BackgroundColor3=Color3.new(0,0,0); boot.ZIndex=200; boot.Parent=gui
+local bootTxt=Instance.new("TextLabel")
+bootTxt.Size=UDim2.new(1,0,0,60); bootTxt.Position=UDim2.new(0,0,0.5,-30)
+bootTxt.BackgroundTransparency=1; bootTxt.Text="🔴 RED HUB"; bootTxt.TextColor3=T.Accent
+bootTxt.Font=Enum.Font.GothamBlack; bootTxt.TextSize=28; bootTxt.ZIndex=201; bootTxt.Parent=boot
+task.spawn(function()
+    pcall(function()
+        for i=1,3 do bootTxt.TextTransparency=1; task.wait(0.1); bootTxt.TextTransparency=0; task.wait(0.2) end
+        TweenService:Create(boot,TweenInfo.new(0.5),{BackgroundTransparency=1}):Play()
+        TweenService:Create(bootTxt,TweenInfo.new(0.4),{TextTransparency=1}):Play()
+        task.wait(0.6)
+    end)
+    if boot and boot.Parent then boot:Destroy() end
+end)
+
+-- Main
+local main=Instance.new("Frame")
+main.Size=UDim2.new(0,W,0,H); main.Position=UDim2.new(0.5,-W/2,0.5,-H/2)
+main.BackgroundColor3=T.BG; main.BorderSizePixel=0; main.ClipsDescendants=true; main.Active=true; main.ZIndex=5
+main.Parent=gui
+Instance.new("UICorner",main).CornerRadius=UDim.new(0,14)
+local mStroke=Instance.new("UIStroke"); mStroke.Color=T.Accent2; mStroke.Thickness=1; mStroke.Transparency=0.5; mStroke.Parent=main
+local mGrad=Instance.new("UIGradient")
+mGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,T.BG),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(16,10,12)),ColorSequenceKeypoint.new(1,T.BG2)})
+mGrad.Rotation=135; mGrad.Parent=main
+
+local header=Instance.new("Frame"); header.Size=UDim2.new(1,0,0,44); header.BackgroundColor3=T.Panel; header.BorderSizePixel=0; header.ZIndex=6; header.Parent=main
+Instance.new("UICorner",header).CornerRadius=UDim.new(0,14)
+local hFix=Instance.new("Frame"); hFix.Size=UDim2.new(1,0,0,12); hFix.Position=UDim2.new(0,0,1,-12); hFix.BackgroundColor3=T.Panel; hFix.BorderSizePixel=0; hFix.ZIndex=7; hFix.Parent=header
+local hTitle=Instance.new("TextLabel"); hTitle.Size=UDim2.new(1,-140,1,0); hTitle.Position=UDim2.new(0,14,0,0)
+hTitle.BackgroundTransparency=1; hTitle.Text="🔴 RED HUB"; hTitle.TextColor3=T.Accent; hTitle.Font=Enum.Font.GothamBlack; hTitle.TextSize=16; hTitle.TextXAlignment=Enum.TextXAlignment.Left; hTitle.ZIndex=8; hTitle.Parent=header
+local vTag=Instance.new("TextLabel"); vTag.Size=UDim2.new(0,40,0,16); vTag.Position=UDim2.new(0,138,0,14); vTag.BackgroundColor3=T.Accent; vTag.Text="V14"
+vTag.TextColor3=Color3.new(1,1,1); vTag.Font=Enum.Font.GothamBlack; vTag.TextSize=8; vTag.ZIndex=8; vTag.Parent=header
+Instance.new("UICorner",vTag).CornerRadius=UDim.new(0,4)
+
+local BtnColors=setmetatable({},{__mode="k"})
+local function setBtnColor(b,c) BtnColors[b]=c; TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=c}):Play() end
+local function styleBtn(b,init)
+    BtnColors[b]=init; b.BackgroundColor3=init; b.AutoButtonColor=false; b.ClipsDescendants=true
+    b.MouseEnter:Connect(function() sHover(); if BtnColors[b] then TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=BtnColors[b]:Lerp(Color3.new(1,1,1),0.18)}):Play() end end)
+    b.MouseLeave:Connect(function() if BtnColors[b] then TweenService:Create(b,TweenInfo.new(0.18),{BackgroundColor3=BtnColors[b]}):Play() end end)
+    b.MouseButton1Down:Connect(function(i) if i and b.AbsoluteSize.X>20 then pcall(function() ripple(b,i) end) end end)
+end
+
+local btnMin=Instance.new("TextButton"); btnMin.Size=UDim2.new(0,28,0,28); btnMin.Position=UDim2.new(1,-90,0,8); btnMin.BackgroundColor3=T.PanelLt; btnMin.Text=""; btnMin.ZIndex=8; btnMin.Parent=header
+Instance.new("UICorner",btnMin).CornerRadius=UDim.new(0,6); styleBtn(btnMin,T.PanelLt)
+local minL=Instance.new("Frame"); minL.Size=UDim2.new(0,12,0,2); minL.Position=UDim2.new(0.5,-6,0.5,-1); minL.BackgroundColor3=T.Text; minL.ZIndex=9; minL.Parent=btnMin
+
+local btnClose=Instance.new("TextButton"); btnClose.Size=UDim2.new(0,28,0,28); btnClose.Position=UDim2.new(1,-58,0,8); btnClose.BackgroundColor3=T.Accent; btnClose.Text=""; btnClose.ZIndex=8; btnClose.Parent=header
+Instance.new("UICorner",btnClose).CornerRadius=UDim.new(0,6); styleBtn(btnClose,T.Accent)
+local cx1=Instance.new("Frame"); cx1.Size=UDim2.new(0,14,0,2); cx1.Position=UDim2.new(0.5,-7,0.5,-1); cx1.BackgroundColor3=Color3.new(1,1,1); cx1.Rotation=45; cx1.ZIndex=9; cx1.Parent=btnClose
+local cx2=Instance.new("Frame"); cx2.Size=UDim2.new(0,14,0,2); cx2.Position=UDim2.new(0.5,-7,0.5,-1); cx2.BackgroundColor3=Color3.new(1,1,1); cx2.Rotation=-45; cx2.ZIndex=9; cx2.Parent=btnClose
+
+local drag,dStart,dPos
+header.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true; dStart=i.Position; dPos=main.Position end end)
+UIS.InputChanged:Connect(function(i) if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local d=i.Position-dStart; main.Position=UDim2.new(dPos.X.Scale,dPos.X.Offset+d.X,dPos.Y.Scale,dPos.Y.Offset+d.Y) end end)
+UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
+
+local tabsBar=Instance.new("ScrollingFrame"); tabsBar.Size=UDim2.new(1,0,0,40); tabsBar.Position=UDim2.new(0,0,0,44)
+tabsBar.BackgroundColor3=T.BG2; tabsBar.BorderSizePixel=0; tabsBar.ScrollBarThickness=0
+tabsBar.ScrollingDirection=Enum.ScrollingDirection.X; tabsBar.CanvasSize=UDim2.new(0,0,0,0)
+tabsBar.AutomaticCanvasSize=Enum.AutomaticSize.X; tabsBar.ZIndex=6; tabsBar.Parent=main
+local tLay=Instance.new("UIListLayout"); tLay.FillDirection=Enum.FillDirection.Horizontal; tLay.Padding=UDim.new(0,4)
+tLay.VerticalAlignment=Enum.VerticalAlignment.Center; tLay.SortOrder=Enum.SortOrder.LayoutOrder; tLay.Parent=tabsBar
+local tPad=Instance.new("UIPadding"); tPad.PaddingLeft=UDim.new(0,8); tPad.PaddingRight=UDim.new(0,8); tPad.Parent=tabsBar
+
+local content=Instance.new("Frame"); content.Size=UDim2.new(1,0,1,-140); content.Position=UDim2.new(0,0,0,84)
+content.BackgroundTransparency=1; content.ZIndex=6; content.Parent=main
+
+local footer=Instance.new("Frame"); footer.Size=UDim2.new(1,0,0,56); footer.Position=UDim2.new(0,0,1,-56)
+footer.BackgroundColor3=T.Panel; footer.BorderSizePixel=0; footer.ZIndex=6; footer.Parent=main
+local fTop=Instance.new("Frame"); fTop.Size=UDim2.new(1,0,0,2); fTop.BackgroundColor3=T.Accent; fTop.BorderSizePixel=0; fTop.ZIndex=7; fTop.Parent=footer
+local fLabel=Instance.new("TextLabel"); fLabel.Size=UDim2.new(1,-220,0,20); fLabel.Position=UDim2.new(0,14,0,8)
+fLabel.BackgroundTransparency=1; fLabel.Text="👤 No player selected"; fLabel.TextColor3=T.Muted; fLabel.Font=Enum.Font.GothamBold; fLabel.TextSize=11; fLabel.TextXAlignment=Enum.TextXAlignment.Left; fLabel.ZIndex=8; fLabel.Parent=footer
+local fSub=Instance.new("TextLabel"); fSub.Size=UDim2.new(1,-220,0,16); fSub.Position=UDim2.new(0,14,0,28)
+fSub.BackgroundTransparency=1; fSub.Text="Select a player"; fSub.TextColor3=T.Muted; fSub.Font=Enum.Font.Gotham; fSub.TextSize=9; fSub.TextXAlignment=Enum.TextXAlignment.Left; fSub.ZIndex=8; fSub.Parent=footer
+
+local btnWeld=Instance.new("TextButton"); btnWeld.Size=UDim2.new(0,95,0,38); btnWeld.Position=UDim2.new(1,-207,0,9)
+btnWeld.Text="🔗 WELD"; btnWeld.TextColor3=Color3.new(1,1,1); btnWeld.Font=Enum.Font.GothamBlack; btnWeld.TextSize=12; btnWeld.ZIndex=8; btnWeld.Parent=footer
+Instance.new("UICorner",btnWeld).CornerRadius=UDim.new(0,8); styleBtn(btnWeld,T.Accent)
+
+local btnUnweld=Instance.new("TextButton"); btnUnweld.Size=UDim2.new(0,95,0,38); btnUnweld.Position=UDim2.new(1,-105,0,9)
+btnUnweld.Text="🔓 UNWELD"; btnUnweld.TextColor3=Color3.new(1,1,1); btnUnweld.Font=Enum.Font.GothamBlack; btnUnweld.TextSize=12; btnUnweld.ZIndex=8; btnUnweld.Parent=footer
+Instance.new("UICorner",btnUnweld).CornerRadius=UDim.new(0,8); styleBtn(btnUnweld,T.Danger)
+
+local TabPages,TabButtons={},{}
+local tabCounter=0
+local function showTab(n)
+    for k,p in pairs(TabPages) do p.Visible=(k==n) end
+    for k,b in pairs(TabButtons) do
+        local a=(k==n)
+        TweenService:Create(b,TweenInfo.new(0.15),{BackgroundColor3=a and T.Accent or T.Panel,TextColor3=a and Color3.new(1,1,1) or T.Muted}):Play()
+    end
+end
+local function createTab(n,icon)
+    tabCounter=tabCounter+1
+    local b=Instance.new("TextButton"); b.Size=UDim2.new(0,82,0,26); b.BackgroundColor3=T.Panel
+    b.Text=icon.." "..n; b.TextColor3=T.Muted; b.Font=Enum.Font.GothamBold; b.TextSize=9; b.LayoutOrder=tabCounter; b.ZIndex=7; b.Parent=tabsBar
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,6); styleBtn(b,T.Panel)
+    b.MouseButton1Click:Connect(function() sClick(); showTab(n) end)
+    TabButtons[n]=b
+    local p=Instance.new("ScrollingFrame"); p.Size=UDim2.new(1,0,1,0); p.BackgroundTransparency=1; p.BorderSizePixel=0; p.ScrollBarThickness=0
+    p.CanvasSize=UDim2.new(0,0,0,0); p.AutomaticCanvasSize=Enum.AutomaticSize.Y; p.Visible=false; p.ZIndex=6; p.Parent=content
+    local pad=Instance.new("UIPadding"); pad.PaddingTop=UDim.new(0,6); pad.PaddingBottom=UDim.new(0,6); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8); pad.Parent=p
+    local lst=Instance.new("UIListLayout"); lst.Padding=UDim.new(0,5); lst.SortOrder=Enum.SortOrder.LayoutOrder; lst.Parent=p
+    TabPages[n]=p; return p
+end
+
+local function makeSlider(parent,order,label,mn,mx,dv,onChg)
+    local r=Instance.new("Frame"); r.Size=UDim2.new(1,0,0,34); r.BackgroundColor3=T.Panel; r.BorderSizePixel=0; r.LayoutOrder=order; r.ClipsDescendants=true; r.ZIndex=7; r.Parent=parent
+    Instance.new("UICorner",r).CornerRadius=UDim.new(0,7)
+    local l=Instance.new("TextLabel"); l.Size=UDim2.new(0,32,1,0); l.Position=UDim2.new(0,8,0,0); l.BackgroundTransparency=1; l.Text=label; l.TextColor3=T.Text; l.Font=Enum.Font.GothamBold; l.TextSize=11; l.ZIndex=8; l.Parent=r
+    local bg=Instance.new("TextButton"); bg.Size=UDim2.new(1,-100,0,8); bg.Position=UDim2.new(0,44,0.5,-4); bg.BackgroundColor3=T.PanelLt; bg.Text=""; bg.AutoButtonColor=false; bg.ZIndex=8; bg.Parent=r
+    Instance.new("UICorner",bg).CornerRadius=UDim.new(1,0)
+    local fill=Instance.new("Frame"); fill.Size=UDim2.new(0,0,1,0); fill.BackgroundColor3=T.Accent; fill.BorderSizePixel=0; fill.ZIndex=9; fill.Parent=bg
+    Instance.new("UICorner",fill).CornerRadius=UDim.new(1,0)
+    local knob=Instance.new("Frame"); knob.Size=UDim2.new(0,18,0,18); knob.Position=UDim2.new(0,-9,0.5,-9); knob.BackgroundColor3=Color3.new(1,1,1); knob.BorderSizePixel=0; knob.ZIndex=10; knob.Parent=bg
+    Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
+    local ks=Instance.new("UIStroke"); ks.Color=T.Accent; ks.Thickness=2; ks.Parent=knob
+    local vb=Instance.new("TextBox"); vb.Size=UDim2.new(0,50,0,24); vb.Position=UDim2.new(1,-54,0.5,-12); vb.BackgroundColor3=T.PanelLt; vb.Text=tostring(dv); vb.TextColor3=T.Text; vb.Font=Enum.Font.Gotham; vb.TextSize=11; vb.ClearTextOnFocus=false; vb.ZIndex=8; vb.Parent=r
+    Instance.new("UICorner",vb).CornerRadius=UDim.new(0,4)
+    local cur=dv
+    local function setV(v,fire) v=math.clamp(v,mn,mx); cur=v; vb.Text=tostring(math.floor(v*100+0.5)/100); local pc=(v-mn)/(mx-mn); fill.Size=UDim2.new(pc,0,1,0); knob.Position=UDim2.new(pc,-9,0.5,-9); if fire and onChg then onChg(v) end end
+    local drg=false
+    local function upd(i) local rx=i.Position.X-bg.AbsolutePosition.X; local pc=math.clamp(rx/bg.AbsoluteSize.X,0,1); setV(mn+pc*(mx-mn),true) end
+    bg.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drg=true; upd(i); sHover() end end)
+    bg.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drg=false end end)
+    UIS.InputChanged:Connect(function(i) if drg and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then upd(i) end end)
+    vb.FocusLost:Connect(function() local n=tonumber(vb.Text); if n then setV(n,true); sClick() else setV(cur,false) end end)
+    setV(dv,false)
+    return {set=setV,get=function() return cur end}
+end
+local function sectionLbl(p,o,t,c)
+    local l=Instance.new("TextLabel"); l.Size=UDim2.new(1,0,0,16); l.BackgroundTransparency=1; l.Text=t; l.TextColor3=c or T.Accent; l.Font=Enum.Font.GothamBlack; l.TextSize=10; l.TextXAlignment=Enum.TextXAlignment.Left; l.LayoutOrder=o; l.ZIndex=7; l.Parent=p; return l
+end
+
+-- PLAYERS TAB
+local playersTab=createTab("Players","👥")
+local searchBox=Instance.new("TextBox"); searchBox.Size=UDim2.new(1,0,0,32); searchBox.BackgroundColor3=T.Panel
+searchBox.PlaceholderText="🔍 Search player..."; searchBox.Text=""; searchBox.TextColor3=T.Text; searchBox.PlaceholderColor3=T.Muted
+searchBox.Font=Enum.Font.Gotham; searchBox.TextSize=12; searchBox.LayoutOrder=1; searchBox.ClearTextOnFocus=false; searchBox.ZIndex=7; searchBox.Parent=playersTab
+Instance.new("UICorner",searchBox).CornerRadius=UDim.new(0,7)
+
+local listFrame=Instance.new("Frame"); listFrame.Size=UDim2.new(1,0,0,152); listFrame.BackgroundColor3=T.Panel; listFrame.BorderSizePixel=0; listFrame.LayoutOrder=2; listFrame.ClipsDescendants=true; listFrame.ZIndex=7; listFrame.Parent=playersTab
+Instance.new("UICorner",listFrame).CornerRadius=UDim.new(0,7)
+local listScroll=Instance.new("ScrollingFrame"); listScroll.Size=UDim2.new(1,-6,1,-6); listScroll.Position=UDim2.new(0,3,0,3)
+listScroll.BackgroundTransparency=1; listScroll.BorderSizePixel=0; listScroll.ScrollBarThickness=0; listScroll.CanvasSize=UDim2.new(0,0,0,0)
+listScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y; listScroll.ZIndex=8; listScroll.Parent=listFrame
+local listLay=Instance.new("UIListLayout"); listLay.Padding=UDim.new(0,4); listLay.SortOrder=Enum.SortOrder.LayoutOrder; listLay.Parent=listScroll
+
+-- ADJUST TAB
+local adjustTab=createTab("Adjust","📐")
+sectionLbl(adjustTab,1,"📐 POSITION OFFSET",T.Accent)
+local SlX=makeSlider(adjustTab,2,"X",-10,10,0,function(v) V.X=v end)
+local SlY=makeSlider(adjustTab,3,"Y",-10,10,0,function(v) V.Y=v end)
+local SlZ=makeSlider(adjustTab,4,"Z",-10,10,1.3,function(v) V.Z=v end)
+sectionLbl(adjustTab,5,"🔄 ROTATION",T.Warning)
+local SlRX=makeSlider(adjustTab,6,"RX",-180,180,0,function(v) V.RX=v end)
+local SlRY=makeSlider(adjustTab,7,"RY",-180,180,0,function(v) V.RY=v end)
+local SlRZ=makeSlider(adjustTab,8,"RZ",-180,180,0,function(v) V.RZ=v end)
+sectionLbl(adjustTab,9,"🎬 ANIM SPEED",T.Success)
+local SlSpeed=makeSlider(adjustTab,10,"Spd",0.1,3,1,function(v) V.Speed=v; updateCopySpeed() end)
+
+local rowApply=Instance.new("Frame"); rowApply.Size=UDim2.new(1,0,0,34); rowApply.BackgroundTransparency=1; rowApply.LayoutOrder=11; rowApply.ZIndex=7; rowApply.Parent=adjustTab
+local applyBtn=Instance.new("TextButton"); applyBtn.Size=UDim2.new(0.65,-3,1,0); applyBtn.Text="⚡ APPLY & WELD"
+applyBtn.TextColor3=Color3.new(1,1,1); applyBtn.Font=Enum.Font.GothamBlack; applyBtn.TextSize=12; applyBtn.ZIndex=8; applyBtn.Parent=rowApply
+Instance.new("UICorner",applyBtn).CornerRadius=UDim.new(0,7); styleBtn(applyBtn,T.Accent)
+local resetBtn=Instance.new("TextButton"); resetBtn.Size=UDim2.new(0.35,-3,1,0); resetBtn.Position=UDim2.new(0.65,3,0,0)
+resetBtn.Text="↺ RESET"; resetBtn.TextColor3=T.Text; resetBtn.Font=Enum.Font.GothamBlack; resetBtn.TextSize=11; resetBtn.ZIndex=8; resetBtn.Parent=rowApply
+Instance.new("UICorner",resetBtn).CornerRadius=UDim.new(0,7); styleBtn(resetBtn,T.PanelLt)
+resetBtn.MouseButton1Click:Connect(function() sClick(); SlX.set(0,true); SlY.set(0,true); SlZ.set(1.3,true); SlRX.set(0,true); SlRY.set(0,true); SlRZ.set(0,true); SlSpeed.set(1,true) end)
+
+-- PRESETS TAB
+local presetsTab=createTab("Presets","⚡")
+
+-- Core weld helpers
+local function runPreset(x,y,z,rx,ry,rz,animId)
+    if not selectedPlayer then notify("RED HUB","Select player"); sError(); return end
+    stopThrust(); stopMotion(); stopFling()
+    pcall(function() SlX.set(x,false); SlY.set(y,false); SlZ.set(z,false); SlRX.set(rx,false); SlRY.set(ry,false); SlRZ.set(rz,false) end)
+    V.X,V.Y,V.Z=x,y,z; V.RX,V.RY,V.RZ=rx,ry,rz
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character; if not tc then return end
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,animId,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,animId,false) end)
+    if ok and w then CurrentWeld=w; sSuccess(); screenFlash(T.Accent); burst(main,T.Accent,12); notify("RED HUB","→ "..selectedPlayer.Name) end
+end
+
+-- Bang: thigh-to-thigh (auto Y per rig)
+local function runBang(animId,speed,rangeOverride)
+    if not selectedPlayer or not selectedPlayer.Character then notify("RED HUB","Select player"); return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    -- Thigh alignment
+    local yOff = isR15(LP) and -0.5 or 0
+    local touchZ = (getTorsoDepth(LP.Character) + getTorsoDepth(tc)) / 2
+    V.X=0; V.Y=yOff; V.Z=touchZ; V.RX,V.RY,V.RZ=0,0,0
+    ThrustTouchZ=touchZ; ThrustDirection=1
+    if rangeOverride then ThrustRange=rangeOverride; pcall(function() if UIRefs.SlDist then UIRefs.SlDist.set(rangeOverride,true) end end) end
+    if speed then ThrustSpeed=speed end
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,animId,true,"bang"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,animId,false) end)
+    if ok and w then CurrentWeld=w; startThrust(); sSuccess(); screenFlash(T.Accent); burst(main,T.Accent,14); notify("RED HUB","💥 Bang → "..selectedPlayer.Name) end
+end
+
+-- F.Bang: thigh-to-face (auto)
+local function runFBang(animId,speed,rangeOverride,isAgg,wType)
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    local head=selectedPlayer.Character:FindFirstChild("Head"); if not head then return end
+    -- Thigh at their face level: Y=0 puts my HRP at their head center, my thigh (HRP-level) at their face
+    local yOff = 0
+    local myHead=LP.Character and LP.Character:FindFirstChild("Head")
+    local touchZ = -((myHead and myHead.Size.Z or 1) + head.Size.Z) / 2 - 0.3
+    V.X=0; V.Y=yOff; V.Z=touchZ; V.RX,V.RY,V.RZ=0,180,0
+    ThrustTouchZ=touchZ; ThrustDirection=-1
+    if rangeOverride then ThrustRange=rangeOverride; pcall(function() if UIRefs.SlDist then UIRefs.SlDist.set(rangeOverride,true) end end) end
+    if speed then ThrustSpeed=speed end
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,animId,true,wType or "fbang"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(head,animId,false) end)
+    if ok and w then CurrentWeld=w; startThrust(); sSuccess(); screenFlash(isAgg and T.Pink or T.Accent); burst(main,isAgg and T.Pink or T.Accent,16); notify("RED HUB","💦 F.Bang → "..selectedPlayer.Name) end
+end
+
+local runBangAgg,runFBangAgg
+runBangAgg=function()
+    if not isR15(LP) then notify("RED HUB","R15 only — Bang"); runBang(148840371,2.2); return end
+    runBang(BANG_AGGRESSIVE_ANIM,5.0,1.2); LastWeldType="bangagg"
+end
+runFBangAgg=function()
+    if not isR15(LP) then notify("RED HUB","R15 only — F.Bang"); runFBang(148840371,2.2,nil,false,"fbang"); return end
+    runFBang(BANG_AGGRESSIVE_ANIM,5.5,1.0,true,"fbangagg"); LastWeldType="fbangagg"
+end
+
+performAutoReweld=function(tp,reason)
+    if not AutoReweldEnabled then return end
+    if not tp or not tp.Character then return end
+    if LastWeldType=="fbangagg" then task.wait(0.3); runFBangAgg(); return end
+    if LastWeldType=="bangagg" then task.wait(0.3); runBangAgg(); return end
+    local th=tp.Character:FindFirstChildOfClass("Humanoid"); if not th then return end
+    local tr=((th.RigType==Enum.HumanoidRigType.R15) and tp.Character:FindFirstChild("UpperTorso") or tp.Character:FindFirstChild("Torso") or tp.Character:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    cleanAll(); CurrentTarget=tp; selectedPlayer=tp
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    local ok,w=pcall(function() return WeldTo(tr,LastWeldAnimId,AnimCopyEnabled) end)
+    if ok and w then CurrentWeld=w; if LastWeldWasThrust then startThrust() end; sSuccess(); notify("RED HUB",(reason or "Re-weld").." → "..tp.Name) end
+end
+
+local function presetRow(order,btns)
+    local row=Instance.new("Frame"); row.Size=UDim2.new(1,0,0,34); row.BackgroundTransparency=1; row.LayoutOrder=order; row.ZIndex=7; row.Parent=presetsTab
+    for i,cfg in ipairs(btns) do
+        local bw=1/#btns
+        local b=Instance.new("TextButton"); b.Size=UDim2.new(bw,-2,1,0); b.Position=UDim2.new((i-1)*bw,2,0,0)
+        b.Text=cfg.text; b.TextColor3=Color3.new(1,1,1); b.Font=Enum.Font.GothamBold; b.TextSize=10; b.ZIndex=8; b.Parent=row
+        Instance.new("UICorner",b).CornerRadius=UDim.new(0,7); styleBtn(b,cfg.color)
+        b.MouseButton1Click:Connect(function() sClick(); pcall(cfg.cb) end)
+    end
+end
+local function fullBtn(order,txt,color,cb)
+    local row=Instance.new("Frame"); row.Size=UDim2.new(1,0,0,38); row.BackgroundTransparency=1; row.LayoutOrder=order; row.ZIndex=7; row.Parent=presetsTab
+    local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,1,0); b.Text=txt; b.TextColor3=Color3.new(1,1,1); b.Font=Enum.Font.GothamBlack; b.TextSize=12; b.ZIndex=8; b.Parent=row
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,8); styleBtn(b,color)
+    b.MouseButton1Click:Connect(function() sClick(); pcall(cb) end)
+end
+
+presetRow(1,{
+    {text="🎭 Stand",color=Color3.fromRGB(180,40,40),cb=function() if isR15(LP) then runPreset(1.8,1.8,2,0,0,0,96658788627102) else runPreset(1.5,1.25,2,0,0,0,313762630) end end},
+    {text="⚔ Attack",color=Color3.fromRGB(220,50,50),cb=function() if isR15(LP) then runPreset(0,0.5,-2.55,0,180,0,117183737438245) else runPreset(0,0,-1.25,0,180,0,259438880) end end},
+    {text="🪑 HeadSit",color=Color3.fromRGB(160,40,50),cb=function() runPreset(0,3,0,0,0,0,178130996) end},
+})
+presetRow(2,{
+    {text="💥 Bang 2.0",color=Color3.fromRGB(255,50,80),cb=function() runBang(148840371,2.2) end},
+    {text="🎒 Backpack",color=Color3.fromRGB(160,40,60),cb=function() runPreset(0,0,1.05,0,180,0,178130996) end},
+    {text="🛏 Carpet",color=Color3.fromRGB(200,120,40),cb=function() runPreset(0,-1,0,0,0,0,282574440) end},
+})
+fullBtn(3,"🔥 BANG AGGRESSIVE (R15)",Color3.fromRGB(255,30,30),runBangAgg)
+fullBtn(4,"💦 F.BANG — THIGH→FACE",Color3.fromRGB(200,30,60),function() runFBang(148840371,2.2) end)
+fullBtn(5,"🔥💦 F.BANG AGGRESSIVE",Color3.fromRGB(255,20,80),runFBangAgg)
+
+sectionLbl(presetsTab,6,"💥 BANG RANGE & SPEED",T.Warning)
+UIRefs.SlDist=makeSlider(presetsTab,7,"Dist",0.1,3.5,0.7,function(v) ThrustRange=v end)
+UIRefs.SlSpd=makeSlider(presetsTab,8,"Spd",0.5,6,2.2,function(v) ThrustSpeed=v end)
+
+presetRow(9,{
+    {text="🎪 Carry",color=Color3.fromRGB(180,50,50),cb=function() if isR15(LP) then runPreset(0,1,2,0,0,0,178130996) else runPreset(0,1,1.5,0,0,0,178130996) end end},
+    {text="🤸 Leap",color=Color3.fromRGB(220,90,40),cb=function() runPreset(0,2.5,1.5,15,0,0,178130996) end},
+    {text="🪁 Throne",color=Color3.fromRGB(180,30,60),cb=function() runPreset(0,3.2,0.5,0,0,0,282574440) end},
+})
+
+sectionLbl(presetsTab,10,"🛡 AUTO RE-WELD",T.Neon)
+local autoBtn=Instance.new("TextButton"); autoBtn.Size=UDim2.new(1,0,0,36); autoBtn.LayoutOrder=11
+autoBtn.Text="🛡 AUTO RE-WELD: ON"; autoBtn.TextColor3=Color3.new(1,1,1); autoBtn.Font=Enum.Font.GothamBlack; autoBtn.TextSize=12; autoBtn.ZIndex=8; autoBtn.Parent=presetsTab
+Instance.new("UICorner",autoBtn).CornerRadius=UDim.new(0,8); styleBtn(autoBtn,T.Success)
+autoBtn.MouseButton1Click:Connect(function()
+    AutoReweldEnabled=not AutoReweldEnabled
+    if AutoReweldEnabled then setBtnColor(autoBtn,T.Success); autoBtn.Text="🛡 AUTO RE-WELD: ON"; sTOn()
+    else setBtnColor(autoBtn,T.PanelLt); autoBtn.Text="🛡 AUTO RE-WELD: OFF"; sTOff() end
+end)
+
+sectionLbl(presetsTab,12,"🎬 ANIMATION COPY",T.Success)
+local copyBtn=Instance.new("TextButton"); copyBtn.Size=UDim2.new(1,0,0,38); copyBtn.LayoutOrder=13
+copyBtn.Text="📋 COPY: OFF"; copyBtn.TextColor3=Color3.new(1,1,1); copyBtn.Font=Enum.Font.GothamBlack; copyBtn.TextSize=12; copyBtn.ZIndex=8; copyBtn.Parent=presetsTab
+Instance.new("UICorner",copyBtn).CornerRadius=UDim.new(0,8); styleBtn(copyBtn,T.PanelLt); UIRefs.copyBtn=copyBtn
+local function updCopyVis()
+    if AnimCopyEnabled then setBtnColor(copyBtn,T.Success); copyBtn.Text="✅ COPY: ON"
+    else setBtnColor(copyBtn,T.PanelLt); copyBtn.Text="📋 COPY: OFF" end
+end
+UIRefs.updCopyVis=updCopyVis
+copyBtn.MouseButton1Click:Connect(function()
+    AnimCopyEnabled=not AnimCopyEnabled; updCopyVis()
+    if AnimCopyEnabled then sTOn(); burst(copyBtn,T.Success,8); if CurrentWeld and CurrentTarget then startCopying(CurrentTarget) end
+    else sTOff(); stopCopying() end
+end)
+
+-- ANIMS TAB
+local animsTab=createTab("Anims","🎬")
+sectionLbl(animsTab,1,"🎬 CUSTOM ANIMATION PLAYER",T.Accent)
+local animInput=Instance.new("TextBox"); animInput.Size=UDim2.new(1,0,0,34); animInput.BackgroundColor3=T.Panel
+animInput.PlaceholderText="Enter Animation ID..."; animInput.Text=""; animInput.TextColor3=T.Text; animInput.PlaceholderColor3=T.Muted
+animInput.Font=Enum.Font.Gotham; animInput.TextSize=12; animInput.LayoutOrder=2; animInput.ClearTextOnFocus=false; animInput.ZIndex=7; animInput.Parent=animsTab
+Instance.new("UICorner",animInput).CornerRadius=UDim.new(0,7)
+local animRow=Instance.new("Frame"); animRow.Size=UDim2.new(1,0,0,34); animRow.BackgroundTransparency=1; animRow.LayoutOrder=3; animRow.ZIndex=7; animRow.Parent=animsTab
+local playBtn=Instance.new("TextButton"); playBtn.Size=UDim2.new(0.5,-2,1,0); playBtn.Text="▶ PLAY"; playBtn.TextColor3=Color3.new(1,1,1); playBtn.Font=Enum.Font.GothamBlack; playBtn.TextSize=11; playBtn.ZIndex=8; playBtn.Parent=animRow
+Instance.new("UICorner",playBtn).CornerRadius=UDim.new(0,7); styleBtn(playBtn,T.Success)
+playBtn.MouseButton1Click:Connect(function()
+    sClick(); local id=tonumber(animInput.Text); if not id then notify("RED HUB","Invalid"); sError(); return end
+    local ch=LP.Character; if not ch then return end
+    local an=ch:FindFirstChildWhichIsA("Animator",true); if not an then return end
+    local a=Instance.new("Animation"); a.AnimationId="rbxassetid://"..id
+    local ok,tr=pcall(function() return an:LoadAnimation(a) end)
+    if ok and tr then pcall(function() tr:AdjustSpeed(V.Speed); tr:Play() end); table.insert(PlayedAnims,tr); notify("RED HUB","Playing "..id); sSuccess()
+    else notify("RED HUB","Load failed"); sError() end
+end)
+local stopBtn=Instance.new("TextButton"); stopBtn.Size=UDim2.new(0.5,-2,1,0); stopBtn.Position=UDim2.new(0.5,2,0,0)
+stopBtn.Text="⏹ STOP ALL"; stopBtn.TextColor3=Color3.new(1,1,1); stopBtn.Font=Enum.Font.GothamBlack; stopBtn.TextSize=11; stopBtn.ZIndex=8; stopBtn.Parent=animRow
+Instance.new("UICorner",stopBtn).CornerRadius=UDim.new(0,7); styleBtn(stopBtn,T.Danger)
+stopBtn.MouseButton1Click:Connect(function() sClick(); stopAllMyAnims(); stopCopying(); stopThrust(); stopMotion(); stopFling(); notify("RED HUB","Stopped") end)
+
+sectionLbl(animsTab,4,"💃 BANG DANCE COLLECTION",T.Accent2)
+local function runDanceBang(nm,id)
+    if not selectedPlayer then
+        local ch=LP.Character; if not ch then return end
+        local an=ch:FindFirstChildWhichIsA("Animator",true); if not an then return end
+        local a=Instance.new("Animation"); a.AnimationId="rbxassetid://"..id
+        local ok,tr=pcall(function() return an:LoadAnimation(a) end)
+        if ok and tr then pcall(function() tr:AdjustSpeed(V.Speed); tr:Play() end); table.insert(PlayedAnims,tr); notify(nm,"On self"); sSuccess() end
+        return
+    end
+    runBang(id,2.2); notify(nm,"💃 → "..selectedPlayer.Name)
+end
+local function danceRow(o,bs)
+    local row=Instance.new("Frame"); row.Size=UDim2.new(1,0,0,38); row.BackgroundTransparency=1; row.LayoutOrder=o; row.ZIndex=7; row.Parent=animsTab
+    for i,c in ipairs(bs) do
+        local bw=1/#bs
+        local b=Instance.new("TextButton"); b.Size=UDim2.new(bw,-2,1,0); b.Position=UDim2.new((i-1)*bw,2,0,0)
+        b.Text=c.text; b.TextColor3=Color3.new(1,1,1); b.Font=Enum.Font.GothamBold; b.TextSize=10; b.TextWrapped=true; b.ZIndex=8; b.Parent=row
+        Instance.new("UICorner",b).CornerRadius=UDim.new(0,7); styleBtn(b,c.color)
+        b.MouseButton1Click:Connect(function() sClick(); local nm=c.text:match("^([^\n]+)"); pcall(function() runDanceBang(nm,c.id) end) end)
+    end
+end
+danceRow(5,{
+    {text="Bang 3.0\nFloss",color=Color3.fromRGB(200,40,60),id=507771019},
+    {text="Bang 4.0\nDefault",color=Color3.fromRGB(220,70,40),id=507766666},
+    {text="Bang 5.0\nOrange J.",color=Color3.fromRGB(240,110,30),id=507777826},
+})
+danceRow(6,{
+    {text="Bang 6.0\nGangnam",color=Color3.fromRGB(200,50,70),id=182435998},
+    {text="Bang 7.0\nHype",color=Color3.fromRGB(180,40,50),id=507770677},
+    {text="Bang 8.0\nParty",color=Color3.fromRGB(230,90,40),id=4555808220},
+})
+danceRow(7,{
+    {text="Bang 9.0\nDontStart",color=Color3.fromRGB(180,30,60),id=507772104},
+    {text="Bang 10.0\nCha Cha",color=Color3.fromRGB(220,60,60),id=3696763549},
+    {text="Bang 11.0\nDance",color=Color3.fromRGB(200,40,80),id=5918726674},
+})
+
+-- EXTRA TAB (all new features)
+local extraTab=createTab("Extra","🎯")
+sectionLbl(extraTab,1,"🎯 SPECIAL MOVES",T.Accent)
+
+-- FLING with duration options
+local function flingTarget(duration)
+    if not selectedPlayer or not selectedPlayer.Character then notify("RED HUB","Select"); return end
+    local hrp=selectedPlayer.Character:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+    cleanAll(); CurrentTarget=selectedPlayer
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    pcall(function() hrp:SetNetworkOwner(LP) end)
+    storeWeldInfo(selectedPlayer,0,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(hrp,0,false) end)
+    if not ok or not w then return end
+    CurrentWeld=w
+    FlingActive=true
+    local t0=tick()
+    FlingConn=RunService.Heartbeat:Connect(function()
+        if not FlingActive or not CurrentWeld then FlingActive=false; if FlingConn then FlingConn:Disconnect() end return end
+        if duration and (tick()-t0)>duration then FlingActive=false; if FlingConn then FlingConn:Disconnect(); FlingConn=nil end; return end
+        pcall(function()
+            hrp.AssemblyLinearVelocity=Vector3.new(math.random(-6000,6000),math.random(4000,9000),math.random(-6000,6000))
+            hrp.AssemblyAngularVelocity=Vector3.new(math.random(-100,100),math.random(-100,100),math.random(-100,100))
+        end)
+    end)
+    sSuccess(); notify("RED HUB","🎪 FLING → "..selectedPlayer.Name)
+end
+
+local function actionRow(o,bs)
+    local row=Instance.new("Frame"); row.Size=UDim2.new(1,0,0,38); row.BackgroundTransparency=1; row.LayoutOrder=o; row.ZIndex=7; row.Parent=extraTab
+    for i,c in ipairs(bs) do
+        local bw=1/#bs
+        local b=Instance.new("TextButton"); b.Size=UDim2.new(bw,-2,1,0); b.Position=UDim2.new((i-1)*bw,2,0,0)
+        b.Text=c.text; b.TextColor3=Color3.new(1,1,1); b.Font=Enum.Font.GothamBold; b.TextSize=10; b.TextWrapped=true; b.ZIndex=8; b.Parent=row
+        Instance.new("UICorner",b).CornerRadius=UDim.new(0,7); styleBtn(b,c.color)
+        b.MouseButton1Click:Connect(function() sClick(); pcall(c.cb) end)
+    end
+end
+
+actionRow(2,{
+    {text="🎪 Instant Fling",color=Color3.fromRGB(255,50,50),cb=function() flingTarget(0.5) end},
+    {text="🎪 Fling 3s",color=Color3.fromRGB(220,60,60),cb=function() flingTarget(3) end},
+    {text="🎪 Fling ∞",color=Color3.fromRGB(180,30,30),cb=function() flingTarget(nil) end},
+})
+
+-- JUMPSCARE with return
+local function jumpscarePlayer()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local head=selectedPlayer.Character:FindFirstChild("Head"); if not head then return end
+    local myHrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart"); if not myHrp then return end
+    SavedCFrame=myHrp.CFrame  -- save original position
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    V.X=0; V.Y=0; V.Z=-0.6; V.RX,V.RY,V.RZ=0,180,0  -- in front of face
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,507770677,false,"weld"); hookTargetRespawn(selectedPlayer)
+    sScream()
+    local ok,w=pcall(function() return WeldTo(head,507770677,false) end)
+    if ok and w then
+        CurrentWeld=w
+        for _,t in ipairs(PlayedAnims) do pcall(function() t:AdjustSpeed(2.5) end) end
+        screenFlash(Color3.fromRGB(255,0,0)); shake(main,10)
+        notify("RED HUB","😱 JUMPSCARE → "..selectedPlayer.Name); sSuccess()
+        -- Return to original position after 2s
+        task.spawn(function()
+            task.wait(2)
+            if SavedCFrame and myHrp and myHrp.Parent then
+                cleanAll()
+                task.wait(0.05)
+                pcall(function() myHrp.CFrame=SavedCFrame end)
+                notify("RED HUB","↩ Returned"); sWhoosh()
+            end
+        end)
+    end
+end
+
+actionRow(3,{
+    {text="😱 Jumpscare",color=Color3.fromRGB(180,20,20),cb=jumpscarePlayer},
+    {text="🛌 Lie Down",color=Color3.fromRGB(200,100,60),cb=function() runPreset(0,-1.8,1.5,-90,0,0,282574440) end},
+    {text="🕳️ Underground",color=Color3.fromRGB(80,50,50),cb=function()
+        if not selectedPlayer or not selectedPlayer.Character then return end
+        local hrp=selectedPlayer.Character:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        stopThrust(); stopMotion(); stopFling()
+        if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+        stopAllMyAnims(); stopCopying(); CurrentTarget=selectedPlayer
+        V.X=0; V.Y=-50; V.Z=0; V.RX,V.RY,V.RZ=0,0,0
+        pcall(function() workspace.FallenPartsDestroyHeight=-5000 end)
+        storeWeldInfo(selectedPlayer,0,false,"weld"); hookTargetRespawn(selectedPlayer)
+        local ok,w=pcall(function() return WeldTo(hrp,0,false) end)
+        if ok and w then CurrentWeld=w; sSuccess(); notify("RED HUB","🕳️ Underground") end
+    end},
+})
+
+-- SHOULDER with sit animation
+local function shoulderSit()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local sitAnim = isR15(LP) and 2506281703 or 178130996
+    local xOff = isR15(LP) and 1.5 or 1.2
+    local yOff = isR15(LP) and 2.2 or 1.8
+    if not isR15(LP) then
+        runPreset(xOff, yOff, 0, 0, 0, 0, sitAnim)
+    else
+        runPreset(xOff, yOff, 0, 0, 0, 0, sitAnim)
+    end
+end
+
+-- HUG (fixed - in front)
+local function hugPlayer() runPreset(0, 0, -1.0, 0, 180, 0, 178130996) end
+
+-- STARE (face follow - welds to head)
+local function stareAtPlayer()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    local head=selectedPlayer.Character:FindFirstChild("Head"); if not head then return end
+    V.X=0; V.Y=0; V.Z=-3; V.RX,V.RY,V.RZ=0,180,0
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,0,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(head,0,false) end)
+    if ok and w then CurrentWeld=w; sSuccess(); screenFlash(T.Accent); burst(main,T.Accent,12); notify("RED HUB","👁️ Staring at "..selectedPlayer.Name) end
+end
+
+-- FOLLOW (behind with distance)
+local function followPlayer()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    -- 4 studs behind, facing same direction (RY=0)
+    V.X=0; V.Y=0; V.Z=4; V.RX,V.RY,V.RZ=0,0,0
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,0,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,0,false) end)
+    if ok and w then CurrentWeld=w; sSuccess(); screenFlash(T.Accent); burst(main,T.Accent,12); notify("RED HUB","👣 Following "..selectedPlayer.Name) end
+end
+
+-- POV
+local function playerPOV()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local head=selectedPlayer.Character:FindFirstChild("Head"); if not head then return end
+    cleanAll()
+    if not OriginalCameraSubject then OriginalCameraSubject=cam.CameraSubject end
+    pcall(function() cam.CameraSubject=head end)
+    CurrentTarget=selectedPlayer
+    sSuccess(); notify("RED HUB","🎥 POV: "..selectedPlayer.Name)
+end
+
+-- STAND ON HEAD (no falling)
+local function standOnHead()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    local head=selectedPlayer.Character:FindFirstChild("Head"); if not head then return end
+    V.X=0; V.Y=(isR15(LP) and 3.2 or 2.7); V.Z=0; V.RX,V.RY,V.RZ=0,0,0
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,0,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(head,0,false) end)
+    if ok and w then
+        CurrentWeld=w
+        -- Prevent falling animation
+        local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if h then pcall(function() h.PlatformStand=true end) end
+        sSuccess(); screenFlash(T.Accent); burst(main,T.Accent,14); notify("RED HUB","🎩 On head of "..selectedPlayer.Name)
+    end
+end
+
+-- COPY ACTION (X=4, Y=0, Z=0)
+local function copyAction()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    cleanAll(); CurrentTarget=selectedPlayer
+    AnimCopyEnabled=true
+    if UIRefs.updCopyVis then UIRefs.updCopyVis() end
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    V.X=4; V.Y=0; V.Z=0; V.RX,V.RY,V.RZ=0,0,0
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,0,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,0,true) end)
+    if ok and w then CurrentWeld=w; sSuccess(); screenFlash(T.Accent); burst(main,T.Accent,12); notify("RED HUB","📋 Copying "..selectedPlayer.Name) end
+end
+
+-- SUCK (sit in front, then move)
+local function suckSit()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    -- Sit in front of lower abdominal
+    local sitAnim = isR15(LP) and 2506281703 or 178130996
+    local yOff = isR15(LP) and -1.0 or -0.7
+    V.X=0; V.Y=yOff; V.Z=-1.2; V.RX,V.RY,V.RZ=0,180,0
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,sitAnim,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,sitAnim,false) end)
+    if ok and w then
+        CurrentWeld=w
+        -- Add forward/back oscillation
+        ThrustTouchZ=-1.2; ThrustDirection=-1; ThrustRange=0.6
+        startThrust()
+        sSuccess(); notify("RED HUB","🧲 Sucking "..selectedPlayer.Name)
+    end
+end
+
+-- LAP SIT (NEW)
+local function lapSit()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local sitAnim = isR15(LP) and 2506281703 or 178130996
+    local yOff = isR15(LP) and -0.9 or -0.6
+    runPreset(0, yOff, -1.2, 0, 180, 0, sitAnim)
+    notify("RED HUB","🪑 Lap sit → "..selectedPlayer.Name)
+end
+
+-- KICK (NEW)
+local function kickPlayer()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local attackAnim = isR15(LP) and 117183737438245 or 259438880
+    -- Stand in front, kick toward them
+    runPreset(0, -0.3, -1.2, 0, 180, 0, attackAnim)
+    notify("RED HUB","🦵 Kick → "..selectedPlayer.Name)
+end
+
+-- SLAP (NEW)
+local function slapPlayer()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local attackAnim = isR15(LP) and 117183737438245 or 259438880
+    -- Stand close, side slap
+    runPreset(1.0, 0, -0.8, 0, 180, 0, attackAnim)
+    notify("RED HUB","👋 Slap → "..selectedPlayer.Name)
+end
+
+-- 69 POSITION (NEW)
+local function position69()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying()
+    CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    -- Player above target, lying face down, head toward target's feet (69)
+    local lieAnim = isR15(LP) and 507770677 or 282574440
+    V.X=0; V.Y=1.6; V.Z=0; V.RX=-90; V.RY=180; V.RZ=0
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,lieAnim,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,lieAnim,false) end)
+    if ok and w then CurrentWeld=w; sSuccess(); screenFlash(T.Pink); burst(main,T.Pink,16); notify("RED HUB","🔥 69 → "..selectedPlayer.Name) end
+end
+
+-- Reset view
+local function resetView()
+    cleanAll()
+    if OriginalCameraSubject then pcall(function() cam.CameraSubject=OriginalCameraSubject end); OriginalCameraSubject=nil end
+    notify("RED HUB","View reset"); sSuccess()
+end
+
+actionRow(4,{
+    {text="🪑 Shoulder",color=Color3.fromRGB(160,80,50),cb=shoulderSit},
+    {text="🐷 Piggyback",color=Color3.fromRGB(200,70,80),cb=function() runPreset(0,1,1.5,0,180,0,178130996) end},
+    {text="🤗 Hug",color=Color3.fromRGB(255,100,120),cb=hugPlayer},
+})
+actionRow(5,{
+    {text="🛡 Human Shield",color=Color3.fromRGB(180,40,40),cb=function() runPreset(0,0,-2,0,0,0,117183737438245) end},
+    {text="👁️ Stare",color=Color3.fromRGB(220,80,80),cb=stareAtPlayer},
+    {text="👣 Follow",color=Color3.fromRGB(200,100,100),cb=followPlayer},
+})
+actionRow(6,{
+    {text="🎥 POV",color=Color3.fromRGB(180,60,60),cb=playerPOV},
+    {text="🎩 Stand on Head",color=Color3.fromRGB(220,60,60),cb=standOnHead},
+    {text="📋 Copy Action",color=Color3.fromRGB(160,50,50),cb=copyAction},
+})
+actionRow(7,{
+    {text="🪑 Lap Sit",color=Color3.fromRGB(220,130,100),cb=lapSit},
+    {text="🦵 Kick Him",color=Color3.fromRGB(255,80,60),cb=kickPlayer},
+    {text="👋 Slap Him",color=Color3.fromRGB(255,120,80),cb=slapPlayer},
+})
+actionRow(8,{
+    {text="🔥 69 Position",color=Color3.fromRGB(255,40,120),cb=position69},
+    {text="🧲 Suck",color=Color3.fromRGB(200,80,120),cb=suckSit},
+    {text="↺ Reset View",color=Color3.fromRGB(100,80,80),cb=resetView},
+})
+
+sectionLbl(extraTab,9,"ℹ INFO",T.Muted)
+local infoCard=Instance.new("Frame"); infoCard.Size=UDim2.new(1,0,0,80); infoCard.BackgroundColor3=T.Panel; infoCard.BorderSizePixel=0; infoCard.LayoutOrder=10; infoCard.ZIndex=7; infoCard.Parent=extraTab
+Instance.new("UICorner",infoCard).CornerRadius=UDim.new(0,7)
+local infoTxt=Instance.new("TextLabel"); infoTxt.Size=UDim2.new(1,-16,1,-8); infoTxt.Position=UDim.new(0,8,0,4); infoTxt.BackgroundTransparency=1
+infoTxt.Text="• Jumpscare = returns to original pos after 2s\n• Stare = welds to head, face follow\n• Follow = 4 studs behind, tracks target\n• Stand on Head = PlatformStand (no fall)\n• Copy Action = X=4 side copy"
+infoTxt.TextColor3=T.Muted; infoTxt.Font=Enum.Font.Gotham; infoTxt.TextSize=10; infoTxt.TextWrapped=true; infoTxt.TextXAlignment=Enum.TextXAlignment.Left; infoTxt.TextYAlignment=Enum.TextYAlignment.Top; infoTxt.ZIndex=8; infoTxt.Parent=infoCard
+
+-- MOTION TAB
+local motionTab=createTab("Motion","🌀")
+sectionLbl(motionTab,1,"🌀 ORBIT",T.Accent)
+makeSlider(motionTab,2,"Rad",1,10,3,function(v) OrbitRadius=v end)
+makeSlider(motionTab,3,"Spd",0.2,3,1.2,function(v) OrbitSpeed=v end)
+local orbitBtn=Instance.new("TextButton"); orbitBtn.Size=UDim2.new(1,0,0,34); orbitBtn.LayoutOrder=4
+orbitBtn.Text="🌀 START ORBIT"; orbitBtn.TextColor3=Color3.new(1,1,1); orbitBtn.Font=Enum.Font.GothamBlack; orbitBtn.TextSize=12; orbitBtn.ZIndex=8; orbitBtn.Parent=motionTab
+Instance.new("UICorner",orbitBtn).CornerRadius=UDim.new(0,7); styleBtn(orbitBtn,T.Accent)
+orbitBtn.MouseButton1Click:Connect(function()
+    sClick()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying(); CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    V.X=0; V.Y=0; V.Z=OrbitRadius; V.RX,V.RY,V.RZ=0,0,0
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,148840371,false,"orbit"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,148840371,false) end)
+    if ok and w then CurrentWeld=w; startMotion("orbit"); sSuccess(); notify("RED HUB","🌀 Orbit") end
+end)
+
+sectionLbl(motionTab,5,"🏀 BOUNCE",T.Warning)
+makeSlider(motionTab,6,"Hgt",1,10,3,function(v) BounceHeight=v end)
+makeSlider(motionTab,7,"Spd",0.3,4,1.5,function(v) BounceSpeed=v end)
+local bounceBtn=Instance.new("TextButton"); bounceBtn.Size=UDim2.new(1,0,0,34); bounceBtn.LayoutOrder=8
+bounceBtn.Text="🏀 START BOUNCE"; bounceBtn.TextColor3=Color3.new(1,1,1); bounceBtn.Font=Enum.Font.GothamBlack; bounceBtn.TextSize=12; bounceBtn.ZIndex=8; bounceBtn.Parent=motionTab
+Instance.new("UICorner",bounceBtn).CornerRadius=UDim.new(0,7); styleBtn(bounceBtn,T.Warning)
+bounceBtn.MouseButton1Click:Connect(function()
+    sClick()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    stopThrust(); stopMotion(); stopFling()
+    if CurrentWeld then pcall(function() CurrentWeld:Destroy() end); CurrentWeld=nil end
+    stopAllMyAnims(); stopCopying(); CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    V.X=0; V.Y=0; V.Z=1.5; V.RX,V.RY,V.RZ=0,0,0
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,148840371,false,"bounce"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,148840371,false) end)
+    if ok and w then CurrentWeld=w; startMotion("bounce"); sSuccess(); notify("RED HUB","🏀 Bounce") end
+end)
+
+-- ANTI-SIT TAB
+local antiSitTab=createTab("Anti-Sit","🛡")
+sectionLbl(antiSitTab,1,"🛡 ANTI-SIT PROTECTION",T.Neon)
+AntiSitCountLabel=Instance.new("TextLabel"); AntiSitCountLabel.Size=UDim2.new(1,0,0,30); AntiSitCountLabel.BackgroundColor3=T.Panel
+AntiSitCountLabel.Text="🛡 Blocked: 0 times"; AntiSitCountLabel.TextColor3=T.Neon; AntiSitCountLabel.Font=Enum.Font.GothamBlack; AntiSitCountLabel.TextSize=12; AntiSitCountLabel.LayoutOrder=2; AntiSitCountLabel.ZIndex=7; AntiSitCountLabel.Parent=antiSitTab
+Instance.new("UICorner",AntiSitCountLabel).CornerRadius=UDim.new(0,7)
+local antiBtn=Instance.new("TextButton"); antiBtn.Size=UDim2.new(1,0,0,42); antiBtn.LayoutOrder=3
+antiBtn.Text="🛡 ENABLE ANTI-SIT"; antiBtn.TextColor3=Color3.new(1,1,1); antiBtn.Font=Enum.Font.GothamBlack; antiBtn.TextSize=13; antiBtn.ZIndex=8; antiBtn.Parent=antiSitTab
+Instance.new("UICorner",antiBtn).CornerRadius=UDim.new(0,8); styleBtn(antiBtn,T.PanelLt)
+antiBtn.MouseButton1Click:Connect(function()
+    if AntiSitEnabled then disableAntiSit(); setBtnColor(antiBtn,T.PanelLt); antiBtn.Text="🛡 ENABLE ANTI-SIT"; sTOff(); notify("RED HUB","Anti-Sit off")
+    else enableAntiSit(); setBtnColor(antiBtn,T.Success); antiBtn.Text="✅ ANTI-SIT ACTIVE"; sTOn(); notify("RED HUB","Anti-Sit on") end
+end)
+
+-- GUIDE TAB
+local guideTab=createTab("Guide","📖")
+local function guideCard(o,tt,bt,c)
+    local cd=Instance.new("Frame"); cd.Size=UDim2.new(1,0,0,0); cd.AutomaticSize=Enum.AutomaticSize.Y; cd.BackgroundColor3=T.Panel; cd.BorderSizePixel=0; cd.LayoutOrder=o; cd.ZIndex=7; cd.Parent=guideTab
+    Instance.new("UICorner",cd).CornerRadius=UDim.new(0,7)
+    local pd=Instance.new("UIPadding"); pd.PaddingTop=UDim.new(0,8); pd.PaddingBottom=UDim.new(0,8); pd.PaddingLeft=UDim.new(0,10); pd.PaddingRight=UDim.new(0,10); pd.Parent=cd
+    local lst=Instance.new("UIListLayout"); lst.Padding=UDim.new(0,4); lst.Parent=cd
+    local h=Instance.new("TextLabel"); h.Size=UDim2.new(1,0,0,18); h.BackgroundTransparency=1; h.Text=tt; h.TextColor3=c or T.Neon; h.Font=Enum.Font.GothamBlack; h.TextSize=11; h.TextXAlignment=Enum.TextXAlignment.Left; h.LayoutOrder=1; h.ZIndex=8; h.Parent=cd
+    local b=Instance.new("TextLabel"); b.Size=UDim2.new(1,0,0,0); b.AutomaticSize=Enum.AutomaticSize.Y; b.BackgroundTransparency=1; b.Text=bt; b.TextColor3=T.Text; b.Font=Enum.Font.Gotham; b.TextSize=10; b.TextWrapped=true; b.TextXAlignment=Enum.TextXAlignment.Left; b.TextYAlignment=Enum.TextYAlignment.Top; b.LayoutOrder=2; b.ZIndex=8; b.Parent=cd
+end
+guideCard(1,"🎯 RIG COMPAT",[[R15→R15 ✅ | R6→R6 ✅ | Cross ❌ Roblox limit]],T.Neon)
+guideCard(2,"💥 AUTO-TOUCH BANGS",[[Bang: thigh-to-thigh (Y auto per rig)
+F.Bang: thigh-to-face (Y=0)
+No manual tuning.]],T.Accent)
+guideCard(3,"🎯 EXTRA — FIXED",[[🎪 Fling: Instant / 3s / ∞
+😱 Jumpscare: returns after 2s
+🪑 Shoulder: sit anim (R15/R6 auto)
+🤗 Hug: in front (fixed)
+👁️ Stare: face-lock follow
+👣 Follow: 4 studs behind
+🎩 Stand on Head: no falling
+📋 Copy Action: X=4 side copy
+🪑 Lap Sit, 🦵 Kick, 👋 Slap, 🔥 69, 🧲 Suck]],T.Accent2)
+guideCard(4,"🛡 AUTO RE-WELD",[[Triggers: respawn, death, rejoin.
+Retries 6 times × 0.5s for reset.
+Remembers last mode.]],T.Neon)
+guideCard(5,"🏆 CREDITS",[[Failedmite • Janmandio • deerius
+🔴 RED HUB — V14 Ultra]],T.Accent)
+
+-- PLAYER LIST
+local function findPlayers(q)
+    q=(q or ""):lower(); local l={}
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p~=LP then
+            if q=="" or p.Name:lower():sub(1,#q)==q or p.DisplayName:lower():sub(1,#q)==q then table.insert(l,p) end
+        end
+    end
+    return l
+end
+
+local function refreshList()
+    for _,c in ipairs(listScroll:GetChildren()) do if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end end
+    local plrs=findPlayers(searchBox.Text)
+    if #plrs==0 then
+        local e=Instance.new("TextLabel"); e.Size=UDim2.new(1,0,0,30); e.BackgroundTransparency=1; e.Text="No players"; e.TextColor3=T.Muted; e.Font=Enum.Font.Gotham; e.TextSize=11; e.LayoutOrder=1; e.ZIndex=9; e.Parent=listScroll
+        return
+    end
+    for i,p in ipairs(plrs) do
+        local b=Instance.new("TextButton"); b.Size=UDim2.new(1,-6,0,32); b.BackgroundColor3=(selectedPlayer==p) and T.Accent or T.PanelLt; b.Text=""; b.LayoutOrder=i; b.ZIndex=9; b.ClipsDescendants=true; b.Parent=listScroll
+        Instance.new("UICorner",b).CornerRadius=UDim.new(0,6); styleBtn(b,(selectedPlayer==p) and T.Accent or T.PanelLt)
+        local av=Instance.new("ImageLabel"); av.Size=UDim2.new(0,24,0,24); av.Position=UDim2.new(0,4,0.5,-12); av.BackgroundColor3=T.Panel; av.Image="rbxthumb://type=AvatarHeadShot&id="..p.UserId.."&w=48&h=48"; av.ZIndex=10; av.Parent=b
+        Instance.new("UICorner",av).CornerRadius=UDim.new(1,0)
+        local nm=Instance.new("TextLabel"); nm.Size=UDim2.new(1,-36,1,0); nm.Position=UDim2.new(0,32,0,0); nm.BackgroundTransparency=1
+        nm.Text=p.Name..(p.DisplayName~=p.Name and (" ("..p.DisplayName..")") or ""); nm.TextColor3=Color3.new(1,1,1); nm.Font=Enum.Font.GothamBold; nm.TextSize=11; nm.TextXAlignment=Enum.TextXAlignment.Left; nm.ZIndex=10; nm.Parent=b
+        b.MouseButton1Click:Connect(function()
+            selectedPlayer=p; fLabel.Text="👤 "..p.Name; fSub.Text="Tap WELD"; sClick(); refreshList()
+        end)
+    end
+end
+pcall(refreshList)
+searchBox:GetPropertyChangedSignal("Text"):Connect(function() pcall(refreshList) end)
+Players.PlayerAdded:Connect(function(p)
+    task.wait(0.5); pcall(refreshList)
+    if AutoReweldEnabled and LastWeldTargetUserId and p.UserId==LastWeldTargetUserId then
+        for attempt=1,6 do
+            task.wait(0.5)
+            if not p.Character then continue end
+            selectedPlayer=p; fLabel.Text="👤 "..p.Name; fSub.Text="Rejoined — re-welding..."
+            if performAutoReweld then performAutoReweld(p,"Rejoin ("..attempt..")") end
+            hookTargetRespawn(p); break
+        end
+    end
+end)
+Players.PlayerRemoving:Connect(function(p)
+    if selectedPlayer==p then
+        if AutoReweldEnabled and LastWeldTargetUserId==p.UserId then
+            fLabel.Text="👤 "..p.Name.." (left)"; fSub.Text="⏳ Waiting rejoin..."; cleanAll()
+        else
+            selectedPlayer=nil; fLabel.Text="👤 No player"; fSub.Text="Select a player"
+        end
+    end
+    task.wait(0.1); pcall(refreshList)
+end)
+
+-- FOOTER
+btnWeld.MouseButton1Click:Connect(function()
+    sClick()
+    if not selectedPlayer or not selectedPlayer.Character then notify("RED HUB","Select"); sError(); return end
+    cleanAll(); CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then notify("RED HUB","No torso"); return end
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,0,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,0,AnimCopyEnabled) end)
+    if ok and w then CurrentWeld=w; sSuccess(); screenFlash(T.Accent); burst(main,T.Accent,16); notify("RED HUB","Welded → "..selectedPlayer.Name)
+    else sError() end
+end)
+
+btnUnweld.MouseButton1Click:Connect(function()
+    sClick(); cleanAll(); CurrentTarget=nil
+    LastWeldTargetUserId=nil; LastWeldAnimId=0; LastWeldWasThrust=false; LastWeldType="weld"
+    pcall(function() workspace.FallenPartsDestroyHeight=OriginalFPDH end)
+    screenFlash(T.Accent); notify("RED HUB","Unwelded"); sSuccess()
+end)
+
+applyBtn.MouseButton1Click:Connect(function()
+    sClick()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    cleanAll(); CurrentTarget=selectedPlayer
+    local tc=selectedPlayer.Character
+    local th=tc:FindFirstChildOfClass("Humanoid")
+    local tr=((th and th.RigType==Enum.HumanoidRigType.R15) and tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart"))
+    if not tr then return end
+    pcall(function() workspace.FallenPartsDestroyHeight=0/0 end)
+    storeWeldInfo(selectedPlayer,0,false,"weld"); hookTargetRespawn(selectedPlayer)
+    local ok,w=pcall(function() return WeldTo(tr,0,AnimCopyEnabled) end)
+    if ok and w then CurrentWeld=w; sSuccess(); screenFlash(T.Accent); burst(main,T.Accent,12); notify("RED HUB","Applied → "..selectedPlayer.Name) end
+end)
+
+-- MINIMIZE
+local minimized=false
+local fullSize=UDim2.new(0,W,0,H); local fullPos=UDim2.new(0.5,-W/2,0.5,-H/2); local minSize=UDim2.new(0,W,0,44)
+btnMin.MouseButton1Click:Connect(function()
+    sClick(); minimized=not minimized
+    if minimized then
+        TweenService:Create(main,TweenInfo.new(0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=minSize}):Play()
+        tabsBar.Visible=false; content.Visible=false; footer.Visible=false
+    else
+        TweenService:Create(main,TweenInfo.new(0.35,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=fullSize,Position=fullPos}):Play()
+        task.delay(0.1,function() tabsBar.Visible=true; content.Visible=true; footer.Visible=true end)
+    end
+end)
+
+-- CLOSE
+local function shutdown()
+    cleanAll(); pcall(function() workspace.FallenPartsDestroyHeight=OriginalFPDH end)
+    gui:Destroy(); print("[RED HUB V14] Closed")
+end
+local function showCloseConfirm()
+    local o=Instance.new("Frame"); o.Size=UDim2.new(1,0,1,0); o.BackgroundColor3=Color3.new(0,0,0); o.BackgroundTransparency=1; o.ZIndex=100; o.Parent=gui
+    local d=Instance.new("Frame"); d.Size=UDim2.new(0,0,0,0); d.Position=UDim2.new(0.5,0,0.5,0); d.BackgroundColor3=T.Panel; d.BorderSizePixel=0; d.ZIndex=101; d.Parent=gui
+    Instance.new("UICorner",d).CornerRadius=UDim.new(0,14)
+    local ds=Instance.new("UIStroke"); ds.Color=T.Accent; ds.Thickness=1.5; ds.Transparency=0.3; ds.Parent=d
+    local dt=Instance.new("TextLabel"); dt.Size=UDim2.new(1,-20,0,28); dt.Position=UDim2.new(0,10,0,14); dt.BackgroundTransparency=1; dt.Text="⚠ Close RED HUB?"; dt.TextColor3=T.Accent; dt.Font=Enum.Font.GothamBlack; dt.TextSize=15; dt.ZIndex=102; dt.Parent=d
+    local dm=Instance.new("TextLabel"); dm.Size=UDim2.new(1,-20,0,44); dm.Position=UDim2.new(0,10,0,48); dm.BackgroundTransparency=1; dm.Text="Close the script?"; dm.TextColor3=T.Muted; dm.Font=Enum.Font.Gotham; dm.TextSize=11; dm.ZIndex=102; dm.Parent=d
+    local yb=Instance.new("TextButton"); yb.Size=UDim2.new(0,110,0,34); yb.Position=UDim2.new(0.5,-115,1,-48); yb.Text="YES"; yb.TextColor3=Color3.new(1,1,1); yb.Font=Enum.Font.GothamBlack; yb.TextSize=12; yb.ZIndex=102; yb.Parent=d
+    Instance.new("UICorner",yb).CornerRadius=UDim.new(0,8); styleBtn(yb,T.Accent)
+    local nb=Instance.new("TextButton"); nb.Size=UDim2.new(0,110,0,34); nb.Position=UDim2.new(0.5,5,1,-48); nb.Text="NO"; nb.TextColor3=T.Text; nb.Font=Enum.Font.GothamBlack; nb.TextSize=12; nb.ZIndex=102; nb.Parent=d
+    Instance.new("UICorner",nb).CornerRadius=UDim.new(0,8); styleBtn(nb,T.PanelLt)
+    TweenService:Create(o,TweenInfo.new(0.2),{BackgroundTransparency=0.5}):Play()
+    TweenService:Create(d,TweenInfo.new(0.35,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,260,0,190),Position=UDim2.new(0.5,-130,0.5,-95)}):Play()
+    local function dismiss()
+        sClick()
+        TweenService:Create(o,TweenInfo.new(0.15),{BackgroundTransparency=1}):Play()
+        TweenService:Create(d,TweenInfo.new(0.15),{Size=UDim2.new(0,0,0,0),Position=UDim2.new(0.5,0,0.5,0)}):Play()
+        task.wait(0.16); o:Destroy(); d:Destroy()
+    end
+    yb.MouseButton1Click:Connect(function() sTOff(); shutdown() end)
+    nb.MouseButton1Click:Connect(dismiss)
+end
+btnClose.MouseButton1Click:Connect(function() sClick(); showCloseConfirm() end)
+
+showTab("Players")
+print("[RED HUB] All tabs loaded")
+
+UIS.InputBegan:Connect(function(inp,gp)
+    if gp then return end
+    if inp.KeyCode==Enum.KeyCode.RightShift then
+        gui.Enabled=not gui.Enabled
+        if gui.Enabled then sWhoosh() else sTOff() end
+    end
+end)
+
+notify("RED HUB","V14 Loaded! RightShift to toggle")
+print("[RED HUB V14] Ready")
