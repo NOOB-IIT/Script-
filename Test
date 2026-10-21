@@ -1,0 +1,2776 @@
+--[[═══════════════════════════════════════════════════════════════════════════════
+  🔴 RED HUB — V20 ULTIMATE PRECISION & BULLETPROOF EDITION
+  ═══════════════════════════════════════════════════════════════════════════════
+  Created & Refactored by Senior Roblox Lua Engine Architect
+  Toggle Key: RightShift (Or Tap Floating Mobile Toggle Icon 🔴)
+  Compatibility: Universal R6 & R15 Cross-Rig Architecture
+  Executors Supported: Delta, Solara, Wave, Codex, Arceus X, Appleware, Synapse, KRNL
+  
+  [V20 EXPANDED CHANGELOG — 31+ NEW ZERO-DELAY FEATURES]
+  A. Position & Lock Features:
+     1. Back Orbit (360-degree trigonometric CFrame loop on RenderStepped)
+     2. Backpack Ride (CFrame lock to upper torso back Z = 0.8, Y = 0.5 with seated posture)
+     3. Foot Sit / Feet Sit (Attached at target feet level Y = -2, Z = 0 with sitting track)
+     4. Side Glance Lock (Lateral CFrame lock X = 1.5, Z = 0 facing directly into target face)
+     5. Phase Shift (Instant zero-delay dynamic teleport directly behind target Z = -3)
+     6. Shadow Glitch (Direct center lock inside target RootPart with zero velocity)
+     7. Crawler Position (Prone/flat ground crawl posture Y = -2.2, Z = 1.5, RX = 90)
+     8. Hover Crown (Positioned 2-3 studs above target head Y = 3 with slow rotation)
+     9. Leg Drag Follow (Ground-sliding posture locked to target feet Y = -2.2, Z = -1.6)
+     10. Reverse POV (Camera CFrame placed onto target face looking backward at LocalPlayer)
+
+  B. Animations & Interaction Features:
+     11. Bow Down / Sajda (Frontal alignment Z = -2 with respectful kneeling pose)
+     12. Point & Mock (Front lock Z = -2.8 with pointing gesture and laugh audio playback)
+     13. Blow Kiss (Face-to-face Z = -2 with air-kiss track & client heart particle emitter)
+     14. Flex Pose (Dynamic cyclic bodybuilding pose animation sequencer)
+     15. Fake Uppercut (Rapid CFrame dash + upward impulse with strike sound & punch track)
+     16. Slap Back (Dynamic CFrame lock behind target Z = -1.5 with continuous slap track)
+     17. Handshake Pose (Face-to-face Z = 1.5 with procedural right arm extended)
+     18. Pat Head (Height-matched auto-detect Y offset with oscillating head-patting arm)
+     19. Belly Dance / Twerk (Close alignment with rhythm hip oscillation and emote track)
+     20. Spank Offset (Rear lock Z = -1.2, Y = -0.2 with periodic contact slap sfx)
+
+  C. Utility, Troll & Camera Features:
+     21. Auto Look-At (Permanent CFrame.lookAt face tracking regardless of movement)
+     22. Target Cam Lock (Smooth continuous camera interpolation pointing at target head)
+     23. Ghost Mode (LocalTransparencyModifier = 0.5 semi-transparent phantom mode)
+     24. Invisibility Teleport (Blink invisibility hide -> instant rear teleport -> unhide)
+     25. Spin Attack / Tornado (High-velocity Y-axis continuous rotational spin)
+     26. Fake Fling Arc (Smooth 3D parabolic Lissajous curve around target without physics crash)
+     27. Copy CFrame Velocity (Direct linear & angular assembly velocity vector matching)
+     28. Anchor Lock (Instant toggle of HumanoidRootPart.Anchored state)
+     29. Noclip Walk (Continuous Stepped CanCollide = false pass through all character parts)
+     30. Height Match (Dynamic delta calculation matching exact eye-to-eye horizon level)
+     31. Distance Keeper (Strict 5-stud perimeter forcefield maintaining vector distance)
+═══════════════════════════════════════════════════════════════════════════════]]
+
+print("[RED HUB V20] Initializing Master Engine & 31 New Modules...")
+
+if not game:IsLoaded() then
+    local loadedSuccess = pcall(function() game.Loaded:Wait() end)
+    if not loadedSuccess then
+        task.wait(1)
+    end
+end
+
+local RunService    = game:GetService("RunService")
+local Players       = game:GetService("Players")
+local UIS           = game:GetService("UserInputService")
+local TweenService  = game:GetService("TweenService")
+local Debris        = game:GetService("Debris")
+local SoundService  = game:GetService("SoundService")
+local StarterGui    = game:GetService("StarterGui")
+local CoreGui       = nil
+pcall(function() CoreGui = game:GetService("CoreGui") end)
+
+local LP = Players.LocalPlayer
+while not LP do
+    task.wait(0.1)
+    LP = Players.LocalPlayer
+end
+
+local function getGuiContainer()
+    local success, hui = pcall(function()
+        if typeof(gethui) == "function" then
+            return gethui()
+        end
+    end)
+    if success and hui then return hui end
+
+    if CoreGui and pcall(function() return CoreGui:GetChildren() end) then
+        return CoreGui
+    end
+
+    local pgui = LP:FindFirstChild("PlayerGui")
+    if not pgui then
+        pgui = LP:WaitForChild("PlayerGui", 10)
+    end
+    return pgui
+end
+
+local GuiParent = getGuiContainer()
+if not GuiParent then
+    warn("[RED HUB V20] Fatal: Could not resolve GUI container!")
+    return
+end
+
+pcall(function()
+    for _, child in ipairs(GuiParent:GetChildren()) do
+        if child.Name == "RedHub" or child.Name == "RedHubV18" or child.Name == "RedHubV19" or child.Name == "RedHubV20" or child.Name == "RedHubNebulaFling" then
+            child:Destroy()
+        end
+    end
+    if LP:FindFirstChild("PlayerGui") and LP.PlayerGui ~= GuiParent then
+        for _, child in ipairs(LP.PlayerGui:GetChildren()) do
+            if child.Name == "RedHub" or child.Name == "RedHubV18" or child.Name == "RedHubV19" or child.Name == "RedHubV20" or child.Name == "RedHubNebulaFling" then
+                child:Destroy()
+            end
+        end
+    end
+end)
+
+local sethiddenproperty = sethiddenproperty or set_hidden_property or set_hidden_prop
+local InstanceHandleNew = nil
+pcall(function()
+    if InstanceHandle and typeof(InstanceHandle.new) == "function" then
+        InstanceHandleNew = InstanceHandle.new
+    end
+end)
+
+local cam = workspace.CurrentCamera
+if not cam then
+    cam = workspace:WaitForChild("Camera", 5) or workspace:FindFirstChildOfClass("Camera")
+end
+if not cam then
+    repeat task.wait(0.2); cam = workspace.CurrentCamera until cam
+end
+
+local T = {
+    BG       = Color3.fromRGB(10, 8, 11),
+    BG2      = Color3.fromRGB(18, 12, 16),
+    Panel    = Color3.fromRGB(26, 14, 20),
+    PanelLt  = Color3.fromRGB(44, 20, 28),
+    Border   = Color3.fromRGB(80, 24, 36),
+    Accent   = Color3.fromRGB(225, 29, 72),
+    Accent2  = Color3.fromRGB(159, 18, 57),
+    Neon     = Color3.fromRGB(255, 75, 110),
+    Success  = Color3.fromRGB(16, 185, 129),
+    Danger   = Color3.fromRGB(239, 68, 68),
+    Warning  = Color3.fromRGB(245, 158, 11),
+    Pink     = Color3.fromRGB(244, 63, 94),
+    Purple   = Color3.fromRGB(168, 85, 247),
+    Cyan     = Color3.fromRGB(6, 182, 212),
+    Text     = Color3.fromRGB(255, 245, 247),
+    Muted    = Color3.fromRGB(180, 140, 150),
+    Dark     = Color3.fromRGB(14, 10, 12),
+}
+
+local function sfx(id, vol, pitch)
+    pcall(function()
+        local s = Instance.new("Sound")
+        s.SoundId = "rbxassetid://" .. tostring(id)
+        s.Volume = vol or 0.4
+        s.PlaybackSpeed = pitch or 1
+        s.Parent = SoundService
+        s:Play()
+        Debris:AddItem(s, 4)
+    end)
+end
+
+local sClick     = function() sfx(12221967, 0.35, 1.8) end
+local sHover     = function() sfx(12221967, 0.12, 2.5) end
+local sSuccess   = function() sfx(5696552322, 0.5, 1.2) end
+local sError     = function() sfx(5766952670, 0.5, 0.9) end
+local sToggleOn  = function() sfx(5696552322, 0.4, 1.6) end
+local sToggleOff = function() sfx(5696552322, 0.4, 0.7) end
+local sWhoosh    = function() sfx(6895079853, 0.5, 1.4) end
+local sScream    = function() sfx(5235775702, 1.0, 1.0) end
+local sFling     = function() sfx(9069609267, 0.6, 1.2) end
+local sSlap      = function() sfx(9114223179, 0.7, 1.1) end
+local sPunch     = function() sfx(131237241, 0.65, 1.1) end
+local sLaugh     = function() sfx(5235775702, 0.5, 1.3) end
+
+local function notify(title, text)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title or "RED HUB",
+            Text = text or "",
+            Duration = 3,
+            Icon = "rbxassetid://10850257404"
+        })
+    end)
+end
+
+local ANIM_DB = {
+    Sit         = { R6 = 178130996, R15 = 2506281703 },
+    ShoulderSit = { R6 = 178130996, R15 = 2506281703 },
+    HeadSit     = { R6 = 178130996, R15 = 2506281703 },
+    Backpack    = { R6 = 178130996, R15 = 2506281703 },
+    Kick        = { R6 = 184570534, R15 = 507770677 },
+    Slap        = { R6 = 204062532, R15 = 4555808220 },
+    Carry       = { R6 = 178130996, R15 = 507770677 },
+    Hug         = { R6 = 178130996, R15 = 507770677 },
+    Kiss        = { R6 = 178130996, R15 = 507770677 },
+    Pos69       = { R6 = 282574440, R15 = 282574440 },
+    BangAggressive = { R6 = 148840371, R15 = 507770677 },
+    Prone       = { R6 = 282574440, R15 = 282574440 },
+    Bow         = { R6 = 282574440, R15 = 282574440 },
+    Point       = { R6 = 204062532, R15 = 507770677 },
+    Flex        = { R6 = 313762630, R15 = 96658788627102 },
+    Uppercut    = { R6 = 204062532, R15 = 4555808220 },
+    Dances = {
+        Floss     = 507771019,
+        Default   = 507766666,
+        OrangeJ   = 507777826,
+        Gangnam   = 182435998,
+        Hype      = 507770677,
+        Party     = 4555808220,
+        DontStart = 507772104,
+        ChaCha    = 3696763549,
+        Dance     = 5918726674,
+    }
+}
+
+local V = {
+    X = 0,
+    Y = 0,
+    Z = 1.3,
+    RX = 0,
+    RY = 0,
+    RZ = 0,
+    Speed = 1.0,
+}
+
+local CurrentWeld         = nil
+local CurrentTarget       = nil
+local selectedPlayer      = nil
+local AnimCopyEnabled     = false
+local PlayedAnims         = {}
+local CopiedTracks        = {}
+local AnimCopyConn        = nil
+
+local OriginalFPDH        = workspace.FallenPartsDestroyHeight
+if OriginalFPDH ~= OriginalFPDH then OriginalFPDH = -500 end
+
+local ThrustActive        = false
+local ThrustConn          = nil
+local ThrustTouchZ        = 1.0
+local ThrustDirection     = 1
+local ThrustRange         = 0.7
+local ThrustSpeed         = 2.2
+local ThrustZMin          = -4.0
+local ThrustZMax          = -0.4
+local IsCustomZThrust     = false
+
+local MotionMode          = "none"
+local MotionConn          = nil
+local OrbitRadius         = 3.5
+local OrbitSpeed          = 1.5
+local BounceHeight        = 3.0
+local BounceSpeed         = 1.5
+local SuckDuration        = 2.0
+
+local AntiSitEnabled      = false
+local AntiSitConn         = nil
+local AntiSitCharConn     = nil
+local AntiSitCount        = 0
+local AntiSitCountLabel   = nil
+
+local OriginalCameraSubject = nil
+local AutoReweldEnabled   = true
+local LastWeldTargetUserId = nil
+local LastWeldAnimId      = nil
+local LastWeldWasThrust   = false
+local LastWeldType        = nil
+local LastCustomData      = {}
+
+-- Feature states
+local AutoLookAtActive    = false
+local AutoLookAtConn      = nil
+local TargetCamLockActive = false
+local TargetCamLockConn   = nil
+local ReversePOVActive    = false
+local ReversePOVConn      = nil
+local GhostModeActive     = false
+local NoclipActive        = false
+local NoclipConn          = nil
+local DistanceKeeperActive= false
+local DistanceKeeperConn  = nil
+local DistanceKeeperRadius= 5.0
+local CopyVelocityActive  = false
+local CopyVelocityConn    = nil
+local SpinAttackActive    = false
+local SpinAttackConn      = nil
+local FakeFlingArcActive  = false
+local FakeFlingArcConn    = nil
+local AnchorLockActive    = false
+local ActiveParticles     = {}
+
+-- Nebula Fling Settings
+local FlingDuration       = 3.0
+local FlingActive         = false
+local FlingConn           = nil
+local FlingDurationMode   = "3s"
+local FlingSidePanel      = nil
+local FlingCountdownLabel = nil
+
+local UIRefs              = {}
+local ProceduralArmConn   = nil
+local ProceduralActive    = false
+local ActiveMotorsBackup  = {}
+
+local function getRig(player)
+    if not player or not player.Character then return nil end
+    local hum = player.Character:FindFirstChildOfClass("Humanoid")
+    if not hum then return nil end
+    return hum.RigType
+end
+
+local function isR15(player)
+    return getRig(player) == Enum.HumanoidRigType.R15
+end
+
+local function getTargetTorso(char)
+    if not char then return nil end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum and hum.RigType == Enum.HumanoidRigType.R15 then
+        return char:FindFirstChild("UpperTorso") 
+            or char:FindFirstChild("LowerTorso") 
+            or char:FindFirstChild("HumanoidRootPart")
+    else
+        return char:FindFirstChild("Torso") 
+            or char:FindFirstChild("HumanoidRootPart")
+    end
+end
+
+local function getHeadHeight(char)
+    if not char then return 1.5 end
+    local head = char:FindFirstChild("Head")
+    local hrp  = char:FindFirstChild("HumanoidRootPart")
+    if not head or not hrp then return 1.5 end
+    return head.Position.Y - hrp.Position.Y
+end
+
+local function getTorsoDepth(char)
+    if not char then return 1.0 end
+    local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+    if torso then return torso.Size.Z end
+    return 1.0
+end
+
+local function getAnimIdForRig(category, isUserR15)
+    local entry = ANIM_DB[category]
+    if not entry then return nil end
+    if typeof(entry) == "number" then return entry end
+    if isUserR15 then
+        return entry.R15 or entry.R6
+    else
+        return entry.R6 or entry.R15
+    end
+end
+
+local function resetProceduralMotors()
+    if ProceduralArmConn then
+        ProceduralArmConn:Disconnect()
+        ProceduralArmConn = nil
+    end
+    ProceduralActive = false
+
+    local char = LP.Character
+    if not char then return end
+
+    for motor, originalData in pairs(ActiveMotorsBackup) do
+        if motor and motor.Parent then
+            pcall(function()
+                motor.Transform = originalData.Transform or CFrame.identity
+                motor.C0 = originalData.C0 or motor.C0
+            end)
+        end
+    end
+    ActiveMotorsBackup = {}
+end
+
+local function enableProceduralArmRaise(mode)
+    resetProceduralMotors()
+    local char = LP.Character
+    if not char then return end
+
+    local userIsR15 = isR15(LP)
+    ProceduralActive = true
+
+    local leftShoulder, rightShoulder = nil, nil
+
+    if userIsR15 then
+        local upperTorso = char:FindFirstChild("UpperTorso")
+        local leftArm    = char:FindFirstChild("LeftUpperArm")
+        local rightArm   = char:FindFirstChild("RightUpperArm")
+        if upperTorso then
+            leftShoulder  = upperTorso:FindFirstChild("LeftShoulder")
+            rightShoulder = upperTorso:FindFirstChild("RightShoulder")
+        end
+        if not leftShoulder and leftArm then leftShoulder = leftArm:FindFirstChild("LeftShoulder") end
+        if not rightShoulder and rightArm then rightShoulder = rightArm:FindFirstChild("RightShoulder") end
+    else
+        local torso = char:FindFirstChild("Torso")
+        if torso then
+            leftShoulder  = torso:FindFirstChild("Left Shoulder")
+            rightShoulder = torso:FindFirstChild("Right Shoulder")
+        end
+    end
+
+    if leftShoulder then ActiveMotorsBackup[leftShoulder] = { C0 = leftShoulder.C0, Transform = leftShoulder.Transform } end
+    if rightShoulder then ActiveMotorsBackup[rightShoulder] = { C0 = rightShoulder.C0, Transform = rightShoulder.Transform } end
+
+    local startTime = tick()
+    ProceduralArmConn = RunService.Stepped:Connect(function()
+        if not ProceduralActive or not LP.Character then
+            resetProceduralMotors()
+            return
+        end
+
+        local elapsed = tick() - startTime
+        local sway = math.sin(elapsed * 3) * 0.05
+
+        if mode == "handshake" then
+            if rightShoulder then
+                pcall(function()
+                    rightShoulder.Transform = CFrame.Angles(math.rad(85), math.rad(10), 0)
+                end)
+            end
+        elseif mode == "pat" then
+            local patSwing = math.sin(elapsed * 6) * math.rad(15)
+            if rightShoulder then
+                pcall(function()
+                    rightShoulder.Transform = CFrame.Angles(math.rad(105) + patSwing, math.rad(-15), 0)
+                end)
+            end
+        elseif userIsR15 then
+            local liftAngle = math.rad(80 + sway * 10)
+            local inwardAngle = (mode == "hug") and math.rad(28) or math.rad(18)
+            if rightShoulder then pcall(function() rightShoulder.Transform = CFrame.Angles(liftAngle, -inwardAngle, math.rad(10)) end) end
+            if leftShoulder then pcall(function() leftShoulder.Transform = CFrame.Angles(liftAngle, inwardAngle, -math.rad(10)) end) end
+        else
+            local liftAngle = math.rad(85 + sway * 10)
+            local inwardAngle = (mode == "hug") and math.rad(25) or math.rad(15)
+            if rightShoulder then pcall(function() rightShoulder.Transform = CFrame.Angles(liftAngle, 0, -inwardAngle) end) end
+            if leftShoulder then pcall(function() leftShoulder.Transform = CFrame.Angles(liftAngle, 0, inwardAngle) end) end
+        end
+    end)
+end
+
+local StateManager = {}
+
+function StateManager:StopAllAnimations()
+    for _, track in ipairs(PlayedAnims) do
+        pcall(function() track:Stop(0) end)
+        pcall(function() track:Destroy() end)
+    end
+    PlayedAnims = {}
+end
+
+function StateManager:StopCopying()
+    if AnimCopyConn then
+        AnimCopyConn:Disconnect()
+        AnimCopyConn = nil
+    end
+    for _, track in ipairs(CopiedTracks) do
+        pcall(function() track:Stop(0) end)
+        pcall(function() track:Destroy() end)
+    end
+    CopiedTracks = {}
+end
+
+function StateManager:StopThrust()
+    ThrustActive = false
+    IsCustomZThrust = false
+    if ThrustConn then
+        ThrustConn:Disconnect()
+        ThrustConn = nil
+    end
+end
+
+function StateManager:StopMotion()
+    MotionMode = "none"
+    if MotionConn then
+        MotionConn:Disconnect()
+        MotionConn = nil
+    end
+end
+
+function StateManager:StopPOV()
+    if OriginalCameraSubject then
+        pcall(function() cam.CameraSubject = OriginalCameraSubject end)
+        OriginalCameraSubject = nil
+    end
+    if ReversePOVActive or ReversePOVConn then
+        if ReversePOVConn then ReversePOVConn:Disconnect(); ReversePOVConn = nil end
+        ReversePOVActive = false
+        pcall(function()
+            cam.CameraType = Enum.CameraType.Custom
+            local char = LP.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then cam.CameraSubject = hum end
+        end)
+    end
+end
+
+function StateManager:StopFling()
+    if FlingConn then
+        FlingConn:Disconnect()
+        FlingConn = nil
+    end
+    FlingActive = false
+    if FlingSidePanel then
+        FlingSidePanel.Visible = false
+    end
+end
+
+function StateManager:StopUtilities()
+    if AutoLookAtConn then AutoLookAtConn:Disconnect(); AutoLookAtConn = nil end
+    AutoLookAtActive = false
+
+    if TargetCamLockConn then TargetCamLockConn:Disconnect(); TargetCamLockConn = nil end
+    TargetCamLockActive = false
+
+    if DistanceKeeperConn then DistanceKeeperConn:Disconnect(); DistanceKeeperConn = nil end
+    DistanceKeeperActive = false
+
+    if CopyVelocityConn then CopyVelocityConn:Disconnect(); CopyVelocityConn = nil end
+    CopyVelocityActive = false
+
+    if SpinAttackConn then SpinAttackConn:Disconnect(); SpinAttackConn = nil end
+    SpinAttackActive = false
+
+    if FakeFlingArcConn then FakeFlingArcConn:Disconnect(); FakeFlingArcConn = nil end
+    FakeFlingArcActive = false
+
+    if NoclipConn then NoclipConn:Disconnect(); NoclipConn = nil end
+    NoclipActive = false
+
+    if GhostModeActive then
+        local char = LP.Character
+        if char then
+            for _, p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.LocalTransparencyModifier = 0 end
+            end
+        end
+        GhostModeActive = false
+    end
+
+    if AnchorLockActive then
+        local char = LP.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then root.Anchored = false end
+        AnchorLockActive = false
+    end
+
+    for _, emitter in ipairs(ActiveParticles) do
+        pcall(function() emitter:Destroy() end)
+    end
+    ActiveParticles = {}
+end
+
+function StateManager:ResetPhysics(character)
+    if not character then return end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+    end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+            part.Massless = true
+        end
+    end
+end
+
+function StateManager:Cleanup(keepTarget)
+    if CurrentWeld then
+        pcall(function() CurrentWeld:Destroy() end)
+        CurrentWeld = nil
+    end
+
+    self:StopAllAnimations()
+    self:StopCopying()
+    self:StopThrust()
+    self:StopMotion()
+    self:StopPOV()
+    self:StopFling()
+    self:StopUtilities()
+    resetProceduralMotors()
+
+    if LP.Character then
+        self:ResetPhysics(LP.Character)
+    end
+
+    if not keepTarget then
+        CurrentTarget = nil
+    end
+end
+
+local function WeldTo(TPart, AnimId, UseCopy)
+    local char = LP.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local hum  = char:FindFirstChildOfClass("Humanoid")
+    if not root or not hum then return nil end
+
+    StateManager:StopAllAnimations()
+
+    if UseCopy then
+        if CurrentTarget and AnimCopyEnabled then
+            local myRig = getRig(LP)
+            local tRig  = getRig(CurrentTarget)
+            if myRig and tRig and myRig == tRig then
+                local tc = CurrentTarget.Character
+                local tHum = tc and tc:FindFirstChildOfClass("Humanoid")
+                local tAnim = tHum and tHum:FindFirstChildOfClass("Animator")
+                local mAnim = hum:FindFirstChildOfClass("Animator")
+                if tAnim and mAnim then
+                    for _, trk in ipairs(tAnim:GetPlayingAnimationTracks()) do
+                        pcall(function()
+                            local a = Instance.new("Animation")
+                            a.AnimationId = trk.Animation.AnimationId
+                            local nt = mAnim:LoadAnimation(a)
+                            nt:AdjustSpeed(V.Speed)
+                            nt:Play(trk.TimePosition or 0)
+                            table.insert(CopiedTracks, nt)
+                        end)
+                    end
+                end
+            end
+        end
+    elseif AnimId and AnimId ~= 0 then
+        StateManager:StopCopying()
+        local animator = hum:FindFirstChildOfClass("Animator") or char:FindFirstChildWhichIsA("Animator", true)
+        if animator then
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://" .. tostring(AnimId)
+            local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+            if ok and track then
+                pcall(function()
+                    track:AdjustSpeed(V.Speed)
+                    track:Play()
+                end)
+                table.insert(PlayedAnims, track)
+            end
+        end
+    end
+
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+            part.Massless = true
+        end
+    end
+
+    local initialOffset = CFrame.new(V.X, V.Y, V.Z)
+        * CFrame.Angles(math.rad(V.RX), math.rad(V.RY), math.rad(V.RZ))
+    root.CFrame = TPart.CFrame * initialOffset
+    root.AssemblyLinearVelocity = Vector3.zero
+    root.AssemblyAngularVelocity = Vector3.zero
+
+    local WeldObj = {}
+    local conn = nil
+
+    conn = RunService.Heartbeat:Connect(function()
+        if not char.Parent or not TPart.Parent then
+            if WeldObj.Destroy then WeldObj:Destroy() end
+            return
+        end
+        local currentOffset = CFrame.new(V.X, V.Y, V.Z)
+            * CFrame.Angles(math.rad(V.RX), math.rad(V.RY), math.rad(V.RZ))
+        root.CFrame = TPart.CFrame * currentOffset
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+
+        if sethiddenproperty then
+            pcall(function()
+                sethiddenproperty(root, "PhysicsRepRootPart", TPart)
+                if InstanceHandleNew then
+                    sethiddenproperty(root, "PhysicsRepRootRef", InstanceHandleNew(TPart))
+                end
+            end)
+        end
+    end)
+
+    function WeldObj:Destroy()
+        if conn then
+            conn:Disconnect()
+            conn = nil
+        end
+        StateManager:StopCopying()
+        StateManager:StopAllAnimations()
+        StateManager:StopThrust()
+        StateManager:StopMotion()
+        resetProceduralMotors()
+        if root then
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+
+    return WeldObj
+end
+
+local function startThrust(customMin, customMax)
+    StateManager:StopThrust()
+    ThrustActive = true
+    if customMin and customMax then
+        IsCustomZThrust = true
+        ThrustZMin = customMin
+        ThrustZMax = customMax
+    end
+    local t0 = tick()
+    ThrustConn = RunService.Heartbeat:Connect(function()
+        if not ThrustActive then return end
+        local elapsed = tick() - t0
+        local phase = (math.sin(elapsed * ThrustSpeed * math.pi * 2) + 1) / 2
+        if IsCustomZThrust then
+            V.Z = ThrustZMin + phase * (ThrustZMax - ThrustZMin)
+        else
+            V.Z = ThrustTouchZ + ThrustDirection * phase * ThrustRange
+        end
+    end)
+end
+
+local function startMotion(mode)
+    StateManager:StopMotion()
+    MotionMode = mode
+    local t0 = tick()
+    MotionConn = RunService.Heartbeat:Connect(function()
+        if MotionMode == "none" then return end
+        local t = tick() - t0
+        if MotionMode == "orbit" then
+            local angle = t * OrbitSpeed * math.pi * 2
+            V.X = math.cos(angle) * OrbitRadius
+            V.Z = math.sin(angle) * OrbitRadius
+            V.Y = 0
+        elseif MotionMode == "bounce" then
+            V.Y = math.abs(math.sin(t * BounceSpeed * math.pi)) * BounceHeight
+        elseif MotionMode == "suck" then
+            local progress = math.min(t / SuckDuration, 1)
+            V.Z = 8.0 - (8.0 - 1.0) * progress
+            if progress >= 1 then StateManager:StopMotion() end
+        end
+    end)
+end
+
+local function antiSitTick()
+    if not AntiSitEnabled then return end
+    local char = LP.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    if hum.Sit then
+        hum.Sit = false
+        hum.Jump = true
+        AntiSitCount = AntiSitCount + 1
+        if AntiSitCountLabel then
+            AntiSitCountLabel.Text = "🛡 Blocked: " .. AntiSitCount .. " times"
+        end
+    end
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("Weld") and obj.Name == "SeatWeld" then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+end
+
+local function hookCharAntiSit(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    hum:GetPropertyChangedSignal("Sit"):Connect(function()
+        if hum.Sit and AntiSitEnabled then
+            hum.Sit = false
+            hum.Jump = true
+            AntiSitCount = AntiSitCount + 1
+            if AntiSitCountLabel then
+                AntiSitCountLabel.Text = "🛡 Blocked: " .. AntiSitCount .. " times"
+            end
+        end
+    end)
+end
+
+local function enableAntiSit()
+    AntiSitEnabled = true
+    AntiSitCount = 0
+    if AntiSitCountLabel then AntiSitCountLabel.Text = "🛡 Blocked: 0 times" end
+    if AntiSitConn then AntiSitConn:Disconnect() end
+    AntiSitConn = RunService.Heartbeat:Connect(antiSitTick)
+    if AntiSitCharConn then AntiSitCharConn:Disconnect() end
+    AntiSitCharConn = LP.CharacterAdded:Connect(function(char)
+        task.wait(0.2)
+        hookCharAntiSit(char)
+    end)
+    if LP.Character then hookCharAntiSit(LP.Character) end
+end
+
+local function disableAntiSit()
+    AntiSitEnabled = false
+    if AntiSitConn then
+        AntiSitConn:Disconnect()
+        AntiSitConn = nil
+    end
+end
+
+local function storeWeldInfo(targetPlr, animId, wasThrust, wType, customData)
+    if not targetPlr then return end
+    LastWeldTargetUserId = targetPlr.UserId
+    LastWeldAnimId       = animId or 0
+    LastWeldWasThrust    = wasThrust or false
+    LastWeldType         = wType or "weld"
+    LastCustomData       = customData or {}
+end
+
+local performAutoReweld = nil
+
+local function hookTargetRespawn(targetPlr)
+    if not targetPlr then return end
+    if targetPlr:FindFirstChild("__RedHubHookV20") then return end
+    local marker = Instance.new("BoolValue")
+    marker.Name = "__RedHubHookV20"
+    marker.Parent = targetPlr
+
+    targetPlr.CharacterAdded:Connect(function()
+        if not AutoReweldEnabled then return end
+        if targetPlr ~= selectedPlayer then return end
+        if LastWeldTargetUserId ~= targetPlr.UserId then return end
+        task.wait(1.2)
+        if not targetPlr.Character then return end
+        if CurrentWeld then return end
+        if performAutoReweld then
+            performAutoReweld(targetPlr, "Respawn re-weld")
+        end
+    end)
+end
+
+LP.CharacterAdded:Connect(function(newChar)
+    task.wait(1.0)
+    if AutoReweldEnabled and selectedPlayer and selectedPlayer.Character and LastWeldTargetUserId == selectedPlayer.UserId then
+        if performAutoReweld then
+            performAutoReweld(selectedPlayer, "Player reset re-weld")
+        end
+    end
+end)
+
+local function launchNebulaFling(durationSeconds, modeTitle)
+    if not selectedPlayer or not selectedPlayer.Character then
+        notify("RED HUB", "Select a target player first!")
+        sError()
+        return
+    end
+
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local targetRoot = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not targetRoot then
+        notify("RED HUB", "Target RootPart not found!")
+        sError()
+        return
+    end
+
+    local origCF = myRoot.CFrame
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    FlingActive = true
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    pcall(function() targetRoot:SetNetworkOwner(LP) end)
+    storeWeldInfo(selectedPlayer, 0, false, "fling", {duration = durationSeconds})
+    hookTargetRespawn(selectedPlayer)
+
+    if FlingSidePanel then
+        FlingSidePanel.Visible = true
+        if FlingCountdownLabel then
+            FlingCountdownLabel.Text = (durationSeconds > 0) 
+                and ("⏳ " .. tostring(math.ceil(durationSeconds)) .. "s remaining") 
+                or "♾️ UNLIMITED (Active)"
+        end
+    end
+
+    sFling()
+    notify("RED HUB", "✨ Nebula Fling (" .. modeTitle .. ") → " .. selectedPlayer.Name)
+
+    local startTime = tick()
+    FlingConn = RunService.Heartbeat:Connect(function()
+        if not FlingActive or not myChar.Parent or not targetRoot.Parent then
+            StateManager:StopFling()
+            return
+        end
+
+        local elapsed = tick() - startTime
+        if durationSeconds > 0 then
+            local remaining = math.max(0, durationSeconds - elapsed)
+            if FlingCountdownLabel then
+                FlingCountdownLabel.Text = "⏳ " .. string.format("%.1f", remaining) .. "s left"
+            end
+            if remaining <= 0 then
+                StateManager:StopFling()
+                if myRoot then
+                    myRoot.AssemblyLinearVelocity = Vector3.zero
+                    myRoot.AssemblyAngularVelocity = Vector3.zero
+                    myRoot.CFrame = origCF
+                end
+                StateManager:Cleanup(true)
+                notify("RED HUB", "✨ Nebula Fling Finished & Safely Returned!")
+                sSuccess()
+                return
+            end
+        end
+
+        local t = tick() * 24
+        local orbitDist = 3.5
+        local offsetX = math.cos(t) * orbitDist
+        local offsetZ = math.sin(t) * orbitDist
+
+        myRoot.CFrame = targetRoot.CFrame 
+            * CFrame.new(offsetX, 1.8, offsetZ) 
+            * CFrame.Angles(math.random(-15, 15), t, math.random(-15, 15))
+
+        myRoot.AssemblyLinearVelocity = Vector3.new(
+            math.random(-5000, 5000), 
+            math.random(4000, 8000), 
+            math.random(-5000, 5000)
+        )
+        myRoot.AssemblyAngularVelocity = Vector3.new(
+            math.random(-800, 800), 
+            math.random(-800, 800), 
+            math.random(-800, 800)
+        )
+    end)
+end
+
+-- 31 Features Core Handlers
+local function executeBackOrbit()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot or not myRoot then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    storeWeldInfo(selectedPlayer, 0, false, "back_orbit")
+    hookTargetRespawn(selectedPlayer)
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local t0 = tick()
+    local conn = RunService.RenderStepped:Connect(function()
+        if not myChar.Parent or not tc.Parent then return end
+        local elapsed = tick() - t0
+        local angle = elapsed * OrbitSpeed * math.pi * 2
+        local x = math.cos(angle) * OrbitRadius
+        local z = math.sin(angle) * OrbitRadius
+        local desiredPos = targetRoot.Position + Vector3.new(x, 0, z)
+        myRoot.CFrame = CFrame.lookAt(desiredPos, targetRoot.Position)
+        myRoot.AssemblyLinearVelocity = Vector3.zero
+        myRoot.AssemblyAngularVelocity = Vector3.zero
+    end)
+
+    local OrbitWeld = {}
+    function OrbitWeld:Destroy() if conn then conn:Disconnect(); conn = nil end end
+    CurrentWeld = OrbitWeld
+    sSuccess()
+    notify("RED HUB", "🌀 Back Orbit (360° Zero-Delay) → " .. selectedPlayer.Name)
+end
+
+local function executeBackpackRide()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, 0.5, 0.8
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Backpack", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "backpack_ride")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🎒 Backpack Ride (Z:0.8, Y:0.5) → " .. selectedPlayer.Name) end
+end
+
+local function executeFootSit()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, -2.0, 0.2
+    V.RX, V.RY, V.RZ = 0, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Sit", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "foot_sit")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "👣 Foot Sit → " .. selectedPlayer.Name) end
+end
+
+local function executeSideGlanceLock()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 1.5, 0, 0
+    V.RX, V.RY, V.RZ = 0, -90, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, 0, false, "side_glance")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, 0, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "👁️ Side Glance Lock → " .. selectedPlayer.Name) end
+end
+
+local function executePhaseShift()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot or not myRoot then return end
+
+    StateManager:Cleanup(true)
+    sWhoosh()
+    myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
+    myRoot.AssemblyLinearVelocity = Vector3.zero
+    myRoot.AssemblyAngularVelocity = Vector3.zero
+    notify("RED HUB", "⚡ Phase Shift Dash Behind → " .. selectedPlayer.Name)
+    sSuccess()
+end
+
+local function executeShadowGlitch()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, 0, 0
+    V.RX, V.RY, V.RZ = 0, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, 0, false, "shadow_glitch")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, 0, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "👤 Shadow Glitch → " .. selectedPlayer.Name) end
+end
+
+local function executeCrawlerPosition()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, -2.2, 1.5
+    V.RX, V.RY, V.RZ = 90, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Prone", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "crawler")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🐛 Crawler Position → " .. selectedPlayer.Name) end
+end
+
+local function executeHoverCrown()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local head = tc:FindFirstChild("Head") or getTargetTorso(tc)
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not head or not myRoot then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    storeWeldInfo(selectedPlayer, 0, false, "hover_crown")
+    hookTargetRespawn(selectedPlayer)
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local t0 = tick()
+    local conn = RunService.RenderStepped:Connect(function()
+        if not myChar.Parent or not tc.Parent then return end
+        local elapsed = tick() - t0
+        myRoot.CFrame = head.CFrame * CFrame.new(0, 3.0, 0) * CFrame.Angles(0, elapsed * 2.0, 0)
+        myRoot.AssemblyLinearVelocity = Vector3.zero
+        myRoot.AssemblyAngularVelocity = Vector3.zero
+    end)
+
+    local CrownWeld = {}
+    function CrownWeld:Destroy() if conn then conn:Disconnect(); conn = nil end end
+    CurrentWeld = CrownWeld
+    sSuccess()
+    notify("RED HUB", "👑 Hover Crown → " .. selectedPlayer.Name)
+end
+
+local function executeLegDragFollow()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, -2.2, -1.6
+    V.RX, V.RY, V.RZ = 80, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Prone", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "leg_drag")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🦵 Leg Drag Follow → " .. selectedPlayer.Name) end
+end
+
+local function executeReversePOV()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetHead = tc:FindFirstChild("Head")
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetHead or not myRoot then return end
+
+    StateManager:StopPOV()
+    ReversePOVActive = true
+    cam.CameraType = Enum.CameraType.Scriptable
+
+    ReversePOVConn = RunService.RenderStepped:Connect(function()
+        if not ReversePOVActive or not myChar.Parent or not targetHead.Parent then
+            StateManager:StopPOV()
+            return
+        end
+        cam.CFrame = CFrame.lookAt(targetHead.Position + targetHead.CFrame.LookVector * 0.4, myRoot.Position)
+    end)
+
+    sSuccess()
+    notify("RED HUB", "🎥 Reverse POV → " .. selectedPlayer.Name)
+end
+
+local function executeBowDown()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, -1.8, -2.0
+    V.RX, V.RY, V.RZ = 45, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Bow", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "bow_down")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🙇 Bow Down / Sajda → " .. selectedPlayer.Name) end
+end
+
+local function executePointMock()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, 0, -2.8
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Point", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "point_mock")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sLaugh(); notify("RED HUB", "👉 Point & Mock → " .. selectedPlayer.Name) end
+end
+
+local function executeBlowKiss()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    local myChar = LP.Character
+    local myHead = myChar and myChar:FindFirstChild("Head")
+    if not targetTorso or not myHead then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, 0, -2.0
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Kiss", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "blow_kiss")
+    hookTargetRespawn(selectedPlayer)
+
+    pcall(function()
+        local emitter = Instance.new("ParticleEmitter")
+        emitter.Texture = "rbxassetid://258128463"
+        emitter.Rate = 12
+        emitter.Lifetime = NumberRange.new(1.0, 1.8)
+        emitter.Speed = NumberRange.new(2.0, 3.5)
+        emitter.Size = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.4),
+            NumberSequenceKeypoint.new(0.5, 0.8),
+            NumberSequenceKeypoint.new(1, 0)
+        })
+        emitter.Color = ColorSequence.new(Color3.fromRGB(244, 63, 94), Color3.fromRGB(255, 150, 180))
+        emitter.Parent = myHead
+        table.insert(ActiveParticles, emitter)
+    end)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "💋 Blow Kiss (Heart Stream) → " .. selectedPlayer.Name) end
+end
+
+local function executeFlexPose()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, 0, -2.5
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Flex", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "flex_pose")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "💪 Flex Pose → " .. selectedPlayer.Name) end
+end
+
+local function executeFakeUppercut()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot or not myRoot then return end
+
+    StateManager:Cleanup(true)
+    sPunch()
+
+    local hum = myChar:FindFirstChildOfClass("Humanoid")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+    if animator then
+        local animId = getAnimIdForRig("Uppercut", isR15(LP))
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://" .. tostring(animId)
+        local ok, trk = pcall(function() return animator:LoadAnimation(anim) end)
+        if ok and trk then trk:AdjustSpeed(2.0); trk:Play(); table.insert(PlayedAnims, trk) end
+    end
+
+    local startCF = targetRoot.CFrame * CFrame.new(0, 0, -3.5) * CFrame.Angles(0, math.rad(180), 0)
+    local endCF   = targetRoot.CFrame * CFrame.new(0, 1.8, -1.0) * CFrame.Angles(0, math.rad(180), 0)
+    myRoot.CFrame = startCF
+
+    local t0 = tick()
+    local conn = RunService.RenderStepped:Connect(function()
+        local alpha = math.min((tick() - t0) / 0.25, 1)
+        myRoot.CFrame = startCF:Lerp(endCF, alpha)
+        if alpha >= 1 then
+            if conn then conn:Disconnect(); conn = nil end
+        end
+    end)
+    notify("RED HUB", "🥊 Fake Uppercut → " .. selectedPlayer.Name)
+    sSuccess()
+end
+
+local function executeSlapBack()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, 0, -1.5
+    V.RX, V.RY, V.RZ = 0, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Slap", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, false, "slap_back")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSlap(); notify("RED HUB", "👋 Slap Back → " .. selectedPlayer.Name) end
+end
+
+local function executeHandshakePose()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0.3, 0, -1.5
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    enableProceduralArmRaise("handshake")
+    storeWeldInfo(selectedPlayer, 0, false, "handshake")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, 0, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🤝 Handshake Pose → " .. selectedPlayer.Name) end
+end
+
+local function executePatHead()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    local headH = getHeadHeight(tc)
+    V.X, V.Y, V.Z    = 0.4, headH * 0.4, -1.1
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    enableProceduralArmRaise("pat")
+    storeWeldInfo(selectedPlayer, 0, false, "pat_head")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, 0, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "👋 Pat Head → " .. selectedPlayer.Name) end
+end
+
+local function executeBellyDance()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, 0, 1.2
+    V.RX, V.RY, V.RZ = 0, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = ANIM_DB.Dances.Floss
+    storeWeldInfo(selectedPlayer, animId, false, "belly_dance")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "💃 Belly Dance → " .. selectedPlayer.Name) end
+end
+
+local function executeSpankOffset()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    V.X, V.Y, V.Z    = 0, -0.2, -1.2
+    V.RX, V.RY, V.RZ = 0, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Slap", isR15(LP))
+    storeWeldInfo(selectedPlayer, animId, true, "spank")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; startThrust(-1.8, -0.8); sSlap(); notify("RED HUB", "🍑 Spank Offset → " .. selectedPlayer.Name) end
+end
+
+local function toggleAutoLookAt()
+    if AutoLookAtActive then
+        if AutoLookAtConn then AutoLookAtConn:Disconnect(); AutoLookAtConn = nil end
+        AutoLookAtActive = false
+        sToggleOff()
+        notify("RED HUB", "Auto Look-At Disabled")
+    else
+        if not selectedPlayer or not selectedPlayer.Character then return end
+        local tc = selectedPlayer.Character
+        local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+        local myChar = LP.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not targetRoot or not myRoot then return end
+
+        AutoLookAtActive = true
+        sToggleOn()
+        AutoLookAtConn = RunService.RenderStepped:Connect(function()
+            if not AutoLookAtActive or not myChar.Parent or not targetRoot.Parent then
+                if AutoLookAtConn then AutoLookAtConn:Disconnect(); AutoLookAtConn = nil end
+                AutoLookAtActive = false
+                return
+            end
+            local myPos = myRoot.Position
+            local aimPos = Vector3.new(targetRoot.Position.X, myPos.Y, targetRoot.Position.Z)
+            myRoot.CFrame = CFrame.lookAt(myPos, aimPos)
+        end)
+        notify("RED HUB", "🧭 Auto Look-At Active → " .. selectedPlayer.Name)
+    end
+end
+
+local function toggleTargetCamLock()
+    if TargetCamLockActive then
+        if TargetCamLockConn then TargetCamLockConn:Disconnect(); TargetCamLockConn = nil end
+        TargetCamLockActive = false
+        sToggleOff()
+        notify("RED HUB", "Target Cam Lock Disabled")
+    else
+        if not selectedPlayer or not selectedPlayer.Character then return end
+        local tc = selectedPlayer.Character
+        local targetHead = tc:FindFirstChild("Head") or tc:FindFirstChild("HumanoidRootPart")
+        if not targetHead then return end
+
+        TargetCamLockActive = true
+        sToggleOn()
+        TargetCamLockConn = RunService.RenderStepped:Connect(function()
+            if not TargetCamLockActive or not targetHead.Parent then
+                if TargetCamLockConn then TargetCamLockConn:Disconnect(); TargetCamLockConn = nil end
+                TargetCamLockActive = false
+                return
+            end
+            local desiredCF = CFrame.lookAt(cam.CFrame.Position, targetHead.Position)
+            cam.CFrame = cam.CFrame:Lerp(desiredCF, 0.2)
+        end)
+        notify("RED HUB", "🎯 Target Cam Lock Active → " .. selectedPlayer.Name)
+    end
+end
+
+local function toggleGhostMode()
+    GhostModeActive = not GhostModeActive
+    local char = LP.Character
+    if not char then return end
+
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.LocalTransparencyModifier = GhostModeActive and 0.5 or 0
+        end
+    end
+
+    if GhostModeActive then sToggleOn(); notify("RED HUB", "👻 Ghost Mode: ON") else sToggleOff(); notify("RED HUB", "👻 Ghost Mode: OFF") end
+end
+
+local function executeInvisibilityTeleport()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot or not myRoot then return end
+
+    sWhoosh()
+    for _, part in ipairs(myChar:GetDescendants()) do
+        if part:IsA("BasePart") then part.LocalTransparencyModifier = 1 end
+    end
+
+    task.wait(0.12)
+    myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2)
+    myRoot.AssemblyLinearVelocity = Vector3.zero
+    myRoot.AssemblyAngularVelocity = Vector3.zero
+
+    task.wait(0.15)
+    for _, part in ipairs(myChar:GetDescendants()) do
+        if part:IsA("BasePart") then part.LocalTransparencyModifier = 0 end
+    end
+    sSuccess()
+    notify("RED HUB", "⚡ Invisibility Teleport Behind → " .. selectedPlayer.Name)
+end
+
+local function toggleSpinAttack()
+    if SpinAttackActive then
+        if SpinAttackConn then SpinAttackConn:Disconnect(); SpinAttackConn = nil end
+        SpinAttackActive = false
+        sToggleOff()
+        notify("RED HUB", "🌪️ Spin Attack Stopped")
+    else
+        local char = LP.Character
+        local myRoot = char and char:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return end
+
+        SpinAttackActive = true
+        sToggleOn()
+        SpinAttackConn = RunService.RenderStepped:Connect(function()
+            if not SpinAttackActive or not char.Parent then
+                if SpinAttackConn then SpinAttackConn:Disconnect(); SpinAttackConn = nil end
+                SpinAttackActive = false
+                return
+            end
+            myRoot.CFrame = myRoot.CFrame * CFrame.Angles(0, math.rad(45), 0)
+        end)
+        notify("RED HUB", "🌪️ Spin Attack (Tornado Mode) Active!")
+    end
+end
+
+local function executeFakeFlingArc()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot or not myRoot then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    storeWeldInfo(selectedPlayer, 0, false, "fling_arc")
+    hookTargetRespawn(selectedPlayer)
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local t0 = tick()
+    local conn = RunService.Heartbeat:Connect(function()
+        if not myChar.Parent or not tc.Parent then return end
+        local t = (tick() - t0) * 3
+        local arcY = math.abs(math.sin(t * 1.5)) * 5.0
+        local x = math.cos(t) * 4.0
+        local z = math.sin(t) * 4.0
+        myRoot.CFrame = targetRoot.CFrame * CFrame.new(x, arcY, z) * CFrame.Angles(math.sin(t), t * 2, 0)
+        myRoot.AssemblyLinearVelocity = Vector3.zero
+        myRoot.AssemblyAngularVelocity = Vector3.zero
+    end)
+
+    local ArcWeld = {}
+    function ArcWeld:Destroy() if conn then conn:Disconnect(); conn = nil end end
+    CurrentWeld = ArcWeld
+    sFling()
+    notify("RED HUB", "🚀 Fake Fling Arc → " .. selectedPlayer.Name)
+end
+
+local function toggleCopyVelocity()
+    if CopyVelocityActive then
+        if CopyVelocityConn then CopyVelocityConn:Disconnect(); CopyVelocityConn = nil end
+        CopyVelocityActive = false
+        sToggleOff()
+        notify("RED HUB", "Copy Velocity Disabled")
+    else
+        if not selectedPlayer or not selectedPlayer.Character then return end
+        local tc = selectedPlayer.Character
+        local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+        local myChar = LP.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not targetRoot or not myRoot then return end
+
+        CopyVelocityActive = true
+        sToggleOn()
+        CopyVelocityConn = RunService.Heartbeat:Connect(function()
+            if not CopyVelocityActive or not myChar.Parent or not targetRoot.Parent then
+                if CopyVelocityConn then CopyVelocityConn:Disconnect(); CopyVelocityConn = nil end
+                CopyVelocityActive = false
+                return
+            end
+            myRoot.AssemblyLinearVelocity = targetRoot.AssemblyLinearVelocity
+            myRoot.AssemblyAngularVelocity = targetRoot.AssemblyAngularVelocity
+        end)
+        notify("RED HUB", "🏎️ Velocity Matching Active → " .. selectedPlayer.Name)
+    end
+end
+
+local function toggleAnchorLock()
+    local char = LP.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    AnchorLockActive = not AnchorLockActive
+    root.Anchored = AnchorLockActive
+
+    if AnchorLockActive then sToggleOn(); notify("RED HUB", "⚓ Anchor Lock: FROZEN") else sToggleOff(); notify("RED HUB", "⚓ Anchor Lock: UNLOCKED") end
+end
+
+local function toggleNoclipWalk()
+    if NoclipActive then
+        if NoclipConn then NoclipConn:Disconnect(); NoclipConn = nil end
+        NoclipActive = false
+        sToggleOff()
+        notify("RED HUB", "Noclip Disabled")
+    else
+        local char = LP.Character
+        if not char then return end
+
+        NoclipActive = true
+        sToggleOn()
+        NoclipConn = RunService.Stepped:Connect(function()
+            if not NoclipActive or not LP.Character then
+                if NoclipConn then NoclipConn:Disconnect(); NoclipConn = nil end
+                NoclipActive = false
+                return
+            end
+            for _, part in ipairs(LP.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end)
+        notify("RED HUB", "👻 Noclip Walk: ACTIVE")
+    end
+end
+
+local function executeHeightMatch()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetHead = tc:FindFirstChild("Head")
+    local myChar = LP.Character
+    local myHead = myChar and myChar:FindFirstChild("Head")
+    if not targetHead or not myHead then return end
+
+    local deltaY = targetHead.Position.Y - myHead.Position.Y
+    V.Y = V.Y + deltaY
+    if UIRefs.SlY then UIRefs.SlY.set(V.Y, true) end
+    sSuccess()
+    notify("RED HUB", "📏 Height Matched Eye-to-Eye (ΔY: " .. string.format("%.2f", deltaY) .. ")")
+end
+
+local function toggleDistanceKeeper()
+    if DistanceKeeperActive then
+        if DistanceKeeperConn then DistanceKeeperConn:Disconnect(); DistanceKeeperConn = nil end
+        DistanceKeeperActive = false
+        sToggleOff()
+        notify("RED HUB", "Distance Keeper Disabled")
+    else
+        if not selectedPlayer or not selectedPlayer.Character then return end
+        local tc = selectedPlayer.Character
+        local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+        local myChar = LP.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not targetRoot or not myRoot then return end
+
+        DistanceKeeperActive = true
+        sToggleOn()
+        DistanceKeeperConn = RunService.Heartbeat:Connect(function()
+            if not DistanceKeeperActive or not myChar.Parent or not targetRoot.Parent then
+                if DistanceKeeperConn then DistanceKeeperConn:Disconnect(); DistanceKeeperConn = nil end
+                DistanceKeeperActive = false
+                return
+            end
+            local diff = myRoot.Position - targetRoot.Position
+            local flatDiff = Vector3.new(diff.X, 0, diff.Z)
+            if flatDiff.Magnitude > 0.05 then
+                local desiredPos = targetRoot.Position + flatDiff.Unit * DistanceKeeperRadius
+                myRoot.CFrame = CFrame.lookAt(Vector3.new(desiredPos.X, myRoot.Position.Y, desiredPos.Z), targetRoot.Position)
+            end
+        end)
+        notify("RED HUB", "🛡️ Distance Keeper Active (5-Stud Forcefield)")
+    end
+end
+
+-- V19 Core Actions
+local function executeZeroDelayKiss()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    V.X, V.Y, V.Z    = 0, 0, -1.5
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, ANIM_DB.Kiss.R15, true, "kiss")
+    hookTargetRespawn(selectedPlayer)
+    enableProceduralArmRaise("kiss")
+
+    ThrustActive = true
+    local t0 = tick()
+    ThrustConn = RunService.Heartbeat:Connect(function()
+        if not ThrustActive then return end
+        V.Z = -1.6 + math.sin((tick() - t0) * 3.0) * 1.4
+    end)
+
+    local animId = getAnimIdForRig("Kiss", isR15(LP))
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "💋 Zero-Delay Kiss → " .. selectedPlayer.Name) end
+end
+
+local function executeZeroDelayHug()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    V.X, V.Y, V.Z    = 0, 0, -0.8
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, ANIM_DB.Hug.R15, false, "hug")
+    hookTargetRespawn(selectedPlayer)
+    enableProceduralArmRaise("hug")
+
+    local animId = getAnimIdForRig("Hug", isR15(LP))
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🤗 Zero-Delay Hug → " .. selectedPlayer.Name) end
+end
+
+local function executeZeroDelay69()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    V.X, V.Y, V.Z    = 0, 0, -1.5
+    V.RX, V.RY, V.RZ = 0, 180, 180
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, ANIM_DB.Pos69.R15, true, "pos69")
+    hookTargetRespawn(selectedPlayer)
+
+    ThrustActive = true
+    local t0 = tick()
+    ThrustConn = RunService.Heartbeat:Connect(function()
+        if not ThrustActive then return end
+        V.Z = -1.5 + math.sin((tick() - t0) * 3.2) * 0.5
+    end)
+
+    local animId = getAnimIdForRig("Pos69", isR15(LP))
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🔄 69 Position → " .. selectedPlayer.Name) end
+end
+
+local function executeZeroDelaySlap()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    V.X, V.Y, V.Z    = 0, 0, -1.5
+    V.RX, V.RY, V.RZ = 0, 180, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, 0, false, "slap")
+    hookTargetRespawn(selectedPlayer)
+
+    local animId = getAnimIdForRig("Slap", isR15(LP))
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSlap(); notify("RED HUB", "👋 Slap (Z = -1.5) → " .. selectedPlayer.Name) end
+end
+
+local function executeZeroDelayKick()
+    local char = LP.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+    if not animator then return end
+
+    StateManager:Cleanup(true)
+    local animId = getAnimIdForRig("Kick", isR15(LP))
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. tostring(animId)
+    local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+    if ok and track then
+        track:AdjustSpeed(1.6)
+        track:Play()
+        table.insert(PlayedAnims, track)
+        sSuccess()
+        notify("RED HUB", "🦵 Kick Executed! (ID: " .. animId .. ")")
+    end
+end
+
+local function executeShoulderSit()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    local userR15 = isR15(LP)
+    V.X, V.Y, V.Z    = 1.5, userR15 and 2.2 or 1.8, 0
+    V.RX, V.RY, V.RZ = 0, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("ShoulderSit", userR15)
+    storeWeldInfo(selectedPlayer, animId, false, "shoulder")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🪑 Shoulder Sit → " .. selectedPlayer.Name) end
+end
+
+local function executeHeadSit()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local head = tc:FindFirstChild("Head") or getTargetTorso(tc)
+    if not head then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    local userR15 = isR15(LP)
+    V.X, V.Y, V.Z    = 0, userR15 and 3.0 or 2.5, 0
+    V.RX, V.RY, V.RZ = 0, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("HeadSit", userR15)
+    storeWeldInfo(selectedPlayer, animId, false, "headsit")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(head, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🪑 Head Sit → " .. selectedPlayer.Name) end
+end
+
+local function executeCarry()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    local userR15 = isR15(LP)
+    V.X, V.Y, V.Z    = 0, 1.0, userR15 and 2.0 or 1.5
+    V.RX, V.RY, V.RZ = 0, 0, 0
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    local animId = getAnimIdForRig("Carry", userR15)
+    storeWeldInfo(selectedPlayer, animId, false, "carry")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "🎪 Carry → " .. selectedPlayer.Name) end
+end
+
+local function executeZeroDelayStare()
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    local tc = selectedPlayer.Character
+    local targetRoot = tc:FindFirstChild("HumanoidRootPart")
+    local char = LP.Character
+    local myRoot = char and char:FindFirstChild("HumanoidRootPart")
+    if not targetRoot or not myRoot then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, 0, false, "stare")
+    hookTargetRespawn(selectedPlayer)
+
+    myRoot.CFrame = CFrame.new(targetRoot.Position + targetRoot.CFrame.LookVector * 2.5, targetRoot.Position)
+    local conn = RunService.Heartbeat:Connect(function()
+        if not char.Parent or not tc.Parent then return end
+        myRoot.CFrame = CFrame.new(targetRoot.Position + targetRoot.CFrame.LookVector * 2.5, targetRoot.Position)
+        myRoot.AssemblyLinearVelocity = Vector3.zero
+        myRoot.AssemblyAngularVelocity = Vector3.zero
+    end)
+
+    local StareWeld = {}
+    function StareWeld:Destroy() if conn then conn:Disconnect(); conn = nil end end
+    CurrentWeld = StareWeld
+    sSuccess()
+    notify("RED HUB", "👁️ Stare Eye-to-Eye → " .. selectedPlayer.Name)
+end
+
+local function runPreset(x, y, z, rx, ry, rz, animId, presetName)
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    V.X, V.Y, V.Z    = x, y, z
+    V.RX, V.RY, V.RZ = rx, ry, rz
+
+    pcall(function()
+        if UIRefs.SlX then UIRefs.SlX.set(x, false) end
+        if UIRefs.SlY then UIRefs.SlY.set(y, false) end
+        if UIRefs.SlZ then UIRefs.SlZ.set(z, false) end
+        if UIRefs.SlRX then UIRefs.SlRX.set(rx, false) end
+        if UIRefs.SlRY then UIRefs.SlRY.set(ry, false) end
+        if UIRefs.SlRZ then UIRefs.SlRZ.set(rz, false) end
+    end)
+
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, animId, false, "preset")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", (presetName or "Preset") .. " → " .. selectedPlayer.Name) end
+end
+
+local function runBang(animId, speed, rangeOverride)
+    if not selectedPlayer or not selectedPlayer.Character then return end
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+
+    local tc = selectedPlayer.Character
+    local targetTorso = getTargetTorso(tc)
+    if not targetTorso then return end
+
+    local touchZ = (getTorsoDepth(LP.Character) + getTorsoDepth(tc)) / 2 + 0.15
+    V.X, V.Y, V.Z    = 0, 0, touchZ
+    V.RX, V.RY, V.RZ = 0, 0, 0
+    ThrustTouchZ     = touchZ
+    ThrustDirection  = 1
+
+    if rangeOverride then ThrustRange = rangeOverride end
+    if speed then ThrustSpeed = speed end
+
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, animId, true, "bang")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, animId, false) end)
+    if ok and w then
+        CurrentWeld = w
+        startThrust()
+        sSuccess()
+        notify("RED HUB", "💥 Bang → " .. selectedPlayer.Name)
+    end
+end
+
+performAutoReweld = function(targetPlr, reasonText)
+    if not AutoReweldEnabled or not targetPlr or not targetPlr.Character then return end
+    if LastWeldType == "back_orbit" then executeBackOrbit()
+    elseif LastWeldType == "backpack_ride" then executeBackpackRide()
+    elseif LastWeldType == "foot_sit" then executeFootSit()
+    elseif LastWeldType == "side_glance" then executeSideGlanceLock()
+    elseif LastWeldType == "shadow_glitch" then executeShadowGlitch()
+    elseif LastWeldType == "crawler" then executeCrawlerPosition()
+    elseif LastWeldType == "hover_crown" then executeHoverCrown()
+    elseif LastWeldType == "leg_drag" then executeLegDragFollow()
+    elseif LastWeldType == "bow_down" then executeBowDown()
+    elseif LastWeldType == "point_mock" then executePointMock()
+    elseif LastWeldType == "blow_kiss" then executeBlowKiss()
+    elseif LastWeldType == "flex_pose" then executeFlexPose()
+    elseif LastWeldType == "slap_back" then executeSlapBack()
+    elseif LastWeldType == "handshake" then executeHandshakePose()
+    elseif LastWeldType == "pat_head" then executePatHead()
+    elseif LastWeldType == "belly_dance" then executeBellyDance()
+    elseif LastWeldType == "spank" then executeSpankOffset()
+    elseif LastWeldType == "kiss" then executeZeroDelayKiss()
+    elseif LastWeldType == "hug" then executeZeroDelayHug()
+    elseif LastWeldType == "pos69" then executeZeroDelay69()
+    elseif LastWeldType == "shoulder" then executeShoulderSit()
+    elseif LastWeldType == "headsit" then executeHeadSit()
+    elseif LastWeldType == "carry" then executeCarry()
+    elseif LastWeldType == "slap" then executeZeroDelaySlap()
+    elseif LastWeldType == "stare" then executeZeroDelayStare()
+    elseif LastWeldType == "bang" then runBang(LastWeldAnimId or 148840371, 2.2)
+    end
+end
+
+--[[═══════════════════════════════════════════════════════════════════════════════
+  🖥️ GUI CREATION WITH DEDICATED ATTACH, ACTIONS & UTILITY TABS
+═══════════════════════════════════════════════════════════════════════════════]]
+local vp = cam.ViewportSize
+local screenW = (vp and vp.X > 400) and vp.X or 1280
+local screenH = (vp and vp.Y > 400) and vp.Y or 720
+local W = math.clamp(screenW - 40, 440, 500)
+local H = 400
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "RedHubV20"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.IgnoreGuiInset = true
+
+local mountOk = pcall(function() gui.Parent = GuiParent end)
+if not mountOk then gui.Parent = LP:WaitForChild("PlayerGui") end
+
+-- Floating Mobile Button
+local mobToggle = Instance.new("TextButton")
+mobToggle.Name = "RedHubMobileToggle"
+mobToggle.Size = UDim2.new(0, 44, 0, 44)
+mobToggle.Position = UDim2.new(0, 16, 0.5, -22)
+mobToggle.BackgroundColor3 = T.Accent
+mobToggle.Text = "🔴"
+mobToggle.TextSize = 22
+mobToggle.Font = Enum.Font.GothamBold
+mobToggle.TextColor3 = Color3.new(1, 1, 1)
+mobToggle.ZIndex = 999
+mobToggle.Parent = gui
+Instance.new("UICorner", mobToggle).CornerRadius = UDim.new(1, 0)
+local mobStroke = Instance.new("UIStroke")
+mobStroke.Color = T.Neon
+mobStroke.Thickness = 2
+mobStroke.Parent = mobToggle
+
+local mobDrag, mobStart, mobPos
+mobToggle.InputBegan:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+        mobDrag = true; mobStart = inp.Position; mobPos = mobToggle.Position
+    end
+end)
+UIS.InputChanged:Connect(function(inp)
+    if mobDrag and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+        local delta = inp.Position - mobStart
+        mobToggle.Position = UDim2.new(mobPos.X.Scale, mobPos.X.Offset + delta.X, mobPos.Y.Scale, mobPos.Y.Offset + delta.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then mobDrag = false end
+end)
+
+-- Main Frame
+local main = Instance.new("Frame")
+main.Name = "MainFrame"
+main.Size = UDim2.new(0, W, 0, H)
+main.Position = UDim2.new(0.5, -W/2, 0.5, -H/2)
+main.BackgroundColor3 = T.BG
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+main.Active = true
+main.ZIndex = 5
+main.Parent = gui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 14)
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = T.Border
+mainStroke.Thickness = 1.2
+mainStroke.Transparency = 0.3
+mainStroke.Parent = main
+
+mobToggle.MouseButton1Click:Connect(function()
+    sClick()
+    main.Visible = not main.Visible
+end)
+
+-- Header
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.Size = UDim2.new(1, 0, 0, 44)
+header.BackgroundColor3 = T.Panel
+header.BorderSizePixel = 0
+header.ZIndex = 6
+header.Parent = main
+Instance.new("UICorner", header).CornerRadius = UDim.new(0, 14)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -160, 1, 0)
+title.Position = UDim2.new(0, 14, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "🔴 RED HUB"
+title.TextColor3 = T.Accent
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 16
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 8
+title.Parent = header
+
+local vTag = Instance.new("TextLabel")
+vTag.Size = UDim2.new(0, 68, 0, 16)
+vTag.Position = UDim2.new(0, 142, 0, 14)
+vTag.BackgroundColor3 = T.Accent
+vTag.Text = "V20 +31 NEW"
+vTag.TextColor3 = Color3.new(1, 1, 1)
+vTag.Font = Enum.Font.GothamBlack
+vTag.TextSize = 8
+vTag.ZIndex = 8
+vTag.Parent = header
+Instance.new("UICorner", vTag).CornerRadius = UDim.new(0, 4)
+
+local BtnColors = setmetatable({}, {__mode = "k"})
+
+local function styleBtn(b, initialColor)
+    BtnColors[b] = initialColor
+    b.BackgroundColor3 = initialColor
+    b.AutoButtonColor = false
+    b.ClipsDescendants = true
+    b.MouseEnter:Connect(function()
+        sHover()
+        if BtnColors[b] then
+            TweenService:Create(b, TweenInfo.new(0.12), { BackgroundColor3 = BtnColors[b]:Lerp(Color3.new(1, 1, 1), 0.18) }):Play()
+        end
+    end)
+    b.MouseLeave:Connect(function()
+        if BtnColors[b] then TweenService:Create(b, TweenInfo.new(0.18), { BackgroundColor3 = BtnColors[b] }):Play() end
+    end)
+end
+
+local function makeWinBtn(xPos, bgColor)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 28, 0, 28)
+    b.Position = UDim2.new(1, xPos, 0, 8)
+    b.BackgroundColor3 = bgColor
+    b.Text = ""
+    b.AutoButtonColor = false
+    b.ZIndex = 8
+    b.Parent = header
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    return b
+end
+
+local btnMin = makeWinBtn(-90, T.PanelLt)
+local minLine = Instance.new("Frame")
+minLine.Size = UDim2.new(0, 12, 0, 2)
+minLine.Position = UDim2.new(0.5, -6, 0.5, -1)
+minLine.BackgroundColor3 = T.Text
+minLine.BorderSizePixel = 0
+minLine.ZIndex = 9
+minLine.Parent = btnMin
+
+local btnClose = makeWinBtn(-58, T.Accent)
+local x1 = Instance.new("Frame")
+x1.Size = UDim2.new(0, 14, 0, 2)
+x1.Position = UDim2.new(0.5, -7, 0.5, -1)
+x1.BackgroundColor3 = Color3.new(1, 1, 1)
+x1.BorderSizePixel = 0
+x1.Rotation = 45
+x1.ZIndex = 9
+x1.Parent = btnClose
+local x2 = Instance.new("Frame")
+x2.Size = UDim2.new(0, 14, 0, 2)
+x2.Position = UDim2.new(0.5, -7, 0.5, -1)
+x2.BackgroundColor3 = Color3.new(1, 1, 1)
+x2.BorderSizePixel = 0
+x2.Rotation = -45
+x2.ZIndex = 9
+x2.Parent = btnClose
+
+-- Dragging
+local dragging, dragStart, startPos
+header.InputBegan:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; dragStart = inp.Position; startPos = main.Position
+    end
+end)
+UIS.InputChanged:Connect(function(inp)
+    if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+        local d = inp.Position - dragStart
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then dragging = false end
+end)
+
+-- Tabs Bar
+local tabsBar = Instance.new("ScrollingFrame")
+tabsBar.Name = "TabsBar"
+tabsBar.Size = UDim2.new(1, 0, 0, 40)
+tabsBar.Position = UDim2.new(0, 0, 0, 44)
+tabsBar.BackgroundColor3 = T.BG2
+tabsBar.BorderSizePixel = 0
+tabsBar.ScrollBarThickness = 0
+tabsBar.ScrollingDirection = Enum.ScrollingDirection.X
+tabsBar.AutomaticCanvasSize = Enum.AutomaticSize.X
+tabsBar.ZIndex = 6
+tabsBar.Parent = main
+
+local tabsLayout = Instance.new("UIListLayout")
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.Padding = UDim.new(0, 4)
+tabsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+tabsLayout.Parent = tabsBar
+
+local tabsPad = Instance.new("UIPadding")
+tabsPad.PaddingLeft = UDim.new(0, 8); tabsPad.PaddingRight = UDim.new(0, 8)
+tabsPad.Parent = tabsBar
+
+-- Content Frame
+local content = Instance.new("Frame")
+content.Name = "Content"
+content.Size = UDim2.new(1, 0, 1, -140)
+content.Position = UDim2.new(0, 0, 0, 84)
+content.BackgroundTransparency = 1
+content.ZIndex = 6
+content.Parent = main
+
+-- Footer Frame
+local footer = Instance.new("Frame")
+footer.Name = "Footer"
+footer.Size = UDim2.new(1, 0, 0, 56)
+footer.Position = UDim2.new(0, 0, 1, -56)
+footer.BackgroundColor3 = T.Panel
+footer.BorderSizePixel = 0
+footer.ZIndex = 6
+footer.Parent = main
+
+local fTop = Instance.new("Frame")
+fTop.Size = UDim2.new(1, 0, 0, 2)
+fTop.BackgroundColor3 = T.Accent
+fTop.BorderSizePixel = 0
+fTop.ZIndex = 7
+fTop.Parent = footer
+
+local footerLabel = Instance.new("TextLabel")
+footerLabel.Size = UDim2.new(1, -220, 0, 20)
+footerLabel.Position = UDim2.new(0, 14, 0, 8)
+footerLabel.BackgroundTransparency = 1
+footerLabel.Text = "👤 No player selected"
+footerLabel.TextColor3 = T.Muted
+footerLabel.Font = Enum.Font.GothamBold
+footerLabel.TextSize = 11
+footerLabel.TextXAlignment = Enum.TextXAlignment.Left
+footerLabel.ZIndex = 8
+footerLabel.Parent = footer
+
+local footerSub = Instance.new("TextLabel")
+footerSub.Size = UDim2.new(1, -220, 0, 16)
+footerSub.Position = UDim2.new(0, 14, 0, 28)
+footerSub.BackgroundTransparency = 1
+footerSub.Text = "Select target to execute zero-delay features"
+footerSub.TextColor3 = T.Muted
+footerSub.Font = Enum.Font.Gotham
+footerSub.TextSize = 9
+footerSub.TextXAlignment = Enum.TextXAlignment.Left
+footerSub.ZIndex = 8
+footerSub.Parent = footer
+
+local btnWeld = Instance.new("TextButton")
+btnWeld.Size = UDim2.new(0, 95, 0, 38)
+btnWeld.Position = UDim2.new(1, -207, 0, 9)
+btnWeld.Text = "🔗 WELD"
+btnWeld.TextColor3 = Color3.new(1, 1, 1)
+btnWeld.Font = Enum.Font.GothamBlack
+btnWeld.TextSize = 12
+btnWeld.ZIndex = 8
+btnWeld.Parent = footer
+Instance.new("UICorner", btnWeld).CornerRadius = UDim.new(0, 8)
+styleBtn(btnWeld, T.Accent)
+
+local btnUnweld = Instance.new("TextButton")
+btnUnweld.Size = UDim2.new(0, 95, 0, 38)
+btnUnweld.Position = UDim2.new(1, -105, 0, 9)
+btnUnweld.Text = "🔓 UNWELD"
+btnUnweld.TextColor3 = Color3.new(1, 1, 1)
+btnUnweld.Font = Enum.Font.GothamBlack
+btnUnweld.TextSize = 12
+btnUnweld.ZIndex = 8
+btnUnweld.Parent = footer
+Instance.new("UICorner", btnUnweld).CornerRadius = UDim.new(0, 8)
+styleBtn(btnUnweld, T.Danger)
+
+local TabPages, TabButtons = {}, {}
+local tabCounter = 0
+
+local function showTab(name)
+    for n, p in pairs(TabPages) do p.Visible = (n == name) end
+    for n, b in pairs(TabButtons) do
+        local act = (n == name)
+        TweenService:Create(b, TweenInfo.new(0.15), {
+            BackgroundColor3 = act and T.Accent or T.Panel,
+            TextColor3 = act and Color3.new(1, 1, 1) or T.Muted,
+        }):Play()
+    end
+end
+
+local function createTab(name, icon)
+    tabCounter = tabCounter + 1
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 80, 0, 26)
+    btn.BackgroundColor3 = T.Panel
+    btn.Text = icon .. " " .. name
+    btn.TextColor3 = T.Muted
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9
+    btn.LayoutOrder = tabCounter
+    btn.ZIndex = 7
+    btn.Parent = tabsBar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    styleBtn(btn, T.Panel)
+    btn.MouseButton1Click:Connect(function() sClick(); showTab(name) end)
+    TabButtons[name] = btn
+
+    local page = Instance.new("ScrollingFrame")
+    page.Name = name .. "Page"
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 2
+    page.ScrollBarImageColor3 = T.Accent
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.Visible = false
+    page.ZIndex = 6
+    page.Parent = content
+
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop = UDim.new(0, 6); pad.PaddingBottom = UDim.new(0, 6)
+    pad.PaddingLeft = UDim.new(0, 8); pad.PaddingRight = UDim.new(0, 8)
+    pad.Parent = page
+
+    local lst = Instance.new("UIListLayout")
+    lst.Padding = UDim.new(0, 5)
+    lst.SortOrder = Enum.SortOrder.LayoutOrder
+    lst.Parent = page
+
+    TabPages[name] = page
+    return page
+end
+
+local function sectionLbl(parent, order, txt, color)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1, 0, 0, 16)
+    l.BackgroundTransparency = 1
+    l.Text = txt
+    l.TextColor3 = color or T.Accent
+    l.Font = Enum.Font.GothamBlack
+    l.TextSize = 10
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.LayoutOrder = order
+    l.ZIndex = 7
+    l.Parent = parent
+    return l
+end
+
+local function makeGridRow(parent, order, btns)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 36)
+    row.BackgroundTransparency = 1
+    row.LayoutOrder = order
+    row.ZIndex = 7
+    row.Parent = parent
+    for i, cfg in ipairs(btns) do
+        local bw = 1 / #btns
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.new(bw, -3, 1, 0)
+        b.Position = UDim2.new((i - 1) * bw, 2, 0, 0)
+        b.Text = cfg.text
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 10
+        b.TextWrapped = true
+        b.ZIndex = 8
+        b.Parent = row
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+        styleBtn(b, cfg.color)
+        b.MouseButton1Click:Connect(function() sClick(); pcall(cfg.cb) end)
+    end
+end
+
+-- Create all tabs
+local playersTab = createTab("Players", "👥")
+local attachTab  = createTab("Attach", "🔗")
+local actionsTab = createTab("Actions", "⚡")
+local utilityTab = createTab("Utility", "🛠")
+local adjustTab  = createTab("Adjust", "📐")
+local presetsTab = createTab("Presets", "🎭")
+local animsTab   = createTab("Anims", "🎬")
+local guideTab   = createTab("Guide", "📖")
+
+-- Search & Player list
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, 0, 0, 32)
+searchBox.BackgroundColor3 = T.Panel
+searchBox.PlaceholderText = "🔍 Search player by name..."
+searchBox.Text = ""
+searchBox.TextColor3 = T.Text
+searchBox.PlaceholderColor3 = T.Muted
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 12
+searchBox.LayoutOrder = 1
+searchBox.ClearTextOnFocus = false
+searchBox.ZIndex = 7
+searchBox.Parent = playersTab
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 7)
+
+local listFrame = Instance.new("Frame")
+listFrame.Size = UDim2.new(1, 0, 0, 160)
+listFrame.BackgroundColor3 = T.Panel
+listFrame.BorderSizePixel = 0
+listFrame.LayoutOrder = 2
+listFrame.ClipsDescendants = true
+listFrame.ZIndex = 7
+listFrame.Parent = playersTab
+Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 7)
+
+local listScroll = Instance.new("ScrollingFrame")
+listScroll.Size = UDim2.new(1, -6, 1, -6)
+listScroll.Position = UDim2.new(0, 3, 0, 3)
+listScroll.BackgroundTransparency = 1
+listScroll.BorderSizePixel = 0
+listScroll.ScrollBarThickness = 2
+listScroll.ScrollBarImageColor3 = T.Accent
+listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+listScroll.ZIndex = 8
+listScroll.Parent = listFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 4)
+listLayout.Parent = listScroll
+
+local function refreshList()
+    for _, c in ipairs(listScroll:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
+    end
+    local q = (searchBox.Text or ""):lower()
+    local plrs = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and (q == "" or p.Name:lower():sub(1, #q) == q or p.DisplayName:lower():sub(1, #q) == q) then
+            table.insert(plrs, p)
+        end
+    end
+    if #plrs == 0 then
+        local e = Instance.new("TextLabel")
+        e.Size = UDim2.new(1, 0, 0, 30)
+        e.BackgroundTransparency = 1
+        e.Text = "No other players found"
+        e.TextColor3 = T.Muted
+        e.Font = Enum.Font.Gotham
+        e.TextSize = 11
+        e.ZIndex = 9
+        e.Parent = listScroll
+        return
+    end
+    for i, p in ipairs(plrs) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -6, 0, 32)
+        btn.BackgroundColor3 = (selectedPlayer == p) and T.Accent or T.PanelLt
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.LayoutOrder = i
+        btn.ZIndex = 9
+        btn.Parent = listScroll
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        styleBtn(btn, (selectedPlayer == p) and T.Accent or T.PanelLt)
+
+        local av = Instance.new("ImageLabel")
+        av.Size = UDim2.new(0, 24, 0, 24)
+        av.Position = UDim2.new(0, 4, 0.5, -12)
+        av.BackgroundColor3 = T.Panel
+        av.Image = "rbxthumb://type=AvatarHeadShot&id=" .. p.UserId .. "&w=48&h=48"
+        av.ZIndex = 10
+        av.Parent = btn
+        Instance.new("UICorner", av).CornerRadius = UDim.new(1, 0)
+
+        local nm = Instance.new("TextLabel")
+        nm.Size = UDim2.new(1, -36, 1, 0)
+        nm.Position = UDim2.new(0, 32, 0, 0)
+        nm.BackgroundTransparency = 1
+        nm.Text = p.Name .. " (" .. p.DisplayName .. ")"
+        nm.TextColor3 = Color3.new(1, 1, 1)
+        nm.Font = Enum.Font.GothamBold
+        nm.TextSize = 11
+        nm.TextXAlignment = Enum.TextXAlignment.Left
+        nm.ZIndex = 10
+        nm.Parent = btn
+
+        btn.MouseButton1Click:Connect(function()
+            selectedPlayer = p
+            footerLabel.Text = "👤 " .. p.Name
+            footerSub.Text = "Ready — Choose Attach, Action or Utility"
+            sClick()
+            refreshList()
+        end)
+    end
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(refreshList)
+pcall(refreshList)
+Players.PlayerAdded:Connect(refreshList)
+Players.PlayerRemoving:Connect(refreshList)
+
+-- Attach Buttons (1 to 10)
+sectionLbl(attachTab, 1, "📍 POSITION & LOCK FEATURES (1-10)", T.Accent)
+makeGridRow(attachTab, 2, {
+    { text = "🌀 Back Orbit (360°)", color = Color3.fromRGB(180, 40, 60), cb = executeBackOrbit },
+    { text = "🎒 Backpack Ride", color = Color3.fromRGB(200, 70, 40), cb = executeBackpackRide },
+    { text = "👣 Foot Sit", color = Color3.fromRGB(160, 40, 50), cb = executeFootSit },
+})
+makeGridRow(attachTab, 3, {
+    { text = "👁 Side Glance Lock", color = Color3.fromRGB(220, 80, 80), cb = executeSideGlanceLock },
+    { text = "⚡ Phase Shift (Dash)", color = Color3.fromRGB(244, 63, 94), cb = executePhaseShift },
+    { text = "👤 Shadow Glitch", color = Color3.fromRGB(120, 40, 60), cb = executeShadowGlitch },
+})
+makeGridRow(attachTab, 4, {
+    { text = "🐛 Crawler Position", color = Color3.fromRGB(180, 60, 40), cb = executeCrawlerPosition },
+    { text = "👑 Hover Crown (Halo)", color = Color3.fromRGB(245, 158, 11), cb = executeHoverCrown },
+    { text = "🦵 Leg Drag Follow", color = Color3.fromRGB(225, 29, 72), cb = executeLegDragFollow },
+})
+makeGridRow(attachTab, 5, {
+    { text = "🎥 Reverse POV (Target)", color = Color3.fromRGB(168, 85, 247), cb = executeReversePOV },
+    { text = "🪑 Shoulder Sit", color = Color3.fromRGB(160, 50, 70), cb = executeShoulderSit },
+    { text = "🪑 Head Sit", color = Color3.fromRGB(200, 30, 60), cb = executeHeadSit },
+})
+
+-- Actions Buttons (11 to 20 + Core)
+sectionLbl(actionsTab, 1, "🎭 ANIMATIONS & INTERACTIONS (11-20)", T.Neon)
+makeGridRow(actionsTab, 2, {
+    { text = "🙇 Bow Down (Sajda)", color = Color3.fromRGB(160, 40, 70), cb = executeBowDown },
+    { text = "👉 Point & Mock", color = Color3.fromRGB(220, 50, 50), cb = executePointMock },
+    { text = "💋 Blow Kiss (Hearts)", color = Color3.fromRGB(244, 63, 94), cb = executeBlowKiss },
+})
+makeGridRow(actionsTab, 3, {
+    { text = "💪 Flex Pose Cycle", color = Color3.fromRGB(200, 80, 40), cb = executeFlexPose },
+    { text = "🥊 Fake Uppercut", color = Color3.fromRGB(239, 68, 68), cb = executeFakeUppercut },
+    { text = "👋 Slap Back (Rear)", color = Color3.fromRGB(225, 29, 72), cb = executeSlapBack },
+})
+makeGridRow(actionsTab, 4, {
+    { text = "🤝 Handshake Pose", color = Color3.fromRGB(16, 185, 129), cb = executeHandshakePose },
+    { text = "👋 Pat Head", color = Color3.fromRGB(245, 158, 11), cb = executePatHead },
+    { text = "💃 Belly Dance / Twerk", color = Color3.fromRGB(200, 40, 90), cb = executeBellyDance },
+})
+makeGridRow(actionsTab, 5, {
+    { text = "🍑 Spank Offset", color = Color3.fromRGB(225, 29, 72), cb = executeSpankOffset },
+    { text = "🤗 Zero-Delay Hug", color = Color3.fromRGB(244, 63, 94), cb = executeZeroDelayHug },
+    { text = "💋 Zero-Delay Kiss", color = Color3.fromRGB(225, 29, 72), cb = executeZeroDelayKiss },
+})
+makeGridRow(actionsTab, 6, {
+    { text = "🔄 69 Position", color = Color3.fromRGB(236, 72, 153), cb = executeZeroDelay69 },
+    { text = "🦵 Kick (Cross-Rig)", color = Color3.fromRGB(239, 68, 68), cb = executeZeroDelayKick },
+    { text = "🎪 Carry Position", color = Color3.fromRGB(180, 50, 50), cb = executeCarry },
+})
+
+-- Utility Buttons (21 to 31)
+sectionLbl(utilityTab, 1, "🛠 UTILITY, TROLL & CAMERA SUITE (21-31)", T.Cyan)
+makeGridRow(utilityTab, 2, {
+    { text = "🧭 Auto Look-At", color = Color3.fromRGB(6, 182, 212), cb = toggleAutoLookAt },
+    { text = "🎯 Target Cam Lock", color = Color3.fromRGB(59, 130, 246), cb = toggleTargetCamLock },
+    { text = "👻 Ghost Mode (0.5α)", color = Color3.fromRGB(168, 85, 247), cb = toggleGhostMode },
+})
+makeGridRow(utilityTab, 3, {
+    { text = "⚡ Invisibility TP", color = Color3.fromRGB(225, 29, 72), cb = executeInvisibilityTeleport },
+    { text = "🌪️ Spin Tornado", color = Color3.fromRGB(245, 158, 11), cb = toggleSpinAttack },
+    { text = "🚀 Fake Fling Arc", color = Color3.fromRGB(236, 72, 153), cb = executeFakeFlingArc },
+})
+makeGridRow(utilityTab, 4, {
+    { text = "🏎️ Copy Velocity", color = Color3.fromRGB(16, 185, 129), cb = toggleCopyVelocity },
+    { text = "⚓ Anchor Lock (Freeze)", color = Color3.fromRGB(239, 68, 68), cb = toggleAnchorLock },
+    { text = "🚶 Noclip Walk", color = Color3.fromRGB(147, 51, 234), cb = toggleNoclipWalk },
+})
+makeGridRow(utilityTab, 5, {
+    { text = "📏 Height Match (Eye)", color = Color3.fromRGB(245, 158, 11), cb = executeHeightMatch },
+    { text = "🛡️ Distance Keeper (5s)", color = Color3.fromRGB(6, 182, 212), cb = toggleDistanceKeeper },
+    { text = "✨ Nebula Fling", color = Color3.fromRGB(168, 85, 247), cb = function() launchNebulaFling(3.0, "3 Seconds") end },
+})
+
+-- Adjust Sliders
+local function makeSlider(parent, order, label, minV, maxV, defV, onChange)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 34)
+    row.BackgroundColor3 = T.Panel
+    row.BorderSizePixel = 0
+    row.LayoutOrder = order
+    row.ClipsDescendants = true
+    row.ZIndex = 7
+    row.Parent = parent
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0, 32, 1, 0)
+    lbl.Position = UDim2.new(0, 8, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label
+    lbl.TextColor3 = T.Text
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 11
+    lbl.ZIndex = 8
+    lbl.Parent = row
+
+    local bg = Instance.new("TextButton")
+    bg.Size = UDim2.new(1, -100, 0, 8)
+    bg.Position = UDim2.new(0, 44, 0.5, -4)
+    bg.BackgroundColor3 = T.PanelLt
+    bg.Text = ""
+    bg.AutoButtonColor = false
+    bg.ZIndex = 8
+    bg.Parent = row
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
+
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0, 0, 1, 0)
+    fill.BackgroundColor3 = T.Accent
+    fill.BorderSizePixel = 0
+    fill.ZIndex = 9
+    fill.Parent = bg
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 18, 0, 18)
+    knob.Position = UDim2.new(0, -9, 0.5, -9)
+    knob.BackgroundColor3 = Color3.new(1, 1, 1)
+    knob.BorderSizePixel = 0
+    knob.ZIndex = 10
+    knob.Parent = bg
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local vb = Instance.new("TextBox")
+    vb.Size = UDim2.new(0, 50, 0, 24)
+    vb.Position = UDim2.new(1, -54, 0.5, -12)
+    vb.BackgroundColor3 = T.PanelLt
+    vb.Text = tostring(defV)
+    vb.TextColor3 = T.Text
+    vb.Font = Enum.Font.Gotham
+    vb.TextSize = 11
+    vb.ClearTextOnFocus = false
+    vb.ZIndex = 8
+    vb.Parent = row
+    Instance.new("UICorner", vb).CornerRadius = UDim.new(0, 4)
+
+    local cur = defV
+    local function setVal(v, fire)
+        v = math.clamp(v, minV, maxV)
+        cur = v
+        vb.Text = tostring(math.floor(v * 100 + 0.5) / 100)
+        local pct = (v - minV) / (maxV - minV)
+        fill.Size = UDim2.new(pct, 0, 1, 0)
+        knob.Position = UDim2.new(pct, -9, 0.5, -9)
+        if fire and onChange then onChange(v) end
+    end
+
+    local drag = false
+    local function upd(inp)
+        local rX = inp.Position.X - bg.AbsolutePosition.X
+        local pct = math.clamp(rX / bg.AbsoluteSize.X, 0, 1)
+        setVal(minV + pct * (maxV - minV), true)
+    end
+
+    bg.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+            drag = true; upd(inp); sHover()
+        end
+    end)
+    bg.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then drag = false end
+    end)
+    UIS.InputChanged:Connect(function(inp)
+        if drag and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then upd(inp) end
+    end)
+    vb.FocusLost:Connect(function()
+        local n = tonumber(vb.Text)
+        if n then setVal(n, true); sClick() else setVal(cur, false) end
+    end)
+
+    setVal(defV, false)
+    return { set = setVal, get = function() return cur end }
+end
+
+sectionLbl(adjustTab, 1, "📐 POSITION OFFSET (STUDS)", T.Accent)
+UIRefs.SlX = makeSlider(adjustTab, 2, "X", -10, 10, 0, function(v) V.X = v end)
+UIRefs.SlY = makeSlider(adjustTab, 3, "Y", -10, 10, 0, function(v) V.Y = v end)
+UIRefs.SlZ = makeSlider(adjustTab, 4, "Z", -10, 10, 1.3, function(v) V.Z = v end)
+
+sectionLbl(adjustTab, 5, "🔄 ROTATION (DEGREES)", T.Warning)
+UIRefs.SlRX = makeSlider(adjustTab, 6, "RX", -180, 180, 0, function(v) V.RX = v end)
+UIRefs.SlRY = makeSlider(adjustTab, 7, "RY", -180, 180, 0, function(v) V.RY = v end)
+UIRefs.SlRZ = makeSlider(adjustTab, 8, "RZ", -180, 180, 0, function(v) V.RZ = v end)
+
+sectionLbl(adjustTab, 9, "🎬 SPEED MULTIPLIER", T.Success)
+UIRefs.SlSpeed = makeSlider(adjustTab, 10, "Spd", 0.1, 4.0, 1.0, function(v)
+    V.Speed = v
+    for _, track in ipairs(PlayedAnims) do pcall(function() track:AdjustSpeed(v) end) end
+    for _, track in ipairs(CopiedTracks) do pcall(function() track:AdjustSpeed(v) end) end
+end)
+
+-- Presets Tab
+sectionLbl(presetsTab, 1, "⚡ COMBAT & INTERACTION PRESETS", T.Accent)
+makeGridRow(presetsTab, 2, {
+    { text = "🎭 Heroic Stand", color = Color3.fromRGB(180, 40, 40), cb = function() runPreset(1.5, 1.25, 2.0, 0, 0, 0, 313762630, "Stand") end },
+    { text = "⚔ Combat Attack", color = Color3.fromRGB(220, 50, 50), cb = function() runPreset(0, 0, -1.25, 0, 180, 0, 259438880, "Attack") end },
+    { text = "🛏 Floor Carpet", color = Color3.fromRGB(200, 120, 40), cb = function() runPreset(0, -1.0, 0, 0, 0, 0, 282574440, "Carpet") end },
+})
+makeGridRow(presetsTab, 3, {
+    { text = "💥 Bang 2.0", color = Color3.fromRGB(255, 50, 80), cb = function() runBang(148840371, 2.2) end },
+    { text = "🔥 Bang Aggressive", color = Color3.fromRGB(255, 20, 80), cb = function() runBang(507770677, 4.8, 1.2) end },
+    { text = "🤸 Dynamic Leap", color = Color3.fromRGB(220, 90, 40), cb = function() runPreset(0, 2.5, 1.5, 15, 0, 0, 178130996, "Leap") end },
+})
+
+-- Anims Tab
+sectionLbl(animsTab, 1, "💃 DANCE COLLECTION (SYNCHRONIZED)", T.Pink)
+makeGridRow(animsTab, 2, {
+    { text = "🕺 Floss Dance", color = Color3.fromRGB(200, 40, 60), cb = function() runBang(ANIM_DB.Dances.Floss, 2.2) end },
+    { text = "🕺 Default Dance", color = Color3.fromRGB(220, 70, 40), cb = function() runBang(ANIM_DB.Dances.Default, 2.2) end },
+    { text = "🕺 Orange Justice", color = Color3.fromRGB(240, 110, 30), cb = function() runBang(ANIM_DB.Dances.OrangeJ, 2.2) end },
+})
+makeGridRow(animsTab, 3, {
+    { text = "🕺 Gangnam Style", color = Color3.fromRGB(200, 50, 70), cb = function() runBang(ANIM_DB.Dances.Gangnam, 2.2) end },
+    { text = "🕺 Hype Emote", color = Color3.fromRGB(180, 40, 50), cb = function() runBang(ANIM_DB.Dances.Hype, 2.2) end },
+    { text = "🕺 Cha Cha Slide", color = Color3.fromRGB(220, 60, 60), cb = function() runBang(ANIM_DB.Dances.ChaCha, 2.2) end },
+})
+
+-- Guide Tab
+sectionLbl(guideTab, 1, "📖 RED HUB V20 ARCHITECTURE & CHEAT SHEET", T.Neon)
+local guideText = Instance.new("TextLabel")
+guideText.Size = UDim2.new(1, 0, 0, 280)
+guideText.BackgroundColor3 = T.Panel
+guideText.Text = [[
+• All 31 New Modules are natively wired into Red Hub V20 with ZERO DELAY.
+• Mutual Exclusivity: Every trigger calls StateManager:Cleanup() to kill overlaps instantly.
+• Auto Re-Weld: When your target respawns or rejoins, the exact feature is restored.
+• Universal Rig Detection: Automatically adapts CFrame and motor solvers for R6 & R15.
+• Floating Mobile Toggle: Tap the floating red dot or press RightShift to hide/show UI.
+• Anti-Sit System: Prevents force-sitting exploits and drops SeatWelds automatically.
+]]
+guideText.TextColor3 = T.Text
+guideText.Font = Enum.Font.Gotham
+guideText.TextSize = 11
+guideText.TextWrapped = true
+guideText.TextXAlignment = Enum.TextXAlignment.Left
+guideText.TextYAlignment = Enum.TextYAlignment.Top
+guideText.Parent = guideTab
+Instance.new("UICorner", guideText).CornerRadius = UDim.new(0, 8)
+local gPad = Instance.new("UIPadding")
+gPad.PaddingTop = UDim.new(0, 10); gPad.PaddingLeft = UDim.new(0, 10); gPad.PaddingRight = UDim.new(0, 10)
+gPad.Parent = guideText
+
+-- Footer Weld / Unweld Listeners
+btnWeld.MouseButton1Click:Connect(function()
+    sClick()
+    if not selectedPlayer or not selectedPlayer.Character then
+        notify("RED HUB", "Select a target player first!")
+        sError()
+        return
+    end
+    local targetTorso = getTargetTorso(selectedPlayer.Character)
+    if not targetTorso then return end
+
+    StateManager:Cleanup(true)
+    CurrentTarget = selectedPlayer
+    pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
+    storeWeldInfo(selectedPlayer, 0, false, "weld")
+    hookTargetRespawn(selectedPlayer)
+
+    local ok, w = pcall(function() return WeldTo(targetTorso, 0, AnimCopyEnabled) end)
+    if ok and w then CurrentWeld = w; sSuccess(); notify("RED HUB", "Welded → " .. selectedPlayer.Name) end
+end)
+
+btnUnweld.MouseButton1Click:Connect(function()
+    sClick()
+    StateManager:Cleanup(false)
+    CurrentTarget = nil
+    pcall(function() workspace.FallenPartsDestroyHeight = OriginalFPDH end)
+    notify("RED HUB", "Unwelded & State Cleared")
+    sSuccess()
+end)
+
+-- Minimize & Close
+local minimized = false
+btnMin.MouseButton1Click:Connect(function()
+    sClick()
+    minimized = not minimized
+    if minimized then
+        TweenService:Create(main, TweenInfo.new(0.3), { Size = UDim2.new(0, W, 0, 44) }):Play()
+        tabsBar.Visible = false; content.Visible = false; footer.Visible = false
+    else
+        TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Size = UDim2.new(0, W, 0, H) }):Play()
+        task.delay(0.1, function() tabsBar.Visible = true; content.Visible = true; footer.Visible = true end)
+    end
+end)
+
+btnClose.MouseButton1Click:Connect(function()
+    sClick()
+    StateManager:Cleanup(false)
+    pcall(function() workspace.FallenPartsDestroyHeight = OriginalFPDH end)
+    gui:Destroy()
+    print("[RED HUB V20] Closed & Terminated.")
+end)
+
+UIS.InputBegan:Connect(function(inp, gp)
+    if not gp and inp.KeyCode == Enum.KeyCode.RightShift then
+        gui.Enabled = not gui.Enabled
+        if gui.Enabled then sWhoosh() else sToggleOff() end
+    end
+end)
+
+showTab("Players")
+notify("RED HUB V20", "Loaded! 31 New Modules Available. Press RightShift to toggle.")
+print("[RED HUB V20] Initialized with 31 Zero-Delay Modules.")
