@@ -1,0 +1,1564 @@
+--[[
+â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ•—  â–ˆâ–ˆâ•—â–ˆâ–ˆâ•—   â–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— 
+â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—
+â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•
+â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•  â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—
+â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•
+â•šâ•â•  â•šâ•â•â•šâ•â•â•â•â•â•â•â•šâ•â•â•â•â•â• â•šâ•â•  â•šâ•â• â•šâ•â•â•â•â•â• â•šâ•â•â•â•â•â• 
+
+================================================================================
+    PRODUCT     : DEATH NOTE (Powered by RED HUB)
+    VERSION     : 2.0.0 (Crimson Death Edition)
+    LEAD DEV    : @NOT_IITIAN
+    COMMUNITY   : https://discord.gg/DC5nbga29C
+    TARGET      : DELTA ANDROID / IOS / FLUXUS / CODEX / ARCEUS / PC
+================================================================================
+--]]
+
+local genv = (getgenv and getgenv()) or _G
+if genv._DEATH_NOTE_LOADED and genv._DEATH_NOTE_INSTANCE then
+    pcall(function()
+        genv._DEATH_NOTE_INSTANCE:Destroy()
+    end)
+    genv._DEATH_NOTE_LOADED = false
+end
+
+local function safeGetService(name)
+    local ok, res = pcall(function() return game:GetService(name) end)
+    if ok and res then return res end
+    return game:FindService(name)
+end
+
+local Players           = safeGetService("Players")
+local TweenService      = safeGetService("TweenService")
+local RunService        = safeGetService("RunService")
+local UserInputService  = safeGetService("UserInputService")
+local CoreGui           = safeGetService("CoreGui")
+local HttpService       = safeGetService("HttpService")
+local MarketplaceService= safeGetService("MarketplaceService")
+local SoundService      = safeGetService("SoundService")
+local TeleportService   = safeGetService("TeleportService")
+
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+    local start = tick()
+    while not LocalPlayer and (tick() - start < 10) do
+        task.wait(0.1)
+        LocalPlayer = Players.LocalPlayer
+    end
+end
+if not LocalPlayer then LocalPlayer = Players:GetPlayers()[1] end
+
+-- Environment & System Helpers
+local RedEnv = {}
+do
+    local function detectExecutor()
+        if identifyexecutor then
+            local ok, name = pcall(identifyexecutor)
+            if ok and name then return tostring(name) end
+        end
+        if delta or Delta or DELTA_LOADED then return "Delta Android" end
+        if codex or Codex then return "Codex Mobile" end
+        if arceus or Arceus or ARCEUS_LOADED then return "Arceus X" end
+        if fluxus or Fluxus then return "Fluxus" end
+        if hydrogen or Hydrogen then return "Hydrogen" end
+        if solara or SOLARA_LOADED then return "Solara" end
+        if wave or WAVE_LOADED then return "Wave" end
+        return "Delta Mobile"
+    end
+    RedEnv.ExecutorName = detectExecutor()
+
+    RedEnv.SetClipboard = function(text)
+        local setclip = setclipboard or toclipboard or set_clipboard or (Clipboard and Clipboard.set)
+        if setclip then
+            local s = pcall(setclip, tostring(text))
+            if s then return true end
+        end
+        return false
+    end
+
+    RedEnv.GetSafeParent = function()
+        if gethui then
+            local ok, hui = pcall(gethui)
+            if ok and hui then return hui end
+        end
+        if CoreGui then
+            local ok, test = pcall(function()
+                local f = Instance.new("Folder")
+                f.Parent = CoreGui
+                f:Destroy()
+                return CoreGui
+            end)
+            if ok and test then return CoreGui end
+        end
+        if LocalPlayer then
+            return LocalPlayer:WaitForChild("PlayerGui", 5) or LocalPlayer:FindFirstChildOfClass("PlayerGui")
+        end
+        return CoreGui
+    end
+end
+
+-- Audio Engine
+local RedAudio = { Enabled = true, MasterVolume = 0.7 }
+do
+    local soundHolder = Instance.new("Folder")
+    soundHolder.Name = "DeathNote_Audio"
+    pcall(function() soundHolder.Parent = SoundService end)
+
+    RedAudio.Presets = {
+        Click = { Id = "rbxassetid://6895079853", Vol = 0.65, Pitch = 1.05 },
+        Hover = { Id = "rbxassetid://6895079737", Vol = 0.35, Pitch = 1.2 },
+        TabSwitch = { Id = "rbxassetid://9069609268", Vol = 0.6, Pitch = 1.0 },
+        ToggleOn = { Id = "rbxassetid://6895079853", Vol = 0.7, Pitch = 1.15 },
+        ToggleOff = { Id = "rbxassetid://6895079737", Vol = 0.6, Pitch = 0.95 },
+        CopySuccess = { Id = "rbxassetid://6422098522", Vol = 0.8, Pitch = 1.05 },
+        Notification = { Id = "rbxassetid://6895079634", Vol = 0.75, Pitch = 1.0 },
+        ThemeChange = { Id = "rbxassetid://9069608974", Vol = 0.65, Pitch = 1.1 }
+    }
+
+    function RedAudio.Play(name)
+        if not RedAudio.Enabled then return end
+        local p = RedAudio.Presets[name]
+        if not p then return end
+        task.spawn(function()
+            local s = Instance.new("Sound")
+            s.SoundId = p.Id
+            s.Volume = p.Vol * RedAudio.MasterVolume
+            s.Pitch = p.Pitch or 1.0
+            s.Parent = soundHolder
+            s:Play()
+            s.Ended:Connect(function() s:Destroy() end)
+            task.delay(2.5, function() if s and s.Parent then s:Destroy() end end)
+        end)
+    end
+end
+
+-- Themes Engine (8 Dynamic Styles)
+local RedTheme = {
+    CurrentThemeName = "Crimson Eclipse",
+    Bound = {},
+    Palettes = {
+        ["Crimson Eclipse"] = {
+            Accent = Color3.fromRGB(255, 30, 68),
+            AccentDark = Color3.fromRGB(180, 15, 45),
+            AccentSoft = Color3.fromRGB(50, 12, 20),
+            Background = Color3.fromRGB(12, 10, 13),
+            CardBase = Color3.fromRGB(18, 15, 20),
+            CardHover = Color3.fromRGB(28, 22, 32),
+            CardStroke = Color3.fromRGB(48, 36, 52),
+            CardStrokeActive = Color3.fromRGB(255, 30, 68),
+            TextPrimary = Color3.fromRGB(255, 255, 255),
+            TextSecondary = Color3.fromRGB(175, 165, 185),
+            TextMuted = Color3.fromRGB(115, 105, 125),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 179, 0),
+            StatusRed = Color3.fromRGB(255, 45, 85),
+            BottomDock = Color3.fromRGB(15, 12, 17),
+            PillToggle = Color3.fromRGB(16, 13, 19)
+        },
+        ["Blood Moon"] = {
+            Accent = Color3.fromRGB(235, 0, 40),
+            AccentDark = Color3.fromRGB(145, 0, 22),
+            AccentSoft = Color3.fromRGB(48, 8, 14),
+            Background = Color3.fromRGB(8, 8, 10),
+            CardBase = Color3.fromRGB(15, 15, 18),
+            CardHover = Color3.fromRGB(24, 24, 28),
+            CardStroke = Color3.fromRGB(42, 32, 36),
+            CardStrokeActive = Color3.fromRGB(235, 0, 40),
+            TextPrimary = Color3.fromRGB(255, 255, 255),
+            TextSecondary = Color3.fromRGB(175, 165, 168),
+            TextMuted = Color3.fromRGB(110, 95, 98),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 179, 0),
+            StatusRed = Color3.fromRGB(235, 0, 40),
+            BottomDock = Color3.fromRGB(11, 11, 13),
+            PillToggle = Color3.fromRGB(13, 13, 15)
+        },
+        ["Cyberpunk Neon"] = {
+            Accent = Color3.fromRGB(255, 40, 90),
+            AccentDark = Color3.fromRGB(170, 20, 60),
+            AccentSoft = Color3.fromRGB(35, 15, 40),
+            Background = Color3.fromRGB(10, 12, 18),
+            CardBase = Color3.fromRGB(16, 20, 28),
+            CardHover = Color3.fromRGB(26, 32, 45),
+            CardStroke = Color3.fromRGB(40, 52, 75),
+            CardStrokeActive = Color3.fromRGB(0, 255, 204),
+            TextPrimary = Color3.fromRGB(255, 255, 255),
+            TextSecondary = Color3.fromRGB(150, 180, 210),
+            TextMuted = Color3.fromRGB(90, 110, 135),
+            StatusGreen = Color3.fromRGB(0, 255, 170),
+            StatusYellow = Color3.fromRGB(255, 204, 0),
+            StatusRed = Color3.fromRGB(255, 40, 90),
+            BottomDock = Color3.fromRGB(12, 15, 24),
+            PillToggle = Color3.fromRGB(14, 18, 26)
+        },
+        ["Obsidian Gold"] = {
+            Accent = Color3.fromRGB(255, 183, 3),
+            AccentDark = Color3.fromRGB(180, 120, 0),
+            AccentSoft = Color3.fromRGB(45, 32, 12),
+            Background = Color3.fromRGB(12, 11, 10),
+            CardBase = Color3.fromRGB(19, 18, 17),
+            CardHover = Color3.fromRGB(30, 28, 24),
+            CardStroke = Color3.fromRGB(56, 48, 36),
+            CardStrokeActive = Color3.fromRGB(255, 183, 3),
+            TextPrimary = Color3.fromRGB(255, 252, 245),
+            TextSecondary = Color3.fromRGB(190, 180, 160),
+            TextMuted = Color3.fromRGB(120, 110, 95),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 183, 3),
+            StatusRed = Color3.fromRGB(255, 50, 70),
+            BottomDock = Color3.fromRGB(15, 14, 13),
+            PillToggle = Color3.fromRGB(17, 16, 15)
+        },
+        ["Amethyst Shadow"] = {
+            Accent = Color3.fromRGB(175, 75, 255),
+            AccentDark = Color3.fromRGB(120, 40, 190),
+            AccentSoft = Color3.fromRGB(38, 16, 55),
+            Background = Color3.fromRGB(11, 9, 16),
+            CardBase = Color3.fromRGB(18, 15, 26),
+            CardHover = Color3.fromRGB(30, 24, 42),
+            CardStroke = Color3.fromRGB(54, 40, 75),
+            CardStrokeActive = Color3.fromRGB(175, 75, 255),
+            TextPrimary = Color3.fromRGB(252, 248, 255),
+            TextSecondary = Color3.fromRGB(180, 165, 205),
+            TextMuted = Color3.fromRGB(115, 100, 135),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 180, 0),
+            StatusRed = Color3.fromRGB(255, 50, 80),
+            BottomDock = Color3.fromRGB(14, 12, 20),
+            PillToggle = Color3.fromRGB(16, 13, 22)
+        },
+        ["Emerald Venom"] = {
+            Accent = Color3.fromRGB(0, 235, 120),
+            AccentDark = Color3.fromRGB(0, 155, 80),
+            AccentSoft = Color3.fromRGB(12, 38, 24),
+            Background = Color3.fromRGB(8, 12, 10),
+            CardBase = Color3.fromRGB(13, 20, 16),
+            CardHover = Color3.fromRGB(22, 32, 26),
+            CardStroke = Color3.fromRGB(36, 54, 44),
+            CardStrokeActive = Color3.fromRGB(0, 235, 120),
+            TextPrimary = Color3.fromRGB(245, 255, 250),
+            TextSecondary = Color3.fromRGB(155, 185, 170),
+            TextMuted = Color3.fromRGB(95, 120, 105),
+            StatusGreen = Color3.fromRGB(0, 235, 120),
+            StatusYellow = Color3.fromRGB(255, 200, 0),
+            StatusRed = Color3.fromRGB(255, 45, 85),
+            BottomDock = Color3.fromRGB(11, 15, 13),
+            PillToggle = Color3.fromRGB(12, 17, 14)
+        },
+        ["Arctic Cyan"] = {
+            Accent = Color3.fromRGB(0, 215, 255),
+            AccentDark = Color3.fromRGB(0, 140, 185),
+            AccentSoft = Color3.fromRGB(14, 32, 45),
+            Background = Color3.fromRGB(8, 11, 15),
+            CardBase = Color3.fromRGB(14, 19, 26),
+            CardHover = Color3.fromRGB(22, 30, 42),
+            CardStroke = Color3.fromRGB(36, 50, 70),
+            CardStrokeActive = Color3.fromRGB(0, 215, 255),
+            TextPrimary = Color3.fromRGB(245, 252, 255),
+            TextSecondary = Color3.fromRGB(155, 175, 200),
+            TextMuted = Color3.fromRGB(95, 110, 130),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 190, 0),
+            StatusRed = Color3.fromRGB(255, 45, 85),
+            BottomDock = Color3.fromRGB(11, 14, 20),
+            PillToggle = Color3.fromRGB(13, 16, 24)
+        },
+        ["Stealth Monochrome"] = {
+            Accent = Color3.fromRGB(245, 245, 250),
+            AccentDark = Color3.fromRGB(165, 165, 175),
+            AccentSoft = Color3.fromRGB(38, 38, 45),
+            Background = Color3.fromRGB(9, 9, 10),
+            CardBase = Color3.fromRGB(17, 17, 20),
+            CardHover = Color3.fromRGB(28, 28, 32),
+            CardStroke = Color3.fromRGB(46, 46, 54),
+            CardStrokeActive = Color3.fromRGB(225, 225, 235),
+            TextPrimary = Color3.fromRGB(255, 255, 255),
+            TextSecondary = Color3.fromRGB(175, 175, 180),
+            TextMuted = Color3.fromRGB(110, 110, 115),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 180, 0),
+            StatusRed = Color3.fromRGB(255, 50, 80),
+            BottomDock = Color3.fromRGB(12, 12, 14),
+            PillToggle = Color3.fromRGB(14, 14, 16)
+        }
+    }
+}
+
+function RedTheme.Get(key)
+    local cur = RedTheme.Palettes[RedTheme.CurrentThemeName] or RedTheme.Palettes["Crimson Eclipse"]
+    return cur[key] or Color3.fromRGB(255, 255, 255)
+end
+
+function RedTheme.Bind(instance, prop, key)
+    if not instance then return end
+    table.insert(RedTheme.Bound, { Instance = instance, Prop = prop, Key = key })
+    pcall(function() instance[prop] = RedTheme.Get(key) end)
+end
+
+function RedTheme.SetTheme(name)
+    if not RedTheme.Palettes[name] then return end
+    RedTheme.CurrentThemeName = name
+    local pal = RedTheme.Palettes[name]
+    RedAudio.Play("ThemeChange")
+    for i = #RedTheme.Bound, 1, -1 do
+        local b = RedTheme.Bound[i]
+        if b.Instance and b.Instance.Parent then
+            pcall(function()
+                TweenService:Create(b.Instance, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    [b.Prop] = pal[b.Key]
+                }):Play()
+            end)
+        else
+            table.remove(RedTheme.Bound, i)
+        end
+    end
+end
+
+-- Animations Helper
+local RedTween = {}
+function RedTween.Play(inst, duration, goals, style, dir)
+    local t = TweenService:Create(inst, TweenInfo.new(duration or 0.25, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out), goals)
+    t:Play()
+    return t
+end
+function RedTween.Spring(inst, duration, goals)
+    return RedTween.Play(inst, duration or 0.45, goals, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
+-- Unified Touch & Mouse Draggable
+local function makeDraggable(handle, targetFrame)
+    local dragging, dragStart, startPos = false, nil, nil
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = targetFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            RedTween.Play(targetFrame, 0.1, {
+                Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        end
+    end)
+end
+
+-- Telemetry & Game Experience Data
+local RedTelemetry = {
+    CurrentFPS = 60,
+    CurrentPing = 50,
+    ServerPlayerCount = 1,
+    ServerMaxPlayers = 20,
+    FriendsInServer = 0,
+    FriendList = {},
+    AccountAgeText = "0 Days",
+    PlayerThumbnail = "rbxasset://textures/ui/GuiImagePlaceholder.png",
+    LocalTimeFormatted = "12:00:00 AM",
+    Greeting = "Welcome",
+    GameTitle = "Roblox Experience",
+    GameThumbnail = "rbxassetid://9069608974",
+    FriendsPresences = {}
+}
+
+-- Live FPS Calculator
+local frames = 0
+local lastFpsTick = tick()
+RunService.RenderStepped:Connect(function()
+    frames = frames + 1
+    local now = tick()
+    if now - lastFpsTick >= 0.5 then
+        RedTelemetry.CurrentFPS = math.floor(frames / (now - lastFpsTick))
+        frames = 0
+        lastFpsTick = now
+    end
+end)
+
+-- Live Ping
+task.spawn(function()
+    while task.wait(1.5) do
+        local ping = 50
+        pcall(function()
+            if LocalPlayer then ping = math.floor(LocalPlayer:GetNetworkPing() * 1000) end
+        end)
+        RedTelemetry.CurrentPing = math.clamp(ping, 1, 999)
+    end
+end)
+
+-- Time & Greeting Formatter
+function RedTelemetry.UpdateTime()
+    local d = os.date("*t")
+    local h, m, s = d.hour, d.min, d.sec
+    local ampm = "AM"
+    if h >= 12 then ampm = "PM" if h > 12 then h = h - 12 end elseif h == 0 then h = 12 end
+    RedTelemetry.LocalTimeFormatted = string.format("%02d:%02d:%02d %s", h, m, s, ampm)
+    local raw = d.hour
+    if raw >= 4 and raw < 12 then RedTelemetry.Greeting = "Good morning"
+    elseif raw >= 12 and raw < 17 then RedTelemetry.Greeting = "Good afternoon"
+    elseif raw >= 17 and raw < 22 then RedTelemetry.Greeting = "Good evening"
+    else RedTelemetry.Greeting = "Good night" end
+end
+
+-- Account Age
+pcall(function()
+    local days = (LocalPlayer and LocalPlayer.AccountAge) or 0
+    local yrs = math.floor(days / 365)
+    local rem = days % 365
+    RedTelemetry.AccountAgeText = yrs > 0 and (yrs .. " Yrs, " .. rem .. " Days") or (days .. " Days")
+end)
+
+-- Player Avatar Thumbnail (Extra Large High-Res)
+task.spawn(function()
+    if LocalPlayer then
+        local ok, thumb = pcall(function()
+            return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size352x352)
+        end)
+        if ok and thumb then RedTelemetry.PlayerThumbnail = thumb end
+    end
+end)
+
+-- Fetch Game Info & Thumbnail
+task.spawn(function()
+    local placeId = game.PlaceId
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(placeId)
+        if info and info.Name then
+            RedTelemetry.GameTitle = info.Name
+            if info.IconImageAssetId and info.IconImageAssetId > 0 then
+                RedTelemetry.GameThumbnail = "rbxassetid://" .. tostring(info.IconImageAssetId)
+            end
+        end
+    end)
+end)
+
+-- Server & Friends Telemetry
+function RedTelemetry.ScanServer()
+    pcall(function()
+        local plrs = Players:GetPlayers()
+        RedTelemetry.ServerPlayerCount = #plrs
+        RedTelemetry.ServerMaxPlayers = Players.MaxPlayers or 20
+        local fCount, friends = 0, {}
+        for _, p in ipairs(plrs) do
+            if p ~= LocalPlayer then
+                local s, isF = pcall(function() return LocalPlayer:IsFriendsWith(p.UserId) end)
+                if s and isF then
+                    fCount = fCount + 1
+                    table.insert(friends, { Name = p.DisplayName, User = p.Name, Id = p.UserId })
+                end
+            end
+        end
+        RedTelemetry.FriendsInServer = fCount
+        RedTelemetry.FriendList = friends
+    end)
+end
+
+-- Online Friends Game Presence Scanner (for Friends Tab)
+function RedTelemetry.ScanOnlineFriendsPresences()
+    pcall(function()
+        if not LocalPlayer then return end
+        local friendPages = Players:GetFriendsOnline(100)
+        local presences = {}
+        for _, item in ipairs(friendPages) do
+            local status = "Online"
+            local gameName = "Website / In Menus"
+            local joinable = false
+            local placeId = item.PlaceId
+            local jobId = item.GameId
+
+            if item.LocationType == 1 then
+                status = "In Game"
+                gameName = item.LastLocation or "Playing a Game"
+                joinable = (placeId ~= nil and placeId > 0)
+            elseif item.LocationType == 2 then
+                status = "In Studio"
+                gameName = "Roblox Studio"
+            end
+
+            table.insert(presences, {
+                UserId = item.VisitorId,
+                Username = item.UserName,
+                DisplayName = item.DisplayName or item.UserName,
+                Status = status,
+                GameName = gameName,
+                PlaceId = placeId,
+                JobId = jobId,
+                Joinable = joinable
+            })
+        end
+        RedTelemetry.FriendsPresences = presences
+    end)
+end
+
+RedTelemetry.UpdateTime()
+RedTelemetry.ScanServer()
+task.spawn(function()
+    while task.wait(1) do RedTelemetry.UpdateTime() end
+end)
+task.spawn(function()
+    while task.wait(5) do RedTelemetry.ScanServer() end
+end)
+task.spawn(function()
+    while task.wait(10) do RedTelemetry.ScanOnlineFriendsPresences() end
+end)
+task.spawn(RedTelemetry.ScanOnlineFriendsPresences)
+
+-- UI Building Blocks
+local RedUI = {}
+
+function RedUI.Corner(inst, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius or 8)
+    c.Parent = inst
+    return c
+end
+
+function RedUI.Stroke(inst, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or RedTheme.Get("CardStroke")
+    s.Thickness = thickness or 1.2
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = inst
+    return s
+end
+
+function RedUI.Label(parent, text, size, pos, font, sizePt, color, alignX)
+    local l = Instance.new("TextLabel")
+    l.Text = text or ""
+    l.Size = size or UDim2.new(1, 0, 1, 0)
+    l.Position = pos or UDim2.new(0, 0, 0, 0)
+    l.Font = font or Enum.Font.GothamBold
+    l.TextSize = sizePt or 12
+    l.TextColor3 = color or RedTheme.Get("TextPrimary")
+    l.TextXAlignment = alignX or Enum.TextXAlignment.Left
+    l.BackgroundTransparency = 1
+    l.BorderSizePixel = 0
+    l.Parent = parent
+    return l
+end
+
+function RedUI.Button(parent, text, size, pos, bg, textCol, radius, onClick)
+    local b = Instance.new("TextButton")
+    b.Text = text or ""
+    b.Size = size or UDim2.new(0, 100, 0, 30)
+    b.Position = pos or UDim2.new(0, 0, 0, 0)
+    b.BackgroundColor3 = bg or RedTheme.Get("Accent")
+    b.TextColor3 = textCol or Color3.fromRGB(255, 255, 255)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 11
+    b.BorderSizePixel = 0
+    b.AutoButtonColor = false
+    b.ClipsDescendants = true
+    b.Parent = parent
+    RedUI.Corner(b, radius or 8)
+
+    local orig = b.BackgroundColor3
+    b.MouseEnter:Connect(function()
+        RedAudio.Play("Hover")
+        RedTween.Play(b, 0.15, { BackgroundColor3 = Color3.fromRGB(math.clamp(orig.R*255+25, 0, 255), math.clamp(orig.G*255+25, 0, 255), math.clamp(orig.B*255+25, 0, 255)) })
+    end)
+    b.MouseLeave:Connect(function() RedTween.Play(b, 0.2, { BackgroundColor3 = orig }) end)
+    b.MouseButton1Down:Connect(function()
+        RedAudio.Play("Click")
+        RedTween.Play(b, 0.08, { Size = UDim2.new(size.X.Scale, size.X.Offset - 2, size.Y.Scale, size.Y.Offset - 2) })
+    end)
+    b.MouseButton1Up:Connect(function() RedTween.Play(b, 0.1, { Size = size }) end)
+    if onClick then b.MouseButton1Click:Connect(function() onClick(b) end) end
+    return b
+end
+
+function RedUI.Card(parent, size, pos)
+    local c = Instance.new("Frame")
+    c.Size = size or UDim2.new(1, 0, 0, 80)
+    c.Position = pos or UDim2.new(0, 0, 0, 0)
+    c.BackgroundColor3 = RedTheme.Get("CardBase")
+    c.BorderSizePixel = 0
+    c.Parent = parent
+    RedUI.Corner(c, 10)
+    local s = RedUI.Stroke(c, RedTheme.Get("CardStroke"), 1.2)
+    RedTheme.Bind(c, "BackgroundColor3", "CardBase")
+    RedTheme.Bind(s, "Color", "CardStroke")
+
+    c.MouseEnter:Connect(function()
+        RedTween.Play(c, 0.2, { BackgroundColor3 = RedTheme.Get("CardHover") })
+        RedTween.Play(s, 0.2, { Color = RedTheme.Get("CardStrokeActive") })
+    end)
+    c.MouseLeave:Connect(function()
+        RedTween.Play(c, 0.25, { BackgroundColor3 = RedTheme.Get("CardBase") })
+        RedTween.Play(s, 0.25, { Color = RedTheme.Get("CardStroke") })
+    end)
+    return c, s
+end
+
+-- ScreenGui Setup with Safe Mobile Viewport Scaling
+local SafeParent = RedEnv.GetSafeParent()
+local MainGui = Instance.new("ScreenGui")
+MainGui.Name = "DEATH_NOTE_UI_CONTAINER"
+MainGui.ResetOnSpawn = false
+MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() MainGui.IgnoreGuiInset = true end)
+
+local parented = pcall(function() MainGui.Parent = SafeParent end)
+if not parented or not MainGui.Parent then
+    pcall(function() MainGui.Parent = LocalPlayer:WaitForChild("PlayerGui", 5) end)
+end
+
+genv._DEATH_NOTE_INSTANCE = MainGui
+genv._DEATH_NOTE_LOADED = true
+
+-- Toast System
+local ToastContainer = Instance.new("Frame")
+ToastContainer.Name = "Toasts"
+ToastContainer.Size = UDim2.new(0, 260, 1, -20)
+ToastContainer.Position = UDim2.new(1, -270, 0, 10)
+ToastContainer.BackgroundTransparency = 1
+ToastContainer.Parent = MainGui
+
+local toastLayout = Instance.new("UIListLayout")
+toastLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+toastLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+toastLayout.Padding = UDim.new(0, 6)
+toastLayout.Parent = ToastContainer
+
+local function ShowToast(title, msg, toastType)
+    local color = (toastType == "Success" and RedTheme.Get("StatusGreen")) or (toastType == "Warning" and RedTheme.Get("StatusYellow")) or RedTheme.Get("Accent")
+    RedAudio.Play(toastType == "Success" and "CopySuccess" or "Notification")
+    local t = Instance.new("Frame")
+    t.Size = UDim2.new(1, 0, 0, 54)
+    t.BackgroundColor3 = RedTheme.Get("CardBase")
+    t.BorderSizePixel = 0
+    t.Parent = ToastContainer
+    RedUI.Corner(t, 8)
+    RedUI.Stroke(t, color, 1.2)
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0, 4, 1, 0)
+    bar.BackgroundColor3 = color
+    bar.BorderSizePixel = 0
+    bar.Parent = t
+
+    RedUI.Label(t, title, UDim2.new(1, -20, 0, 18), UDim2.new(0, 12, 0, 6), Enum.Font.GothamBold, 11, RedTheme.Get("TextPrimary"))
+    RedUI.Label(t, msg, UDim2.new(1, -20, 0, 18), UDim2.new(0, 12, 0, 26), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+
+    t.Position = UDim2.new(1, 50, 0, 0)
+    RedTween.Spring(t, 0.35, { Position = UDim2.new(0, 0, 0, 0) })
+    task.delay(3, function()
+        if t and t.Parent then
+            local fade = RedTween.Play(t, 0.25, { Position = UDim2.new(1, 50, 0, 0), BackgroundTransparency = 1 })
+            fade.Completed:Connect(function() t:Destroy() end)
+        end
+    end)
+end
+
+-- ============================================================================
+-- MAIN WINDOW CONTAINER & TOGGLE ARCHITECTURE (Mobile-Sized & Fully Animated)
+-- ============================================================================
+local MainWindow = Instance.new("Frame")
+MainWindow.Name = "MainWindow"
+-- Scaled specifically for mobile screen ratio (Width: 620, Height: 350)
+MainWindow.Size = UDim2.new(0, 620, 0, 350)
+MainWindow.Position = UDim2.new(0.5, -310, 0.5, -175)
+MainWindow.BackgroundColor3 = RedTheme.Get("Background")
+MainWindow.BorderSizePixel = 0
+MainWindow.ClipsDescendants = true
+MainWindow.Visible = true
+MainWindow.Parent = MainGui
+
+RedUI.Corner(MainWindow, 14)
+local mainStroke = RedUI.Stroke(MainWindow, RedTheme.Get("CardStroke"), 1.5)
+RedTheme.Bind(MainWindow, "BackgroundColor3", "Background")
+RedTheme.Bind(mainStroke, "Color", "CardStroke")
+
+-- Background Procedural Wave Accent
+local waveImg = Instance.new("ImageLabel")
+waveImg.Size = UDim2.new(1.3, 0, 1.3, 0)
+waveImg.Position = UDim2.new(-0.15, 0, -0.15, 0)
+waveImg.Image = "rbxassetid://9069608974"
+waveImg.ImageColor3 = RedTheme.Get("Accent")
+waveImg.ImageTransparency = 0.94
+waveImg.BackgroundTransparency = 1
+waveImg.Parent = MainWindow
+RedTheme.Bind(waveImg, "ImageColor3", "Accent")
+
+-- Top Brand Header Bar (Replaces Plain Line with DEATH NOTE Logo & Powered by RED HUB)
+local BrandHeaderBar = Instance.new("Frame")
+BrandHeaderBar.Name = "BrandHeaderBar"
+BrandHeaderBar.Size = UDim2.new(1, 0, 0, 24)
+BrandHeaderBar.Position = UDim2.new(0, 0, 0, 0)
+BrandHeaderBar.BackgroundColor3 = RedTheme.Get("CardBase")
+BrandHeaderBar.BorderSizePixel = 0
+BrandHeaderBar.Parent = MainWindow
+RedTheme.Bind(BrandHeaderBar, "BackgroundColor3", "CardBase")
+
+local brandGrad = Instance.new("UIGradient")
+brandGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, RedTheme.Get("AccentDark")),
+    ColorSequenceKeypoint.new(0.5, RedTheme.Get("Accent")),
+    ColorSequenceKeypoint.new(1, RedTheme.Get("AccentDark"))
+})
+brandGrad.Parent = BrandHeaderBar
+
+-- Continuous Shimmering Glow Animation across Header
+task.spawn(function()
+    local rot = 0
+    while BrandHeaderBar and BrandHeaderBar.Parent do
+        rot = (rot + 2) % 360
+        brandGrad.Offset = Vector2.new(math.sin(math.rad(rot)) * 0.5, 0)
+        task.wait(0.03)
+    end
+end)
+
+-- Death Note Icon Skull / Emblem
+local deathIcon = Instance.new("TextLabel")
+deathIcon.Text = "â˜ "
+deathIcon.Size = UDim2.new(0, 20, 1, 0)
+deathIcon.Position = UDim2.new(0, 10, 0, 0)
+deathIcon.Font = Enum.Font.GothamBold
+deathIcon.TextSize = 13
+deathIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+deathIcon.BackgroundTransparency = 1
+deathIcon.Parent = BrandHeaderBar
+
+-- Primary Brand Text: DEATH NOTE
+local brandTitle = RedUI.Label(
+    BrandHeaderBar,
+    "DEATH NOTE",
+    UDim2.new(0, 110, 1, 0),
+    UDim2.new(0, 32, 0, 0),
+    Enum.Font.GothamBlack,
+    11,
+    Color3.fromRGB(255, 255, 255)
+)
+
+-- Secondary Subtext: Powered by RED HUB
+local brandSub = RedUI.Label(
+    BrandHeaderBar,
+    "â€¢  POWERED BY RED HUB",
+    UDim2.new(0, 180, 1, 0),
+    UDim2.new(0, 138, 0, 0),
+    Enum.Font.GothamBold,
+    9,
+    Color3.fromRGB(255, 215, 225)
+)
+
+-- Right-Side Live Version Tag
+local brandVer = RedUI.Label(
+    BrandHeaderBar,
+    "v2.0 CRIMSON",
+    UDim2.new(0, 90, 1, 0),
+    UDim2.new(1, -95, 0, 0),
+    Enum.Font.GothamBold,
+    8,
+    Color3.fromRGB(255, 255, 255),
+    Enum.TextXAlignment.Right
+)
+
+-- Window Drag & Navigation Bar (Below Brand Header)
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 42)
+TopBar.Position = UDim2.new(0, 0, 0, 24)
+TopBar.BackgroundTransparency = 1
+TopBar.Parent = MainWindow
+makeDraggable(TopBar, MainWindow)
+
+-- Top Tabs Bar (Dashboard, Activity, Friends, Update Logs, Shortcuts)
+local TabsBar = Instance.new("Frame")
+TabsBar.Size = UDim2.new(0, 480, 0, 28)
+TabsBar.Position = UDim2.new(0, 14, 0.5, -14)
+TabsBar.BackgroundTransparency = 1
+TabsBar.Parent = TopBar
+
+local tabsLayout = Instance.new("UIListLayout")
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.Padding = UDim.new(0, 6)
+tabsLayout.Parent = TabsBar
+
+-- Window Controls (Green, Yellow, Red)
+local Controls = Instance.new("Frame")
+Controls.Size = UDim2.new(0, 60, 0, 16)
+Controls.Position = UDim2.new(1, -72, 0.5, -8)
+Controls.BackgroundTransparency = 1
+Controls.Parent = TopBar
+
+local ctrlLayout = Instance.new("UIListLayout")
+ctrlLayout.FillDirection = Enum.FillDirection.Horizontal
+ctrlLayout.Padding = UDim.new(0, 6)
+ctrlLayout.Parent = Controls
+
+local function makeDot(color, cb)
+    local d = Instance.new("TextButton")
+    d.Text = ""
+    d.Size = UDim2.new(0, 11, 0, 11)
+    d.BackgroundColor3 = color
+    d.BorderSizePixel = 0
+    d.Parent = Controls
+    RedUI.Corner(d, 6)
+    if cb then d.MouseButton1Click:Connect(cb) end
+end
+
+-- ============================================================================
+-- BULLETPROOF TWO-WAY TOGGLE SYSTEM (Opens AND Closes Reliably)
+-- ============================================================================
+local isWindowOpen = true
+
+-- Floating Pill on Left Screen (Touch & Mouse Draggable)
+local FloatingPill = Instance.new("Frame")
+FloatingPill.Name = "DeathNote_FloatingPill"
+FloatingPill.Size = UDim2.new(0, 105, 0, 42)
+FloatingPill.Position = UDim2.new(0, 15, 0.42, 0)
+FloatingPill.BackgroundColor3 = RedTheme.Get("PillToggle")
+FloatingPill.BorderSizePixel = 0
+FloatingPill.ClipsDescendants = false
+FloatingPill.Parent = MainGui
+
+RedUI.Corner(FloatingPill, 21)
+local pillStroke = RedUI.Stroke(FloatingPill, RedTheme.Get("Accent"), 1.5)
+RedTheme.Bind(FloatingPill, "BackgroundColor3", "PillToggle")
+RedTheme.Bind(pillStroke, "Color", "Accent")
+
+local pillIcon = Instance.new("ImageLabel")
+pillIcon.Size = UDim2.new(0, 24, 0, 24)
+pillIcon.Position = UDim2.new(0, 10, 0.5, -12)
+pillIcon.Image = "rbxassetid://9069608974"
+pillIcon.ImageColor3 = RedTheme.Get("Accent")
+pillIcon.BackgroundTransparency = 1
+pillIcon.Parent = FloatingPill
+RedTheme.Bind(pillIcon, "ImageColor3", "Accent")
+
+local pillDivider = Instance.new("Frame")
+pillDivider.Size = UDim2.new(0, 1, 0, 18)
+pillDivider.Position = UDim2.new(0, 46, 0.5, -9)
+pillDivider.BackgroundColor3 = RedTheme.Get("CardStroke")
+pillDivider.BorderSizePixel = 0
+pillDivider.Parent = FloatingPill
+RedTheme.Bind(pillDivider, "BackgroundColor3", "CardStroke")
+
+-- Clickable Arrow / Button Covering Entire Toggle
+local pillArrowBtn = Instance.new("ImageButton")
+pillArrowBtn.Size = UDim2.new(0, 22, 0, 22)
+pillArrowBtn.Position = UDim2.new(0, 58, 0.5, -11)
+pillArrowBtn.Image = "rbxassetid://6031091004"
+pillArrowBtn.ImageColor3 = RedTheme.Get("TextPrimary")
+pillArrowBtn.BackgroundTransparency = 1
+pillArrowBtn.Parent = FloatingPill
+RedTheme.Bind(pillArrowBtn, "ImageColor3", "TextPrimary")
+
+-- Full Pill Touch Overlay (Ensures mobile user tapping anywhere on pill toggles!)
+local pillTouchOverlay = Instance.new("TextButton")
+pillTouchOverlay.Text = ""
+pillTouchOverlay.Size = UDim2.new(1, 0, 1, 0)
+pillTouchOverlay.BackgroundTransparency = 1
+pillTouchOverlay.Parent = FloatingPill
+
+local pillStatusDot = Instance.new("Frame")
+pillStatusDot.Size = UDim2.new(0, 8, 0, 8)
+pillStatusDot.Position = UDim2.new(1, -12, 1, -12)
+pillStatusDot.BackgroundColor3 = RedTheme.Get("StatusGreen")
+pillStatusDot.BorderSizePixel = 0
+pillStatusDot.Parent = FloatingPill
+RedUI.Corner(pillStatusDot, 4)
+
+makeDraggable(FloatingPill, FloatingPill)
+
+local function setWindowState(open)
+    isWindowOpen = open
+    if isWindowOpen then
+        MainWindow.Visible = true
+        RedAudio.Play("WindowOpen")
+        pillStatusDot.BackgroundColor3 = RedTheme.Get("StatusGreen")
+        RedTween.Spring(MainWindow, 0.4, {
+            Size = UDim2.new(0, 620, 0, 350),
+            Position = UDim2.new(0.5, -310, 0.5, -175),
+            BackgroundTransparency = 0
+        })
+        ShowToast("DEATH NOTE", "Interface Expanded", "Info")
+    else
+        RedAudio.Play("WindowClose")
+        pillStatusDot.BackgroundColor3 = RedTheme.Get("StatusYellow")
+        local t = RedTween.Play(MainWindow, 0.25, {
+            Size = UDim2.new(0, 620, 0, 0),
+            Position = UDim2.new(0.5, -310, 0.5, -175),
+            BackgroundTransparency = 1
+        }, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        t.Completed:Connect(function()
+            if not isWindowOpen then
+                MainWindow.Visible = false
+            end
+        end)
+        ShowToast("Minimized", "Tap Floating Pill on left to reopen", "Info")
+    end
+end
+
+local function toggleWindow()
+    setWindowState(not isWindowOpen)
+end
+
+-- Hook Both Pill Click and Overlay Click
+pillArrowBtn.MouseButton1Click:Connect(toggleWindow)
+pillTouchOverlay.MouseButton1Click:Connect(toggleWindow)
+
+makeDot(Color3.fromRGB(0, 230, 118), function()
+    MainWindow.Position = UDim2.new(0.5, -310, 0.5, -175)
+    ShowToast("Centered", "Reset window coordinates to center", "Info")
+end)
+makeDot(Color3.fromRGB(255, 179, 0), function()
+    setWindowState(false)
+end)
+makeDot(Color3.fromRGB(255, 45, 85), function()
+    MainGui:Destroy()
+    genv._DEATH_NOTE_LOADED = false
+end)
+
+-- Content Pages Viewport
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -20, 1, -114)
+ContentFrame.Position = UDim2.new(0, 10, 0, 68)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainWindow
+
+local Pages, TabBtns = {}, {}
+local currentTab = "Dashboard"
+
+local function AddTab(name)
+    local btn = Instance.new("TextButton")
+    btn.Text = name
+    btn.Size = UDim2.new(0, (name == "Update Logs" and 88 or 78), 0, 26)
+    btn.BackgroundColor3 = (name == currentTab and RedTheme.Get("Accent") or Color3.fromRGB(0, 0, 0))
+    btn.BackgroundTransparency = (name == currentTab and 0 or 1)
+    btn.TextColor3 = (name == currentTab and Color3.fromRGB(255, 255, 255) or RedTheme.Get("TextSecondary"))
+    btn.Font = Enum.Font.GothamBlack
+    btn.TextSize = 10
+    btn.BorderSizePixel = 0
+    btn.Parent = TabsBar
+    RedUI.Corner(btn, 13)
+
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, 0, 1, 0)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarImageColor3 = RedTheme.Get("Accent")
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scroll.Visible = (name == currentTab)
+    scroll.Parent = ContentFrame
+
+    local list = Instance.new("UIListLayout")
+    list.Padding = UDim.new(0, 8)
+    list.Parent = scroll
+
+    Pages[name] = scroll
+    TabBtns[name] = btn
+
+    btn.MouseButton1Click:Connect(function()
+        if currentTab == name then return end
+        RedAudio.Play("TabSwitch")
+        currentTab = name
+        for n, b in pairs(TabBtns) do
+            b.BackgroundTransparency = (n == name and 0 or 1)
+            b.BackgroundColor3 = RedTheme.Get("Accent")
+            b.TextColor3 = (n == name and Color3.fromRGB(255, 255, 255) or RedTheme.Get("TextSecondary"))
+            Pages[n].Visible = (n == name)
+        end
+    end)
+
+    return scroll
+end
+
+local PageDashboard  = AddTab("Dashboard")
+local PageActivity   = AddTab("Activity")
+local PageFriends    = AddTab("Friends")
+local PageUpdates    = AddTab("Update Logs")
+local PageShortcuts  = AddTab("Shortcuts")
+
+-- ============================================================================
+-- TAB 1: DASHBOARD (HIGH VIBRANCY, BOLD, LARGE CHARACTER PHOTO & GAME CARD)
+-- ============================================================================
+
+-- 1. Hero Profile Card with EXTRA LARGE Character Headshot
+local profileCard = RedUI.Card(PageDashboard, UDim2.new(1, 0, 0, 88))
+
+-- Extra Large Avatar Frame (72x72)
+local avatarFrame = Instance.new("Frame")
+avatarFrame.Size = UDim2.new(0, 72, 0, 72)
+avatarFrame.Position = UDim2.new(0, 10, 0.5, -36)
+avatarFrame.BackgroundColor3 = RedTheme.Get("Background")
+avatarFrame.BorderSizePixel = 0
+avatarFrame.Parent = profileCard
+RedUI.Corner(avatarFrame, 36)
+local avStroke = RedUI.Stroke(avatarFrame, RedTheme.Get("Accent"), 2.2)
+RedTheme.Bind(avStroke, "Color", "Accent")
+
+local avatar = Instance.new("ImageLabel")
+avatar.Size = UDim2.new(1, -6, 1, -6)
+avatar.Position = UDim2.new(0, 3, 0, 3)
+avatar.Image = RedTelemetry.PlayerThumbnail
+avatar.BackgroundTransparency = 1
+avatar.Parent = avatarFrame
+RedUI.Corner(avatar, 33)
+
+local avatarDot = Instance.new("Frame")
+avatarDot.Size = UDim2.new(0, 13, 0, 13)
+avatarDot.Position = UDim2.new(1, -12, 1, -12)
+avatarDot.BackgroundColor3 = RedTheme.Get("StatusGreen")
+avatarDot.BorderSizePixel = 0
+avatarDot.Parent = avatarFrame
+RedUI.Corner(avatarDot, 6)
+RedUI.Stroke(avatarDot, Color3.fromRGB(15, 12, 18), 1.5)
+
+-- Pulsing Online Dot
+task.spawn(function()
+    while profileCard and profileCard.Parent do
+        RedTween.Play(avatarDot, 0.7, { BackgroundTransparency = 0.5 })
+        task.wait(0.7)
+        RedTween.Play(avatarDot, 0.7, { BackgroundTransparency = 0 })
+        task.wait(0.7)
+    end
+end)
+
+local greetingLbl = RedUI.Label(
+    profileCard,
+    RedTelemetry.Greeting .. ", " .. (LocalPlayer and LocalPlayer.DisplayName or "Player") .. "!",
+    UDim2.new(0, 320, 0, 22),
+    UDim2.new(0, 92, 0, 12),
+    Enum.Font.GothamBlack,
+    15,
+    RedTheme.Get("TextPrimary")
+)
+
+-- Premium Badge
+local premBadge = Instance.new("Frame")
+premBadge.Size = UDim2.new(0, 72, 0, 20)
+premBadge.Position = UDim2.new(0, 420, 0, 13)
+premBadge.BackgroundColor3 = Color3.fromRGB(38, 28, 10)
+premBadge.BorderSizePixel = 0
+premBadge.Parent = profileCard
+RedUI.Corner(premBadge, 10)
+RedUI.Stroke(premBadge, Color3.fromRGB(255, 183, 3), 1.2)
+RedUI.Label(premBadge, "PREMIUM", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Enum.Font.GothamBlack, 9, Color3.fromRGB(255, 183, 3), Enum.TextXAlignment.Center)
+
+-- Username & Meta Row
+local userSubLbl = RedUI.Label(profileCard, "@" .. (LocalPlayer and LocalPlayer.Name or "username"), UDim2.new(0, 160, 0, 16), UDim2.new(0, 92, 0, 36), Enum.Font.GothamBold, 11, RedTheme.Get("Accent"))
+local uidLbl = RedUI.Label(profileCard, "UID: " .. (LocalPlayer and tostring(LocalPlayer.UserId) or "0"), UDim2.new(0, 130, 0, 16), UDim2.new(0, 92, 0, 56), Enum.Font.GothamMedium, 10, RedTheme.Get("TextSecondary"))
+local ageLbl = RedUI.Label(profileCard, "Age: " .. RedTelemetry.AccountAgeText, UDim2.new(0, 140, 0, 16), UDim2.new(0, 230, 0, 56), Enum.Font.GothamMedium, 10, RedTheme.Get("TextSecondary"))
+local timeLbl = RedUI.Label(profileCard, "Time: " .. RedTelemetry.LocalTimeFormatted, UDim2.new(0, 150, 0, 16), UDim2.new(0, 370, 0, 56), Enum.Font.GothamMedium, 10, RedTheme.Get("TextSecondary"))
+
+task.spawn(function()
+    while profileCard and profileCard.Parent do
+        timeLbl.Text = "Time: " .. RedTelemetry.LocalTimeFormatted
+        greetingLbl.Text = RedTelemetry.Greeting .. ", " .. (LocalPlayer and LocalPlayer.DisplayName or "Player") .. "!"
+        if avatar.Image ~= RedTelemetry.PlayerThumbnail then avatar.Image = RedTelemetry.PlayerThumbnail end
+        task.wait(1)
+    end
+end)
+
+-- 2. CURRENT PLAYING EXPERIENCE CARD (Requested: Photo of Game & Name)
+local GameCard = RedUI.Card(PageDashboard, UDim2.new(1, 0, 0, 68))
+
+local gameThumbFrame = Instance.new("Frame")
+gameThumbFrame.Size = UDim2.new(0, 64, 0, 52)
+gameThumbFrame.Position = UDim2.new(0, 10, 0.5, -26)
+gameThumbFrame.BackgroundColor3 = Color3.fromRGB(20, 18, 24)
+gameThumbFrame.BorderSizePixel = 0
+gameThumbFrame.Parent = GameCard
+RedUI.Corner(gameThumbFrame, 8)
+RedUI.Stroke(gameThumbFrame, RedTheme.Get("Accent"), 1.2)
+
+local gameImg = Instance.new("ImageLabel")
+gameImg.Size = UDim2.new(1, 0, 1, 0)
+gameImg.Image = RedTelemetry.GameThumbnail
+gameImg.BackgroundTransparency = 1
+gameImg.Parent = gameThumbFrame
+RedUI.Corner(gameImg, 8)
+
+local gameTag = RedUI.Label(GameCard, "CURRENT ACTIVE EXPERIENCE", UDim2.new(1, -90, 0, 14), UDim2.new(0, 84, 0, 10), Enum.Font.GothamBold, 9, RedTheme.Get("Accent"))
+local gameTitleLbl = RedUI.Label(GameCard, RedTelemetry.GameTitle, UDim2.new(1, -90, 0, 20), UDim2.new(0, 84, 0, 26), Enum.Font.GothamBlack, 13, RedTheme.Get("TextPrimary"))
+local placeSub = RedUI.Label(GameCard, "â€¢ PlaceId: " .. tostring(game.PlaceId) .. "  |  JobId: " .. string.sub(game.JobId ~= "" and game.JobId or "Local", 1, 10) .. "...", UDim2.new(1, -90, 0, 14), UDim2.new(0, 84, 0, 46), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+
+task.spawn(function()
+    while GameCard and GameCard.Parent do
+        gameTitleLbl.Text = RedTelemetry.GameTitle
+        gameImg.Image = RedTelemetry.GameThumbnail
+        task.wait(3)
+    end
+end)
+
+-- 3. Telemetry Grid (3 Cards: Performance, Latency, Environment)
+local TelemetryGrid = Instance.new("Frame")
+TelemetryGrid.Size = UDim2.new(1, 0, 0, 64)
+TelemetryGrid.BackgroundTransparency = 1
+TelemetryGrid.Parent = PageDashboard
+
+local tgLayout = Instance.new("UIListLayout")
+tgLayout.FillDirection = Enum.FillDirection.Horizontal
+tgLayout.Padding = UDim.new(0, 8)
+tgLayout.Parent = TelemetryGrid
+
+local function MakeMetric(title, val, sub, col)
+    local c = Instance.new("Frame")
+    c.Size = UDim2.new(0.32, 0, 1, 0)
+    c.BackgroundColor3 = RedTheme.Get("CardBase")
+    c.BorderSizePixel = 0
+    c.Parent = TelemetryGrid
+    RedUI.Corner(c, 8)
+    local s = RedUI.Stroke(c, RedTheme.Get("CardStroke"), 1.2)
+    RedTheme.Bind(c, "BackgroundColor3", "CardBase")
+    RedTheme.Bind(s, "Color", "CardStroke")
+
+    RedUI.Label(c, string.upper(title), UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 8), Enum.Font.GothamBold, 9, RedTheme.Get("TextMuted"))
+    local vl = RedUI.Label(c, val, UDim2.new(1, -16, 0, 20), UDim2.new(0, 12, 0, 22), Enum.Font.GothamBlack, 16, col or RedTheme.Get("TextPrimary"))
+    local sl = RedUI.Label(c, "â€¢ " .. sub, UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 44), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+    return vl, sl
+end
+
+local fpsVal, fpsSub = MakeMetric("Performance", "60 FPS", "144Hz+ Smooth", RedTheme.Get("TextPrimary"))
+local pingVal, pingSub = MakeMetric("Latency", "50ms", "Direct Gateway", Color3.fromRGB(255, 183, 3))
+local envVal, envSub = MakeMetric("Environment", RedEnv.ExecutorName, "Active Engine", RedTheme.Get("Accent"))
+
+task.spawn(function()
+    while TelemetryGrid and TelemetryGrid.Parent do
+        local fps = RedTelemetry.CurrentFPS
+        fpsVal.Text = fps .. " FPS"
+        fpsSub.Text = fps >= 55 and "â€¢ 144Hz+ Smooth" or (fps >= 30 and "â€¢ Moderate" or "â€¢ Throttled")
+
+        local ping = RedTelemetry.CurrentPing
+        pingVal.Text = ping .. "ms"
+        pingSub.Text = ping < 100 and "â€¢ Direct Gateway" or (ping < 200 and "â€¢ Normal" or "â€¢ High Latency")
+        task.wait(1)
+    end
+end)
+
+-- 4. Server & Mutual Friends Overview (2 Cards)
+local SocialGrid = Instance.new("Frame")
+SocialGrid.Size = UDim2.new(1, 0, 0, 58)
+SocialGrid.BackgroundTransparency = 1
+SocialGrid.Parent = PageDashboard
+
+local sgLayout = Instance.new("UIListLayout")
+sgLayout.FillDirection = Enum.FillDirection.Horizontal
+sgLayout.Padding = UDim.new(0, 8)
+sgLayout.Parent = SocialGrid
+
+local function MakeSocial(title, val, sub)
+    local c = Instance.new("Frame")
+    c.Size = UDim2.new(0.488, 0, 1, 0)
+    c.BackgroundColor3 = RedTheme.Get("CardBase")
+    c.BorderSizePixel = 0
+    c.Parent = SocialGrid
+    RedUI.Corner(c, 8)
+    local s = RedUI.Stroke(c, RedTheme.Get("CardStroke"), 1.2)
+    RedTheme.Bind(c, "BackgroundColor3", "CardBase")
+    RedTheme.Bind(s, "Color", "CardStroke")
+
+    RedUI.Label(c, string.upper(title), UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 7), Enum.Font.GothamBold, 9, RedTheme.Get("TextMuted"))
+    local vl = RedUI.Label(c, val, UDim2.new(1, -16, 0, 18), UDim2.new(0, 12, 0, 20), Enum.Font.GothamBlack, 14, RedTheme.Get("TextPrimary"))
+    local sl = RedUI.Label(c, "â€¢ " .. sub, UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 38), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+    return vl, sl
+end
+
+local popVal, popSub = MakeSocial("Server Population", tostring(#Players:GetPlayers()) .. " / " .. tostring(Players.MaxPlayers or 20) .. " Players", "Active Players Online")
+local friVal, friSub = MakeSocial("Friends In Server", "0 Friends Online", "Mutual server connections")
+
+task.spawn(function()
+    while SocialGrid and SocialGrid.Parent do
+        popVal.Text = tostring(#Players:GetPlayers()) .. " / " .. tostring(Players.MaxPlayers or 20) .. " Players"
+        local fc = RedTelemetry.FriendsInServer
+        friVal.Text = fc .. " Friends Online"
+        friSub.Text = fc == 0 and "â€¢ No mutual friends here" or ("â€¢ " .. fc .. " friend(s) present")
+        task.wait(4)
+    end
+end)
+
+-- 5. OFFICIAL DISCORD COMMUNITY CARD (Custom Procedural Clyde Vector Emoji Logo)
+local discordCard = RedUI.Card(PageDashboard, UDim2.new(1, 0, 0, 76))
+
+-- Custom Procedural Discord Emblem Frame
+local dIconBox = Instance.new("Frame")
+dIconBox.Size = UDim2.new(0, 48, 0, 48)
+dIconBox.Position = UDim2.new(0, 12, 0.5, -24)
+dIconBox.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+dIconBox.BorderSizePixel = 0
+dIconBox.Parent = discordCard
+RedUI.Corner(dIconBox, 12)
+
+-- Discord Clyde Eyes & Controller Shape using Frame Shapes (Guaranteed to render on all devices!)
+local clydeBody = Instance.new("Frame")
+clydeBody.Size = UDim2.new(0, 32, 0, 20)
+clydeBody.Position = UDim2.new(0.5, -16, 0.5, -10)
+clydeBody.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+clydeBody.BorderSizePixel = 0
+clydeBody.Parent = dIconBox
+RedUI.Corner(clydeBody, 7)
+
+local clydeEyeLeft = Instance.new("Frame")
+clydeEyeLeft.Size = UDim2.new(0, 6, 0, 7)
+clydeEyeLeft.Position = UDim2.new(0, 7, 0.5, -3)
+clydeEyeLeft.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+clydeEyeLeft.BorderSizePixel = 0
+clydeEyeLeft.Parent = clydeBody
+RedUI.Corner(clydeEyeLeft, 3)
+
+local clydeEyeRight = Instance.new("Frame")
+clydeEyeRight.Size = UDim2.new(0, 6, 0, 7)
+clydeEyeRight.Position = UDim2.new(1, -13, 0.5, -3)
+clydeEyeRight.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+clydeEyeRight.BorderSizePixel = 0
+clydeEyeRight.Parent = clydeBody
+RedUI.Corner(clydeEyeRight, 3)
+
+RedUI.Label(discordCard, "Join RED HUB Community", UDim2.new(0, 210, 0, 18), UDim2.new(0, 70, 0, 12), Enum.Font.GothamBlack, 13, RedTheme.Get("TextPrimary"))
+
+local officialBadge = Instance.new("Frame")
+officialBadge.Size = UDim2.new(0, 56, 0, 16)
+officialBadge.Position = UDim2.new(0, 260, 0, 13)
+officialBadge.BackgroundColor3 = Color3.fromRGB(24, 30, 54)
+officialBadge.BorderSizePixel = 0
+officialBadge.Parent = discordCard
+RedUI.Corner(officialBadge, 8)
+RedUI.Stroke(officialBadge, Color3.fromRGB(88, 101, 242), 1)
+RedUI.Label(officialBadge, "OFFICIAL", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Enum.Font.GothamBlack, 8, Color3.fromRGB(114, 137, 218), Enum.TextXAlignment.Center)
+
+RedUI.Label(discordCard, "Get instant script updates, sneak peeks & 24/7 support", UDim2.new(0, 310, 0, 16), UDim2.new(0, 70, 0, 32), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+RedUI.Label(discordCard, "â€¢ Lead Dev: @NOT_IITIAN", UDim2.new(0, 180, 0, 16), UDim2.new(0, 70, 0, 50), Enum.Font.GothamBold, 9, RedTheme.Get("Accent"))
+
+RedUI.Button(discordCard, "Copy Tag", UDim2.new(0, 75, 0, 28), UDim2.new(1, -195, 0.5, -14), Color3.fromRGB(30, 26, 36), Color3.fromRGB(220, 220, 230), 8, function(b)
+    RedEnv.SetClipboard("@NOT_IITIAN")
+    b.Text = "Copied!"
+    b.TextColor3 = RedTheme.Get("StatusGreen")
+    ShowToast("Tag Copied", "Lead Dev tag '@NOT_IITIAN' copied!", "Success")
+    task.delay(2, function() b.Text = "Copy Tag" b.TextColor3 = Color3.fromRGB(220, 220, 230) end)
+end)
+
+RedUI.Button(discordCard, "Join Server >", UDim2.new(0, 100, 0, 30), UDim2.new(1, -112, 0.5, -15), Color3.fromRGB(88, 101, 242), Color3.fromRGB(255, 255, 255), 8, function(b)
+    local link = "https://discord.gg/DC5nbga29C"
+    RedEnv.SetClipboard(link)
+    b.Text = "Copied!"
+    b.BackgroundColor3 = RedTheme.Get("StatusGreen")
+    ShowToast("Discord Link Copied", link, "Success")
+    task.delay(2.5, function() b.Text = "Join Server >" b.BackgroundColor3 = Color3.fromRGB(88, 101, 242) end)
+end)
+
+-- 6. Theme Selector Section (Directly Below Discord)
+local themeCard = RedUI.Card(PageDashboard, UDim2.new(1, 0, 0, 210))
+RedUI.Label(themeCard, "THEME PALETTES & VISUAL STYLING", UDim2.new(1, -24, 0, 18), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 11, RedTheme.Get("TextPrimary"))
+RedUI.Label(themeCard, "Tap any aesthetic preset to dynamically transform DEATH NOTE UI in real-time.", UDim2.new(1, -24, 0, 14), UDim2.new(0, 14, 0, 28), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+
+local themeGrid = Instance.new("Frame")
+themeGrid.Size = UDim2.new(1, -28, 0, 148)
+themeGrid.Position = UDim2.new(0, 14, 0, 48)
+themeGrid.BackgroundTransparency = 1
+themeGrid.Parent = themeCard
+
+local tgl = Instance.new("UIGridLayout")
+tgl.CellSize = UDim2.new(0.235, 0, 0, 64)
+tgl.CellPadding = UDim2.new(0.02, 0, 0, 8)
+tgl.Parent = themeGrid
+
+local themeItems = {}
+local function AddThemeItem(name, p)
+    local b = Instance.new("TextButton")
+    b.Text = ""
+    b.BackgroundColor3 = p.CardBase
+    b.BorderSizePixel = 0
+    b.Parent = themeGrid
+    RedUI.Corner(b, 8)
+    local st = RedUI.Stroke(b, RedTheme.CurrentThemeName == name and p.Accent or p.CardStroke, 1.2)
+
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 16, 0, 16)
+    dot.Position = UDim2.new(0, 10, 0, 10)
+    dot.BackgroundColor3 = p.Accent
+    dot.BorderSizePixel = 0
+    dot.Parent = b
+    RedUI.Corner(dot, 8)
+
+    RedUI.Label(b, name, UDim2.new(1, -36, 0, 16), UDim2.new(0, 32, 0, 10), Enum.Font.GothamBold, 9, p.TextPrimary)
+    local stat = RedUI.Label(b, RedTheme.CurrentThemeName == name and "ACTIVE" or "SELECT", UDim2.new(1, -20, 0, 14), UDim2.new(0, 10, 0, 38), Enum.Font.GothamBlack, 8, RedTheme.CurrentThemeName == name and p.Accent or p.TextMuted)
+
+    themeItems[name] = { Stroke = st, Stat = stat, Palette = p }
+
+    b.MouseButton1Click:Connect(function()
+        if RedTheme.CurrentThemeName == name then return end
+        RedTheme.SetTheme(name)
+        for n, it in pairs(themeItems) do
+            it.Stroke.Color = (n == name and it.Palette.Accent or it.Palette.CardStroke)
+            it.Stat.Text = (n == name and "ACTIVE" or "SELECT")
+            it.Stat.TextColor3 = (n == name and it.Palette.Accent or it.Palette.TextMuted)
+        end
+        ShowToast("Theme Changed", name, "Success")
+    end)
+end
+
+AddThemeItem("Crimson Eclipse", RedTheme.Palettes["Crimson Eclipse"])
+AddThemeItem("Blood Moon", RedTheme.Palettes["Blood Moon"])
+AddThemeItem("Cyberpunk Neon", RedTheme.Palettes["Cyberpunk Neon"])
+AddThemeItem("Obsidian Gold", RedTheme.Palettes["Obsidian Gold"])
+AddThemeItem("Amethyst Shadow", RedTheme.Palettes["Amethyst Shadow"])
+AddThemeItem("Emerald Venom", RedTheme.Palettes["Emerald Venom"])
+AddThemeItem("Arctic Cyan", RedTheme.Palettes["Arctic Cyan"])
+AddThemeItem("Stealth Monochrome", RedTheme.Palettes["Stealth Monochrome"])
+
+-- ============================================================================
+-- TAB 2: ACTIVITY (Color-Coded Per Player)
+-- ============================================================================
+local actCard = RedUI.Card(PageActivity, UDim2.new(1, 0, 0, 240))
+RedUI.Label(actCard, "LIVE SERVER ACTIVITY STREAM (COLOR-CODED)", UDim2.new(1, -20, 0, 18), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 11, RedTheme.Get("TextPrimary"))
+
+local actScroll = Instance.new("ScrollingFrame")
+actScroll.Size = UDim2.new(1, -20, 1, -38)
+actScroll.Position = UDim2.new(0, 10, 0, 32)
+actScroll.BackgroundTransparency = 1
+actScroll.ScrollBarThickness = 2
+actScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+actScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+actScroll.Parent = actCard
+
+local actList = Instance.new("UIListLayout")
+actList.Padding = UDim.new(0, 4)
+actList.Parent = actScroll
+
+-- Distinct Player Color Generator based on UserId
+local function getPlayerColor(userId)
+    local colors = {
+        Color3.fromRGB(255, 87, 87),   -- Coral Red
+        Color3.fromRGB(78, 205, 196),  -- Turquoise
+        Color3.fromRGB(255, 190, 11),  -- Yellow
+        Color3.fromRGB(168, 85, 247),  -- Violet
+        Color3.fromRGB(56, 189, 248),  -- Sky Blue
+        Color3.fromRGB(244, 114, 182), -- Pink
+        Color3.fromRGB(52, 211, 153),  -- Mint
+        Color3.fromRGB(251, 146, 60)   -- Orange
+    }
+    local num = tonumber(userId) or 1
+    local idx = (num % #colors) + 1
+    return colors[idx]
+end
+
+local function AddLog(tag, playerName, msg, userId)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, 0, 0, 24)
+    f.BackgroundColor3 = Color3.fromRGB(15, 12, 18)
+    f.BorderSizePixel = 0
+    f.Parent = actScroll
+    RedUI.Corner(f, 4)
+
+    local pColor = getPlayerColor(userId or 1)
+
+    RedUI.Label(f, "[" .. os.date("%X") .. "]", UDim2.new(0, 68, 1, 0), UDim2.new(0, 6, 0, 0), Enum.Font.Code, 9, RedTheme.Get("TextMuted"))
+    RedUI.Label(f, tag, UDim2.new(0, 54, 1, 0), UDim2.new(0, 76, 0, 0), Enum.Font.GothamBlack, 9, pColor)
+    RedUI.Label(f, playerName or "System", UDim2.new(0, 120, 1, 0), UDim2.new(0, 134, 0, 0), Enum.Font.GothamBold, 9, pColor)
+    RedUI.Label(f, msg or "", UDim2.new(1, -260, 1, 0), UDim2.new(0, 258, 0, 0), Enum.Font.GothamMedium, 9, RedTheme.Get("TextPrimary"))
+end
+
+AddLog("INIT", "DEATH NOTE", "Interface initialized successfully", 999)
+AddLog("USER", LocalPlayer.DisplayName, "Active session verified (" .. RedEnv.ExecutorName .. ")", LocalPlayer.UserId)
+
+Players.PlayerAdded:Connect(function(p)
+    AddLog("JOIN", p.DisplayName, "Connected to server instance", p.UserId)
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    AddLog("LEAVE", p.DisplayName, "Disconnected from server", p.UserId)
+end)
+
+-- ============================================================================
+-- TAB 3: FRIENDS (Live Friend Game Presences + One-Click Join Server Button)
+-- ============================================================================
+local friendsCard = RedUI.Card(PageFriends, UDim2.new(1, 0, 0, 240))
+RedUI.Label(friendsCard, "FRIENDS ONLINE STATUS & ACTIVE EXPERIENCES", UDim2.new(1, -20, 0, 18), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 11, RedTheme.Get("TextPrimary"))
+
+local friendsScroll = Instance.new("ScrollingFrame")
+friendsScroll.Size = UDim2.new(1, -20, 1, -38)
+friendsScroll.Position = UDim2.new(0, 10, 0, 32)
+friendsScroll.BackgroundTransparency = 1
+friendsScroll.ScrollBarThickness = 2
+friendsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+friendsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+friendsScroll.Parent = friendsCard
+
+local frList = Instance.new("UIListLayout")
+frList.Padding = UDim.new(0, 6)
+frList.Parent = friendsScroll
+
+local function RenderFriends()
+    for _, child in ipairs(friendsScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local list = RedTelemetry.FriendsPresences
+    if #list == 0 then
+        local emptyLbl = RedUI.Label(friendsScroll, "No friends currently online or playing games.", UDim2.new(1, 0, 0, 30), UDim2.new(0, 8, 0, 4), Enum.Font.GothamMedium, 10, RedTheme.Get("TextSecondary"))
+        return
+    end
+
+    for _, fr in ipairs(list) do
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, 0, 0, 46)
+        card.BackgroundColor3 = Color3.fromRGB(15, 12, 19)
+        card.BorderSizePixel = 0
+        card.Parent = friendsScroll
+        RedUI.Corner(card, 6)
+        RedUI.Stroke(card, fr.Joinable and RedTheme.Get("Accent") or RedTheme.Get("CardStroke"), 1)
+
+        -- Avatar thumbnail of friend
+        local fAv = Instance.new("ImageLabel")
+        fAv.Size = UDim2.new(0, 34, 0, 34)
+        fAv.Position = UDim2.new(0, 6, 0.5, -17)
+        fAv.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+        fAv.BackgroundTransparency = 1
+        fAv.Parent = card
+        RedUI.Corner(fAv, 17)
+
+        task.spawn(function()
+            local ok, thumb = pcall(function()
+                return Players:GetUserThumbnailAsync(fr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            end)
+            if ok and thumb then fAv.Image = thumb end
+        end)
+
+        -- Name & Status
+        RedUI.Label(card, fr.DisplayName .. " (@" .. fr.Username .. ")", UDim2.new(0, 220, 0, 16), UDim2.new(0, 46, 0, 6), Enum.Font.GothamBlack, 11, RedTheme.Get("TextPrimary"))
+        local statusCol = fr.Status == "In Game" and Color3.fromRGB(0, 230, 118) or (fr.Status == "In Studio" and Color3.fromRGB(255, 180, 0) or RedTheme.Get("TextMuted"))
+        RedUI.Label(card, "â— " .. fr.Status .. "  |  " .. fr.GameName, UDim2.new(1, -160, 0, 14), UDim2.new(0, 46, 0, 24), Enum.Font.GothamMedium, 9, statusCol)
+
+        -- Join Server Button if in game
+        if fr.Joinable and fr.PlaceId then
+            local joinBtn = RedUI.Button(card, "Join Game >", UDim2.new(0, 90, 0, 28), UDim2.new(1, -98, 0.5, -14), RedTheme.Get("Accent"), Color3.fromRGB(255, 255, 255), 6, function()
+                ShowToast("Joining...", "Teleporting to " .. fr.DisplayName .. "...", "Info")
+                pcall(function()
+                    if fr.JobId and fr.JobId ~= "" then
+                        TeleportService:TeleportToPlaceInstance(fr.PlaceId, fr.JobId, LocalPlayer)
+                    else
+                        TeleportService:Teleport(fr.PlaceId, LocalPlayer)
+                    end
+                end)
+            end)
+        else
+            local offLabel = RedUI.Label(card, "Not Joinable", UDim2.new(0, 80, 0, 20), UDim2.new(1, -88, 0.5, -10), Enum.Font.GothamBold, 9, RedTheme.Get("TextMuted"), Enum.TextXAlignment.Center)
+        end
+    end
+end
+
+task.spawn(function()
+    while friendsCard and friendsCard.Parent do
+        RenderFriends()
+        task.wait(10)
+    end
+end)
+
+-- ============================================================================
+-- TAB 4: UPDATE LOGS
+-- ============================================================================
+local upCard = RedUI.Card(PageUpdates, UDim2.new(1, 0, 0, 230))
+RedUI.Label(upCard, "DEATH NOTE - v2.0.0 (Crimson Death Edition)", UDim2.new(1, -20, 0, 20), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 12, RedTheme.Get("TextPrimary"))
+local notes = {
+    "â€¢ BRANDING: Top Shimmering Header with DEATH NOTE logo & 'Powered by RED HUB'.",
+    "â€¢ TOGGLE FIX: Bulletproof two-way toggle (Opens AND closes reliably on all clicks/touches).",
+    "â€¢ MOBILE SIZING: Compact responsive layout perfectly tuned for mobile screens.",
+    "â€¢ CHARACTER HERO: Extra large high-res avatar photo with live glowing pulse border.",
+    "â€¢ ACTIVE EXPERIENCE: Live game title & icon card showing current playing experience.",
+    "â€¢ COLOR-CODED ACTIVITY: Each player gets a unique distinct color for join/leave/chat logs.",
+    "â€¢ FRIENDS TAB: Realtime friend game presences with direct One-Click 'Join Game >' button.",
+    "â€¢ DISCORD CLYDE EMOJI: Custom procedural vector Clyde logo with Lead Dev @NOT_IITIAN tribute."
+}
+for i, note in ipairs(notes) do
+    RedUI.Label(upCard, note, UDim2.new(1, -28, 0, 16), UDim2.new(0, 14, 0, 32 + ((i-1)*20)), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+end
+
+-- ============================================================================
+-- TAB 5: SHORTCUTS & SETTINGS
+-- ============================================================================
+local setCard = RedUI.Card(PageShortcuts, UDim2.new(1, 0, 0, 160))
+RedUI.Label(setCard, "CONTROLS & PREFERENCES", UDim2.new(1, -20, 0, 20), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 11, RedTheme.Get("TextPrimary"))
+
+RedUI.Button(setCard, "Sound FX: ON", UDim2.new(0, 130, 0, 30), UDim2.new(0, 14, 0, 38), RedTheme.Get("Accent"), Color3.fromRGB(255, 255, 255), 8, function(b)
+    RedAudio.Enabled = not RedAudio.Enabled
+    b.Text = RedAudio.Enabled and "Sound FX: ON" or "Sound FX: OFF"
+    b.BackgroundColor3 = RedAudio.Enabled and RedTheme.Get("Accent") or Color3.fromRGB(40, 35, 45)
+    ShowToast("Audio", RedAudio.Enabled and "Sound FX Enabled" or "Sound FX Muted", "Info")
+end)
+
+RedUI.Button(setCard, "Re-center GUI", UDim2.new(0, 130, 0, 30), UDim2.new(0, 154, 0, 38), Color3.fromRGB(35, 30, 42), Color3.fromRGB(255, 255, 255), 8, function()
+    MainWindow.Position = UDim2.new(0.5, -310, 0.5, -175)
+    ShowToast("Centered", "GUI centered on screen", "Info")
+end)
+
+RedUI.Button(setCard, "Unload DEATH NOTE", UDim2.new(0, 130, 0, 30), UDim2.new(0, 14, 0, 78), Color3.fromRGB(255, 45, 85), Color3.fromRGB(255, 255, 255), 8, function()
+    MainGui:Destroy()
+    genv._DEATH_NOTE_LOADED = false
+end)
+
+RedUI.Label(setCard, "â€¢ Press RightShift or tap the floating left pill to toggle menu at any time.", UDim2.new(1, -28, 0, 16), UDim2.new(0, 14, 0, 120), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+
+-- ============================================================================
+-- CURVED GLASS BOTTOM DOCK NAVIGATION
+-- ============================================================================
+local BottomDock = Instance.new("Frame")
+BottomDock.Name = "BottomDock"
+BottomDock.Size = UDim2.new(0, 440, 0, 38)
+BottomDock.Position = UDim2.new(0.5, -220, 1, -44)
+BottomDock.BackgroundColor3 = RedTheme.Get("BottomDock")
+BottomDock.BorderSizePixel = 0
+BottomDock.Parent = MainWindow
+RedUI.Corner(BottomDock, 19)
+local dockStroke = RedUI.Stroke(BottomDock, RedTheme.Get("CardStroke"), 1.2)
+RedTheme.Bind(BottomDock, "BackgroundColor3", "BottomDock")
+RedTheme.Bind(dockStroke, "Color", "CardStroke")
+
+local dockLayout = Instance.new("UIListLayout")
+dockLayout.FillDirection = Enum.FillDirection.Horizontal
+dockLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+dockLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+dockLayout.Padding = UDim.new(0, 8)
+dockLayout.Parent = BottomDock
+
+local function AddDockBtn(symbol, title, tabTarget)
+    local b = Instance.new("TextButton")
+    b.Text = symbol .. (title ~= "" and (" " .. title) or "")
+    b.Size = title ~= "" and UDim2.new(0, 80, 0, 26) or UDim2.new(0, 28, 0, 26)
+    b.BackgroundColor3 = title ~= "" and RedTheme.Get("Accent") or Color3.fromRGB(0, 0, 0)
+    b.BackgroundTransparency = title ~= "" and 0 or 1
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.Font = Enum.Font.GothamBlack
+    b.TextSize = 10
+    b.BorderSizePixel = 0
+    b.Parent = BottomDock
+    RedUI.Corner(b, 13)
+
+    b.MouseButton1Click:Connect(function()
+        RedAudio.Play("Click")
+        if tabTarget and TabBtns[tabTarget] then
+            currentTab = tabTarget
+            for n, btn in pairs(TabBtns) do
+                btn.BackgroundTransparency = (n == tabTarget and 0 or 1)
+                btn.BackgroundColor3 = RedTheme.Get("Accent")
+                btn.TextColor3 = (n == tabTarget and Color3.fromRGB(255, 255, 255) or RedTheme.Get("TextSecondary"))
+                Pages[n].Visible = (n == tabTarget)
+            end
+        else
+            ShowToast("Module", "Feature slot ready", "Info")
+        end
+    end)
+end
+
+AddDockBtn("ðŸ ", "HOME", "Dashboard")
+AddDockBtn("âš”", "", nil)
+AddDockBtn("ðŸ‘", "", nil)
+AddDockBtn("â–¶", "", nil)
+AddDockBtn("ðŸ‘¥", "", "Friends")
+AddDockBtn("ðŸŒ", "", "Activity")
+AddDockBtn("âš™", "", "Shortcuts")
+
+-- Global Keybind
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then toggleWindow() end
+end)
+
+ShowToast("DEATH NOTE Loaded!", "Powered by RED HUB | Lead Dev: @NOT_IITIAN", "Success")
+print("[DEATH NOTE] Successfully initialized by @NOT_IITIAN")
+return MainGui
