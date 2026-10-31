@@ -1,0 +1,2053 @@
+--[[
+    ═══════════════════════════════════════════════════════════════
+    AetherSuite v2.0 — Animation Copier + Zero-Delay Welder
+    • Mobile-Optimized (touch-first, responsive)
+    • Alphabetical player list with search
+    • Multi-page dashboard (Dashboard, Players, Weld, Animation,
+      Presets, Settings, About)
+    • Zero-delay weld from your original logic
+    • Live animation speed control
+    ═══════════════════════════════════════════════════════════════
+]]
+
+local Players             = game:GetService("Players")
+local RunService          = game:GetService("RunService")
+local UserInputService    = game:GetService("UserInputService")
+local TweenService        = game:GetService("TweenService")
+local LocalPlayer         = Players.LocalPlayer
+local sethiddenproperty   = sethiddenproperty or set_hidden_property or set_hidden_prop
+
+-- ═══════════════════════════════════════════════════════════════
+-- CONFIG
+-- ═══════════════════════════════════════════════════════════════
+local CFG = {
+    Version = "2.0.0",
+    Theme = {
+        BG          = Color3.fromRGB(14, 14, 20),
+        Surface     = Color3.fromRGB(22, 22, 30),
+        SurfaceLight= Color3.fromRGB(30, 30, 40),
+        SurfaceHover= Color3.fromRGB(42, 42, 55),
+        Border      = Color3.fromRGB(48, 48, 62),
+        BorderLight = Color3.fromRGB(64, 64, 82),
+        Primary     = Color3.fromRGB(96, 140, 255),
+        PrimaryDark = Color3.fromRGB(60, 100, 200),
+        Success     = Color3.fromRGB(80, 190, 120),
+        Warning     = Color3.fromRGB(230, 170, 70),
+        Danger      = Color3.fromRGB(210, 85, 85),
+        Text        = Color3.fromRGB(235, 235, 245),
+        TextDim     = Color3.fromRGB(155, 155, 175),
+        TextMuted   = Color3.fromRGB(105, 105, 125),
+    },
+    IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
+}
+
+-- ═══════════════════════════════════════════════════════════════
+-- STATE
+-- ═══════════════════════════════════════════════════════════════
+local State = {
+    SelectedPlayer   = nil,
+    CurrentWeld      = nil,
+    CopiedTracks     = {},
+    OriginalFPDH     = workspace.FallenPartsDestroyHeight,
+    CurrentPage      = "Dashboard",
+    PlayerSearch     = "",
+    Notifications    = {},
+    Settings = {
+        Opacity             = 1,
+        ShowNotifications   = true,
+        AutoCopyAnimation   = true,
+        AutoUpdatePlayers   = true,
+        CompactMode         = false,
+    },
+    Stats = {
+        WeldCount  = 0,
+        CopyCount  = 0,
+        SessionStart = os.time(),
+    },
+    GUIRefs = {}, -- references to GUI elements for updates
+}
+
+-- ═══════════════════════════════════════════════════════════════
+-- UTILITIES
+-- ═══════════════════════════════════════════════════════════════
+local function create(class, props)
+    local obj = Instance.new(class)
+    for k, v in pairs(props or {}) do
+        obj[k] = v
+    end
+    return obj
+end
+
+local function corner(parent, radius)
+    local c = create("UICorner", {CornerRadius = UDim.new(0, radius or 8), Parent = parent})
+    return c
+end
+
+local function padding(parent, all)
+    return create("UIPadding", {
+        PaddingTop    = UDim.new(0, all or 8),
+        PaddingBottom = UDim.new(0, all or 8),
+        PaddingLeft   = UDim.new(0, all or 8),
+        PaddingRight  = UDim.new(0, all or 8),
+        Parent = parent,
+    })
+end
+
+local function stroke(parent, color, thickness)
+    return create("UIStroke", {
+        Color = color or CFG.Theme.Border,
+        Thickness = thickness or 1,
+        Parent = parent,
+    })
+end
+
+local function tween(obj, props, duration)
+    local ti = TweenInfo.new(duration or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local t = TweenService:Create(obj, ti, props)
+    t:Play()
+    return t
+end
+
+local function formatTime(seconds)
+    local m = math.floor(seconds / 60)
+    local s = seconds % 60
+    return string.format("%02d:%02d", m, s)
+end
+
+local function sortPlayersAlphabetical(players)
+    local list = {}
+    for _, p in ipairs(players) do
+        table.insert(list, p)
+    end
+    table.sort(list, function(a, b)
+        return string.lower(a.Name) < string.lower(b.Name)
+    end)
+    return list
+end
+
+local function getAvatarUrl(userId, size)
+    return string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=%d&height=%d&format=png", userId, size or 48, size or 48)
+end
+
+local function getTargetPart(targetPlayer)
+    local char = targetPlayer.Character
+    if not char then return nil end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return nil end
+    if hum.RigType == Enum.HumanoidRigType.R15 then
+        return char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+    end
+    return char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- NOTIFICATIONS SYSTEM
+-- ═══════════════════════════════════════════════════════════════
+local NotifContainer = nil
+
+local function notify(title, message, kind, duration)
+    if not State.Settings.ShowNotifications then return end
+    if not NotifContainer then return end
+    duration = duration or 3
+    kind = kind or "info"
+
+    local color = CFG.Theme.Primary
+    local icon = "ℹ"
+    if kind == "success" then color = CFG.Theme.Success; icon = "✓"
+    elseif kind == "warning" then color = CFG.Theme.Warning; icon = "⚠"
+    elseif kind == "error" then color = CFG.Theme.Danger; icon = "✕"
+    end
+
+    local notif = create("Frame", {
+        Size = UDim2.new(1, -12, 0, 58),
+        BackgroundColor3 = CFG.Theme.SurfaceLight,
+        BorderSizePixel = 0,
+        BackgroundTransparency = 0.05,
+        Parent = NotifContainer,
+    })
+    corner(notif, 8)
+    stroke(notif, color, 1.5)
+
+    local accent = create("Frame", {
+        Size = UDim2.new(0, 4, 1, -12),
+        Position = UDim2.new(0, 6, 0, 6),
+        BackgroundColor3 = color,
+        BorderSizePixel = 0,
+        Parent = notif,
+    })
+    corner(accent, 2)
+
+    create("TextLabel", {
+        Size = UDim2.new(1, -24, 0, 16),
+        Position = UDim2.new(0, 18, 0, 7),
+        BackgroundTransparency = 1,
+        Text = icon .. "  " .. tostring(title),
+        TextColor3 = color,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = notif,
+    })
+
+    create("TextLabel", {
+        Size = UDim2.new(1, -24, 0, 30),
+        Position = UDim2.new(0, 18, 0, 22),
+        BackgroundTransparency = 1,
+        Text = tostring(message),
+        TextColor3 = CFG.Theme.TextDim,
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        Parent = notif,
+    })
+
+    -- Slide in
+    notif.Position = UDim2.new(1.2, 0, 0, 0)
+    tween(notif, {Position = UDim2.new(0, 0, 0, 0)}, 0.25)
+
+    task.delay(duration, function()
+        if notif and notif.Parent then
+            tween(notif, {Position = UDim2.new(1.2, 0, 0, 0), BackgroundTransparency = 1}, 0.25)
+            task.wait(0.3)
+            notif:Destroy()
+        end
+    end)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- CORE: WELD (from user's original logic)
+-- ═══════════════════════════════════════════════════════════════
+local function WeldTo(TargetPart, Offset)
+    local Character = LocalPlayer.Character
+    if not Character then return nil end
+    local Root = Character:FindFirstChild("HumanoidRootPart")
+    local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+    if not Root or not Humanoid then return nil end
+
+    for _, v in ipairs(Character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = false
+            v.Massless  = true
+        end
+    end
+
+    local Connection
+    local Weld = {}
+
+    Connection = RunService.Heartbeat:Connect(function()
+        if not Character.Parent or not TargetPart or not TargetPart.Parent then
+            if Weld.Destroy then Weld:Destroy() end
+            return
+        end
+        Root.CFrame = TargetPart.CFrame * Offset
+        Root.AssemblyLinearVelocity  = Vector3.zero
+        Root.AssemblyAngularVelocity = Vector3.zero
+
+        if sethiddenproperty then
+            pcall(function()
+                sethiddenproperty(Root, "PhysicsRepRootPart", TargetPart)
+                sethiddenproperty(Root, "PhysicsRepRootRef", InstanceHandle.new(TargetPart))
+            end)
+        end
+    end)
+
+    function Weld:Destroy()
+        if Connection then Connection:Disconnect() end
+        if Root then
+            Root.AssemblyLinearVelocity  = Vector3.zero
+            Root.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+    return Weld
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- CORE: ANIMATION COPY
+-- ═══════════════════════════════════════════════════════════════
+local function getTargetAnimations(targetPlayer)
+    local result = {}
+    if not targetPlayer or not targetPlayer.Character then return result end
+    local tHum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if not tHum then return result end
+    local ok, tracks = pcall(function() return tHum:GetPlayingAnimationTracks() end)
+    if not ok or not tracks then return result end
+    for _, track in ipairs(tracks) do
+        local anim = track.Animation
+        if anim and anim.AnimationId and anim.AnimationId ~= "" then
+            table.insert(result, {
+                AnimationId = anim.AnimationId,
+                Speed       = track.Speed or 1,
+                Name        = track.Name or "Unknown",
+            })
+        end
+    end
+    return result
+end
+
+local function stopCopiedAnimations()
+    for _, info in ipairs(State.CopiedTracks) do
+        pcall(function()
+            info.track:Stop(0)
+            info.track:Destroy()
+        end)
+    end
+    State.CopiedTracks = {}
+end
+
+local function playAnimations(animData, speedMult)
+    local char = LocalPlayer.Character
+    if not char then return 0 end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return 0 end
+    local animator = hum:FindFirstChildOfClass("Animator")
+    if not animator then
+        animator = Instance.new("Animator")
+        animator.Parent = hum
+    end
+    stopCopiedAnimations()
+    local count = 0
+    for _, data in ipairs(animData) do
+        local newAnim = Instance.new("Animation")
+        newAnim.AnimationId = data.AnimationId
+        local ok, track = pcall(function() return animator:LoadAnimation(newAnim) end)
+        if ok and track then
+            track:Play()
+            local baseSpd = data.Speed or 1
+            track:AdjustSpeed((speedMult or 1) * baseSpd)
+            table.insert(State.CopiedTracks, {track = track, baseSpeed = baseSpd})
+            count = count + 1
+        end
+    end
+    return count
+end
+
+local function updateSpeedAll(mult)
+    for _, info in ipairs(State.CopiedTracks) do
+        pcall(function() info.track:AdjustSpeed((mult or 1) * info.baseSpeed) end)
+    end
+end
+
+local function doUnweld()
+    if State.CurrentWeld then
+        pcall(function() State.CurrentWeld:Destroy() end)
+        State.CurrentWeld = nil
+    end
+    workspace.FallenPartsDestroyHeight = State.OriginalFPDH
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- SPLASH SCREEN
+-- ═══════════════════════════════════════════════════════════════
+local parentGui = (gethui and gethui()) or game:GetService("CoreGui")
+local old = parentGui:FindFirstChild("AetherSuite")
+if old then old:Destroy() end
+
+local ScreenGui = create("ScreenGui", {
+    Name = "AetherSuite",
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    IgnoreGuiInset = true,
+    Parent = parentGui,
+})
+
+-- Notifications container (top-right)
+NotifContainer = create("Frame", {
+    Name = "NotifContainer",
+    Size = UDim2.new(0, 280, 0, 400),
+    Position = UDim2.new(1, -292, 0, 12),
+    BackgroundTransparency = 1,
+    Parent = ScreenGui,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 6),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = NotifContainer,
+})
+
+-- Splash
+local splash = create("Frame", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundColor3 = CFG.Theme.BG,
+    BorderSizePixel = 0,
+    Parent = ScreenGui,
+})
+
+local splashBox = create("Frame", {
+    Size = UDim2.new(0, 220, 0, 120),
+    Position = UDim2.new(0.5, -110, 0.5, -60),
+    BackgroundTransparency = 1,
+    Parent = splash,
+})
+
+create("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 40),
+    BackgroundTransparency = 1,
+    Text = "AetherSuite",
+    TextColor3 = CFG.Theme.Primary,
+    Font = Enum.Font.GothamBlack,
+    TextSize = 32,
+    Parent = splashBox,
+})
+
+create("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 20),
+    Position = UDim2.new(0, 0, 0, 44),
+    BackgroundTransparency = 1,
+    Text = "v" .. CFG.Version .. " — Animation & Welding Suite",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    Parent = splashBox,
+})
+
+local splashBar = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 4),
+    Position = UDim2.new(0, 0, 1, -10),
+    BackgroundColor3 = CFG.Theme.SurfaceLight,
+    BorderSizePixel = 0,
+    Parent = splashBox,
+})
+corner(splashBar, 2)
+local splashFill = create("Frame", {
+    Size = UDim2.new(0, 0, 1, 0),
+    BackgroundColor3 = CFG.Theme.Primary,
+    BorderSizePixel = 0,
+    Parent = splashBar,
+})
+corner(splashFill, 2)
+tween(splashFill, {Size = UDim2.new(1, 0, 1, 0)}, 1.2)
+
+task.delay(1.5, function()
+    tween(splash, {BackgroundTransparency = 1}, 0.4)
+    tween(splashBox, {BackgroundTransparency = 1}, 0.4)
+    task.wait(0.5)
+    splash:Destroy()
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- MAIN WINDOW
+-- ═══════════════════════════════════════════════════════════════
+local winW = CFG.IsMobile and UDim2.new(0.94, 0, 0.92, 0) or UDim2.new(0, 520, 0, 720)
+local winP = CFG.IsMobile and UDim2.new(0.03, 0, 0.04, 0) or UDim2.new(0, 60, 0, 80)
+
+local Main = create("Frame", {
+    Name = "Main",
+    Size = winW,
+    Position = winP,
+    BackgroundColor3 = CFG.Theme.BG,
+    BorderSizePixel = 0,
+    Parent = ScreenGui,
+})
+corner(Main, 12)
+stroke(Main, CFG.Theme.Border, 1)
+
+local winAspect = create("UIAspectRatioConstraint", {AspectRatio = 0.72, DominantAxis = Enum.AspectType.Width, Parent = Main})
+if CFG.IsMobile then
+    winAspect.AspectRatio = 0.62
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- HEADER BAR
+-- ═══════════════════════════════════════════════════════════════
+local Header = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 54),
+    BackgroundColor3 = CFG.Theme.Surface,
+    BorderSizePixel = 0,
+    Parent = Main,
+})
+corner(Header, 12)
+local headerMask = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 20),
+    Position = UDim2.new(0, 0, 1, -20),
+    BackgroundColor3 = CFG.Theme.Surface,
+    BorderSizePixel = 0,
+    Parent = Header,
+})
+
+local logoIcon = create("Frame", {
+    Size = UDim2.new(0, 34, 0, 34),
+    Position = UDim2.new(0, 12, 0.5, -17),
+    BackgroundColor3 = CFG.Theme.Primary,
+    BorderSizePixel = 0,
+    Parent = Header,
+})
+corner(logoIcon, 8)
+create("TextLabel", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "A",
+    TextColor3 = Color3.new(1, 1, 1),
+    Font = Enum.Font.GothamBlack,
+    TextSize = 20,
+    Parent = logoIcon,
+})
+
+create("TextLabel", {
+    Size = UDim2.new(0, 200, 0, 20),
+    Position = UDim2.new(0, 56, 0, 10),
+    BackgroundTransparency = 1,
+    Text = "AetherSuite",
+    TextColor3 = CFG.Theme.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 15,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = Header,
+})
+
+create("TextLabel", {
+    Size = UDim2.new(0, 200, 0, 14),
+    Position = UDim2.new(0, 56, 0, 28),
+    BackgroundTransparency = 1,
+    Text = "v" .. CFG.Version .. " • Premium",
+    TextColor3 = CFG.Theme.TextMuted,
+    Font = Enum.Font.Gotham,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = Header,
+})
+
+-- Header buttons (Minimize, Close)
+local function headerBtn(icon, x, color)
+    local b = create("TextButton", {
+        Size = UDim2.new(0, 32, 0, 32),
+        Position = UDim2.new(1, x, 0.5, -16),
+        BackgroundColor3 = CFG.Theme.SurfaceLight,
+        BorderSizePixel = 0,
+        Text = icon,
+        TextColor3 = color or CFG.Theme.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        AutoButtonColor = false,
+        Parent = Header,
+    })
+    corner(b, 8)
+    b.MouseEnter:Connect(function() tween(b, {BackgroundColor3 = CFG.Theme.SurfaceHover}, 0.15) end)
+    b.MouseLeave:Connect(function() tween(b, {BackgroundColor3 = CFG.Theme.SurfaceLight}, 0.15) end)
+    return b
+end
+
+local MinBtn = headerBtn("–", -80)
+local CloseBtn = headerBtn("×", -44, CFG.Theme.Danger)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    tween(Main, {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.25)
+    task.wait(0.3)
+    ScreenGui:Destroy()
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    State.IsMinimized = not State.IsMinimized
+    if State.IsMinimized then
+        tween(Main, {Size = UDim2.new(0, 200, 0, 54)}, 0.25)
+    else
+        tween(Main, {Size = CFG.IsMobile and UDim2.new(0.94, 0, 0.92, 0) or UDim2.new(0, 520, 0, 720)}, 0.25)
+    end
+end)
+
+-- Draggable
+local dragging, dragStart, startPos
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging, dragStart, startPos = true, input.Position, Main.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                  startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- NAVIGATION TABS (horizontal scroll)
+-- ═══════════════════════════════════════════════════════════════
+local Nav = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 48),
+    Position = UDim2.new(0, 0, 0, 54),
+    BackgroundColor3 = CFG.Theme.Surface,
+    BorderSizePixel = 0,
+    Parent = Main,
+})
+
+local NavScroll = create("ScrollingFrame", {
+    Size = UDim2.new(1, -8, 1, 0),
+    Position = UDim2.new(0, 4, 0, 0),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 0,
+    ScrollingDirection = Enum.ScrollingDirection.X,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.X,
+    Parent = Nav,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 4),
+    FillDirection = Enum.FillDirection.Horizontal,
+    VerticalAlignment = Enum.VerticalAlignment.Center,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = NavScroll,
+})
+padding(NavScroll, 4)
+
+local Pages = {}
+local PageButtons = {}
+local currentPageFrame = nil
+
+local function switchPage(name)
+    State.CurrentPage = name
+    for pageName, frame in pairs(Pages) do
+        frame.Visible = (pageName == name)
+    end
+    for btnName, btn in pairs(PageButtons) do
+        local isActive = (btnName == name)
+        tween(btn, {BackgroundColor3 = isActive and CFG.Theme.Primary or CFG.Theme.SurfaceLight}, 0.15)
+        local lbl = btn:FindFirstChildOfClass("TextLabel")
+        if lbl then lbl.TextColor3 = isActive and Color3.new(1,1,1) or CFG.Theme.TextDim end
+    end
+end
+
+local function createNavButton(name, icon)
+    local btn = create("TextButton", {
+        Size = UDim2.new(0, 92, 0, 36),
+        BackgroundColor3 = CFG.Theme.SurfaceLight,
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
+        Parent = NavScroll,
+    })
+    corner(btn, 8)
+    create("TextLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = icon .. "  " .. name,
+        TextColor3 = CFG.Theme.TextDim,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        Parent = btn,
+    })
+    btn.MouseButton1Click:Connect(function() switchPage(name) end)
+    PageButtons[name] = btn
+    return btn
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- CONTENT AREA
+-- ═══════════════════════════════════════════════════════════════
+local Content = create("Frame", {
+    Size = UDim2.new(1, 0, 1, -54 - 48 - 32),
+    Position = UDim2.new(0, 0, 0, 54 + 48),
+    BackgroundTransparency = 1,
+    Parent = Main,
+})
+
+-- ═══════════════════════════════════════════════════════════════
+-- STATUS BAR
+-- ═══════════════════════════════════════════════════════════════
+local Status = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 32),
+    Position = UDim2.new(0, 0, 1, -32),
+    BackgroundColor3 = CFG.Theme.Surface,
+    BorderSizePixel = 0,
+    Parent = Main,
+})
+corner(Status, 12)
+
+local StatusDot = create("Frame", {
+    Size = UDim2.new(0, 8, 0, 8),
+    Position = UDim2.new(0, 12, 0.5, -4),
+    BackgroundColor3 = CFG.Theme.Success,
+    BorderSizePixel = 0,
+    Parent = Status,
+})
+corner(StatusDot, 4)
+
+local StatusText = create("TextLabel", {
+    Size = UDim2.new(0.5, 0, 1, 0),
+    Position = UDim2.new(0, 26, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "Ready",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = Status,
+})
+
+local StatusRight = create("TextLabel", {
+    Size = UDim2.new(0.4, -12, 1, 0),
+    Position = UDim2.new(0.6, 0, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "Target: —",
+    TextColor3 = CFG.Theme.TextMuted,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Right,
+    Parent = Status,
+})
+
+local function setStatus(text, isGood)
+    StatusText.Text = text
+    StatusDot.BackgroundColor3 = isGood == false and CFG.Theme.Danger or (isGood == true and CFG.Theme.Success or CFG.Theme.Primary)
+end
+
+local function setTargetLabel(plr)
+    StatusRight.Text = plr and ("Target: " .. plr.Name) or "Target: —"
+    StatusRight.TextColor3 = plr and CFG.Theme.Primary or CFG.Theme.TextMuted
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- PAGE HELPER: create scrollable page
+-- ═══════════════════════════════════════════════════════════════
+local function createPage(name)
+    local frame = create("ScrollingFrame", {
+        Name = name,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = CFG.Theme.Border,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Parent = Content,
+        Visible = false,
+    })
+    padding(frame, 10)
+    create("UIListLayout", {
+        Padding = UDim.new(0, 10),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = frame,
+    })
+    Pages[name] = frame
+    return frame
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- SHARED UI COMPONENTS
+-- ═══════════════════════════════════════════════════════════════
+
+-- Section header
+local function sectionHeader(parent, title, subtitle)
+    local box = create("Frame", {
+        Size = UDim2.new(1, 0, 0, subtitle and 44 or 28),
+        BackgroundTransparency = 1,
+        Parent = parent,
+    })
+    create("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 20),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = CFG.Theme.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = box,
+    })
+    if subtitle then
+        create("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 16),
+            Position = UDim2.new(0, 0, 0, 22),
+            BackgroundTransparency = 1,
+            Text = subtitle,
+            TextColor3 = CFG.Theme.TextMuted,
+            Font = Enum.Font.Gotham,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Parent = box,
+        })
+    end
+    return box
+end
+
+-- Card
+local function card(parent, height)
+    local c = create("Frame", {
+        Size = UDim2.new(1, 0, 0, height or 100),
+        BackgroundColor3 = CFG.Theme.Surface,
+        BorderSizePixel = 0,
+        Parent = parent,
+    })
+    corner(c, 10)
+    stroke(c, CFG.Theme.Border, 1)
+    return c
+end
+
+-- Big button
+local function bigButton(parent, text, icon, color, height)
+    local b = create("TextButton", {
+        Size = UDim2.new(1, 0, 0, height or 44),
+        BackgroundColor3 = color or CFG.Theme.Primary,
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
+        Parent = parent,
+    })
+    corner(b, 8)
+    create("TextLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = (icon and icon .. "  " or "") .. text,
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        Parent = b,
+    })
+    local baseColor = color or CFG.Theme.Primary
+    b.MouseEnter:Connect(function()
+        tween(b, {BackgroundColor3 = baseColor:Lerp(Color3.new(1,1,1), 0.15)}, 0.15)
+    end)
+    b.MouseLeave:Connect(function()
+        tween(b, {BackgroundColor3 = baseColor}, 0.15)
+    end)
+    return b
+end
+
+-- Input field with label
+local function labeledInput(parent, label, placeholder, default, width, xPos)
+    local container = create("Frame", {
+        Size = UDim2.new(width or 1, 0, 0, 52),
+        BackgroundTransparency = 1,
+        Parent = parent,
+    })
+    if xPos then container.Position = xPos end
+
+    create("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 16),
+        BackgroundTransparency = 1,
+        Text = label,
+        TextColor3 = CFG.Theme.TextDim,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = container,
+    })
+
+    local box = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 32),
+        Position = UDim2.new(0, 0, 0, 18),
+        BackgroundColor3 = CFG.Theme.SurfaceLight,
+        BorderSizePixel = 0,
+        Parent = container,
+    })
+    corner(box, 6)
+    stroke(box, CFG.Theme.Border, 1)
+
+    local tb = create("TextBox", {
+        Size = UDim2.new(1, -16, 1, 0),
+        Position = UDim2.new(0, 8, 0, 0),
+        BackgroundTransparency = 1,
+        Text = tostring(default or ""),
+        PlaceholderText = placeholder or "",
+        PlaceholderColor3 = CFG.Theme.TextMuted,
+        TextColor3 = CFG.Theme.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false,
+        Parent = box,
+    })
+    return tb, box
+end
+
+-- Toggle switch
+local function toggleSwitch(parent, label, default, xPos, width)
+    local container = create("Frame", {
+        Size = UDim2.new(width or 1, 0, 0, 32),
+        BackgroundTransparency = 1,
+        Parent = parent,
+    })
+    if xPos then container.Position = xPos end
+
+    create("TextLabel", {
+        Size = UDim2.new(1, -60, 1, 0),
+        BackgroundTransparency = 1,
+        Text = label,
+        TextColor3 = CFG.Theme.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = container,
+    })
+
+    local switch = create("Frame", {
+        Size = UDim2.new(0, 44, 0, 22),
+        Position = UDim2.new(1, -44, 0.5, -11),
+        BackgroundColor3 = default and CFG.Theme.Primary or CFG.Theme.SurfaceLight,
+        BorderSizePixel = 0,
+        Parent = container,
+    })
+    corner(switch, 11)
+
+    local knob = create("Frame", {
+        Size = UDim2.new(0, 18, 0, 18),
+        Position = default and UDim2.new(1, -20, 0, 2) or UDim2.new(0, 2, 0, 2),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel = 0,
+        Parent = switch,
+    })
+    corner(knob, 9)
+
+    local state = default
+    local clickArea = create("TextButton", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        Parent = container,
+    })
+
+    clickArea.MouseButton1Click:Connect(function()
+        state = not state
+        tween(switch, {BackgroundColor3 = state and CFG.Theme.Primary or CFG.Theme.SurfaceLight}, 0.15)
+        tween(knob, {Position = state and UDim2.new(1, -20, 0, 2) or UDim2.new(0, 2, 0, 2)}, 0.15)
+    end)
+
+    return container, function() return state end
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- PAGE: DASHBOARD
+-- ═══════════════════════════════════════════════════════════════
+local DashboardPage = createPage("Dashboard")
+
+-- Welcome banner
+local welcome = card(DashboardPage, 96)
+local wGrad = create("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CFG.Theme.Primary),
+        ColorSequenceKeypoint.new(1, CFG.Theme.PrimaryDark),
+    }),
+    Rotation = 45,
+    Parent = welcome,
+})
+create("TextLabel", {
+    Size = UDim2.new(1, -20, 0, 24),
+    Position = UDim2.new(0, 14, 0, 14),
+    BackgroundTransparency = 1,
+    Text = "Welcome back 👋",
+    TextColor3 = Color3.new(1, 1, 1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = welcome,
+})
+local welcomeUser = create("TextLabel", {
+    Size = UDim2.new(1, -20, 0, 20),
+    Position = UDim2.new(0, 14, 0, 38),
+    BackgroundTransparency = 1,
+    Text = "@" .. LocalPlayer.Name,
+    TextColor3 = Color3.fromRGB(220, 220, 245),
+    Font = Enum.Font.Gotham,
+    TextSize = 13,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = welcome,
+})
+create("TextLabel", {
+    Size = UDim2.new(1, -20, 0, 16),
+    Position = UDim2.new(0, 14, 1, -30),
+    BackgroundTransparency = 1,
+    Text = "AetherSuite is ready to weld and copy animations.",
+    TextColor3 = Color3.fromRGB(210, 210, 235),
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = welcome,
+})
+
+-- Stats grid
+sectionHeader(DashboardPage, "Session Statistics", "Live counters since launch")
+
+local statsRow1 = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 74),
+    BackgroundTransparency = 1,
+    Parent = DashboardPage,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    FillDirection = Enum.FillDirection.Horizontal,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = statsRow1,
+})
+
+local function statCard(label, value, color)
+    local c = card(statsRow1, 74)
+    c.Size = UDim2.new(0.5, -4, 0, 74)
+    create("TextLabel", {
+        Size = UDim2.new(1, -16, 0, 18),
+        Position = UDim2.new(0, 12, 0, 12),
+        BackgroundTransparency = 1,
+        Text = label,
+        TextColor3 = CFG.Theme.TextMuted,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = c,
+    })
+    local v = create("TextLabel", {
+        Size = UDim2.new(1, -16, 0, 34),
+        Position = UDim2.new(0, 12, 0, 30),
+        BackgroundTransparency = 1,
+        Text = tostring(value),
+        TextColor3 = color or CFG.Theme.Text,
+        Font = Enum.Font.GothamBlack,
+        TextSize = 24,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = c,
+    })
+    return v
+end
+
+local StatWelds   = statCard("TOTAL WELDS",  "0", CFG.Theme.Primary)
+local StatCopies  = statCard("ANIM COPY",    "0", CFG.Theme.Success)
+
+local statsRow2 = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 74),
+    BackgroundTransparency = 1,
+    Parent = DashboardPage,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    FillDirection = Enum.FillDirection.Horizontal,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = statsRow2,
+})
+local StatPlayers = statCard("PLAYERS", "0", CFG.Theme.Warning)
+local StatUptime  = statCard("UPTIME",  "00:00", CFG.Theme.Text)
+
+-- Quick actions
+sectionHeader(DashboardPage, "Quick Actions", "Jump straight into the action")
+
+local quickRow = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 48),
+    BackgroundTransparency = 1,
+    Parent = DashboardPage,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    FillDirection = Enum.FillDirection.Horizontal,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = quickRow,
+})
+
+local qaPlayers = bigButton(quickRow, "Players", "👥", CFG.Theme.Primary, 44)
+qaPlayers.Size = UDim2.new(0.33, -4, 0, 44)
+qaPlayers.MouseButton1Click:Connect(function() switchPage("Players") end)
+
+local qaWeld = bigButton(quickRow, "Weld", "🔗", CFG.Theme.Success, 44)
+qaWeld.Size = UDim2.new(0.33, -4, 0, 44)
+qaWeld.MouseButton1Click:Connect(function() switchPage("Weld") end)
+
+local qaPresets = bigButton(quickRow, "Presets", "⭐", CFG.Theme.Warning, 44)
+qaPresets.Size = UDim2.new(0.34, 0, 0, 44)
+qaPresets.MouseButton1Click:Connect(function() switchPage("Presets") end)
+
+-- Recent players
+sectionHeader(DashboardPage, "Recent Players", "Most recently joined (alphabetical preview)")
+
+local recentCard = card(DashboardPage, 200)
+local recentScroll = create("ScrollingFrame", {
+    Size = UDim2.new(1, -16, 1, -16),
+    Position = UDim2.new(0, 8, 0, 8),
+    BackgroundTransparency = 1,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = CFG.Theme.Border,
+    BorderSizePixel = 0,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    Parent = recentCard,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 4),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = recentScroll,
+})
+
+local function populateRecent()
+    for _, ch in ipairs(recentScroll:GetChildren()) do
+        if ch:IsA("Frame") and ch.Name ~= "UIListLayout" then ch:Destroy() end
+    end
+    local players = sortPlayersAlphabetical(Players:GetPlayers())
+    for _, plr in ipairs(players) do
+        local row = create("Frame", {
+            Size = UDim2.new(1, 0, 0, 32),
+            BackgroundColor3 = (plr == LocalPlayer) and CFG.Theme.PrimaryDark or CFG.Theme.SurfaceLight,
+            BorderSizePixel = 0,
+            Parent = recentScroll,
+        })
+        corner(row, 6)
+        create("Frame", {
+            Size = UDim2.new(0, 22, 0, 22),
+            Position = UDim2.new(0, 5, 0, 5),
+            BackgroundColor3 = CFG.Theme.Border,
+            BorderSizePixel = 0,
+            Parent = row,
+        })
+        corner(row:FindFirstChildOfClass("Frame") or row, 11)
+        create("TextLabel", {
+            Size = UDim2.new(1, -40, 1, 0),
+            Position = UDim2.new(0, 34, 0, 0),
+            BackgroundTransparency = 1,
+            Text = plr.Name .. (plr == LocalPlayer and "  (You)" or ""),
+            TextColor3 = CFG.Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Parent = row,
+        })
+    end
+end
+populateRecent()
+Players.PlayerAdded:Connect(function() task.wait(0.2) populateRecent() end)
+Players.PlayerRemoving:Connect(function() task.wait(0.2) populateRecent() end)
+
+-- Stat updates
+task.spawn(function()
+    while ScreenGui and ScreenGui.Parent do
+        StatWelds.Text   = tostring(State.Stats.WeldCount)
+        StatCopies.Text  = tostring(State.Stats.CopyCount)
+        StatPlayers.Text = tostring(#Players:GetPlayers())
+        StatUptime.Text  = formatTime(os.time() - State.Stats.SessionStart)
+        task.wait(1)
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- PAGE: PLAYERS
+-- ═══════════════════════════════════════════════════════════════
+local PlayersPage = createPage("Players")
+
+sectionHeader(PlayersPage, "Player Directory", "Alphabetical list — tap to select target")
+
+-- Search bar
+local searchBox = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 38),
+    BackgroundColor3 = CFG.Theme.SurfaceLight,
+    BorderSizePixel = 0,
+    Parent = PlayersPage,
+})
+corner(searchBox, 8)
+stroke(searchBox, CFG.Theme.Border, 1)
+create("TextLabel", {
+    Size = UDim2.new(0, 28, 1, 0),
+    Position = UDim2.new(0, 8, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "🔍",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.Gotham,
+    TextSize = 14,
+    Parent = searchBox,
+})
+local searchInput = create("TextBox", {
+    Size = UDim2.new(1, -44, 1, 0),
+    Position = UDim2.new(0, 32, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "",
+    PlaceholderText = "Search player name...",
+    PlaceholderColor3 = CFG.Theme.TextMuted,
+    TextColor3 = CFG.Theme.Text,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ClearTextOnFocus = false,
+    Parent = searchBox,
+})
+
+local playerListCard = card(PlayersPage, 400)
+local playerScroll = create("ScrollingFrame", {
+    Size = UDim2.new(1, -12, 1, -12),
+    Position = UDim2.new(0, 6, 0, 6),
+    BackgroundTransparency = 1,
+    ScrollBarThickness = 4,
+    ScrollBarImageColor3 = CFG.Theme.Border,
+    BorderSizePixel = 0,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    Parent = playerListCard,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 6),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = playerScroll,
+})
+
+local function buildPlayerList()
+    for _, ch in ipairs(playerScroll:GetChildren()) do
+        if ch:IsA("Frame") and ch:FindFirstChild("PlayerName") then ch:Destroy() end
+    end
+    local query = string.lower(State.PlayerSearch or "")
+    local players = sortPlayersAlphabetical(Players:GetPlayers())
+    local shown = 0
+    for _, plr in ipairs(players) do
+        if query == "" or string.find(string.lower(plr.Name), query, 1, true) then
+            shown = shown + 1
+            local row = create("TextButton", {
+                Size = UDim2.new(1, 0, 0, 52),
+                BackgroundColor3 = (State.SelectedPlayer == plr) and CFG.Theme.Primary or CFG.Theme.SurfaceLight,
+                BorderSizePixel = 0,
+                Text = "",
+                AutoButtonColor = false,
+                Parent = playerScroll,
+            })
+            corner(row, 8)
+            create("Frame", {
+                Name = "Avatar",
+                Size = UDim2.new(0, 36, 0, 36),
+                Position = UDim2.new(0, 8, 0, 8),
+                BackgroundColor3 = CFG.Theme.Border,
+                BorderSizePixel = 0,
+                Parent = row,
+            })
+            corner(row:FindFirstChild("Avatar"), 18)
+            create("TextLabel", {
+                Name = "PlayerName",
+                Size = UDim2.new(1, -110, 0, 18),
+                Position = UDim2.new(0, 54, 0, 10),
+                BackgroundTransparency = 1,
+                Text = plr.Name .. (plr == LocalPlayer and "  (You)" or ""),
+                TextColor3 = CFG.Theme.Text,
+                Font = Enum.Font.GothamBold,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = row,
+            })
+            create("TextLabel", {
+                Size = UDim2.new(1, -110, 0, 14),
+                Position = UDim2.new(0, 54, 0, 28),
+                BackgroundTransparency = 1,
+                Text = "@" .. plr.Name .. " • " .. (plr.Character and "In game" or "Loading"),
+                TextColor3 = CFG.Theme.TextDim,
+                Font = Enum.Font.Gotham,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = row,
+            })
+            -- Select button on right
+            local selBtn = create("TextButton", {
+                Size = UDim2.new(0, 60, 0, 28),
+                Position = UDim2.new(1, -70, 0.5, -14),
+                BackgroundColor3 = (State.SelectedPlayer == plr) and Color3.new(1,1,1) or CFG.Theme.Primary,
+                BorderSizePixel = 0,
+                Text = (State.SelectedPlayer == plr) and "Selected" or "Select",
+                TextColor3 = (State.SelectedPlayer == plr) and CFG.Theme.Primary or Color3.new(1,1,1),
+                Font = Enum.Font.GothamBold,
+                TextSize = 11,
+                Parent = row,
+            })
+            corner(selBtn, 6)
+            selBtn.MouseButton1Click:Connect(function()
+                State.SelectedPlayer = plr
+                setTargetLabel(plr)
+                setStatus("Selected " .. plr.Name, true)
+                notify("Target Selected", plr.Name .. " is now your target", "success")
+                buildPlayerList()
+            end)
+        end
+    end
+    if shown == 0 then
+        local empty = create("Frame", {
+            Name = "PlayerName",
+            Size = UDim2.new(1, 0, 0, 60),
+            BackgroundTransparency = 1,
+            Parent = playerScroll,
+        })
+        create("TextLabel", {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "No players found",
+            TextColor3 = CFG.Theme.TextMuted,
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            Parent = empty,
+        })
+    end
+end
+
+searchInput:GetPropertyChangedSignal("Text"):Connect(function()
+    State.PlayerSearch = searchInput.Text
+    buildPlayerList()
+end)
+
+buildPlayerList()
+Players.PlayerAdded:Connect(function() task.wait(0.3) buildPlayerList() end)
+Players.PlayerRemoving:Connect(function() task.wait(0.3) buildPlayerList() end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- PAGE: WELD
+-- ═══════════════════════════════════════════════════════════════
+local WeldPage = createPage("Weld")
+
+sectionHeader(WeldPage, "Weld Configuration", "Precise position and rotation control")
+
+-- Target indicator
+local targetCard = card(WeldPage, 56)
+create("TextLabel", {
+    Size = UDim2.new(0.4, 0, 1, 0),
+    Position = UDim2.new(0, 12, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "TARGET",
+    TextColor3 = CFG.Theme.TextMuted,
+    Font = Enum.Font.GothamBold,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = targetCard,
+})
+local targetNameLbl = create("TextLabel", {
+    Size = UDim2.new(0.9, -24, 0, 20),
+    Position = UDim2.new(0, 12, 0, 24),
+    BackgroundTransparency = 1,
+    Text = "No player selected",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = targetCard,
+})
+
+-- Position inputs
+sectionHeader(WeldPage, "Position Offset", "X, Y, Z relative to target torso")
+
+local posRow = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 52),
+    BackgroundTransparency = 1,
+    Parent = WeldPage,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 6),
+    FillDirection = Enum.FillDirection.Horizontal,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = posRow,
+})
+
+local weldX = labeledInput(posRow, "X", "0", 0, 0.33).Parent.Parent
+weldX.Size = UDim2.new(0.33, -4, 0, 52)
+local weldY = labeledInput(posRow, "Y", "0", 0, 0.33).Parent.Parent
+weldY.Size = UDim2.new(0.33, -4, 0, 52)
+local weldZ = labeledInput(posRow, "Z", "1.3", 1.3, 0.34).Parent.Parent
+weldZ.Size = UDim2.new(0.34, 0, 0, 52)
+
+-- helper to extract textbox
+local function tbOf(container) return container:FindFirstChildOfClass("Frame"):FindFirstChildOfClass("TextBox") end
+local weldX_tb, weldY_tb, weldZ_tb = tbOf(weldX), tbOf(weldY), tbOf(weldZ)
+
+-- Rotation inputs
+sectionHeader(WeldPage, "Rotation (Degrees)", "RX (pitch), RY (yaw), RZ (roll)")
+
+local rotRow = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 52),
+    BackgroundTransparency = 1,
+    Parent = WeldPage,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 6),
+    FillDirection = Enum.FillDirection.Horizontal,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = rotRow,
+})
+
+local rotX = labeledInput(rotRow, "RX", "0", 0, 0.33).Parent.Parent
+rotX.Size = UDim2.new(0.33, -4, 0, 52)
+local rotY = labeledInput(rotRow, "RY", "0", 0, 0.33).Parent.Parent
+rotY.Size = UDim2.new(0.33, -4, 0, 52)
+local rotZ = labeledInput(rotRow, "RZ", "0", 0, 0.34).Parent.Parent
+rotZ.Size = UDim2.new(0.34, 0, 0, 52)
+local rotX_tb, rotY_tb, rotZ_tb = tbOf(rotX), tbOf(rotY), tbOf(rotZ)
+
+-- Live CFrame preview
+sectionHeader(WeldPage, "Computed CFrame", "Live preview of your weld offset")
+local previewCard = card(WeldPage, 58)
+local previewLbl = create("TextLabel", {
+    Size = UDim2.new(1, -20, 1, 0),
+    Position = UDim2.new(0, 10, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "CFrame.new(0, 0, 1.3) * CFrame.Angles(0, 0, 0)",
+    TextColor3 = CFG.Theme.Primary,
+    Font = Enum.Font.Code,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextWrapped = true,
+    Parent = previewCard,
+})
+
+local function computeOffset()
+    local x  = tonumber(weldX_tb.Text) or 0
+    local y  = tonumber(weldY_tb.Text) or 0
+    local z  = tonumber(weldZ_tb.Text) or 1.3
+    local rx = math.rad(tonumber(rotX_tb.Text) or 0)
+    local ry = math.rad(tonumber(rotY_tb.Text) or 0)
+    local rz = math.rad(tonumber(rotZ_tb.Text) or 0)
+    previewLbl.Text = string.format(
+        "CFrame.new(%.2f, %.2f, %.2f) * CFrame.Angles(%.3f, %.3f, %.3f)",
+        x, y, z, rx, ry, rz
+    )
+    return CFrame.new(x, y, z) * CFrame.Angles(rx, ry, rz)
+end
+
+for _, tb in ipairs({weldX_tb, weldY_tb, weldZ_tb, rotX_tb, rotY_tb, rotZ_tb}) do
+    tb:GetPropertyChangedSignal("Text"):Connect(computeOffset)
+end
+computeOffset()
+
+-- Weld actions
+sectionHeader(WeldPage, "Actions", "Execute weld or stop current session")
+
+local weldActions = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 96),
+    BackgroundTransparency = 1,
+    Parent = WeldPage,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = weldActions,
+})
+
+local actionWeldBtn = bigButton(weldActions, "Apply Weld + Copy Animation", "🔗", CFG.Theme.Success, 44)
+local actionUnweldBtn = bigButton(weldActions, "Unweld / Stop", "❌", CFG.Theme.Danger, 44)
+
+actionWeldBtn.MouseButton1Click:Connect(function()
+    if not State.SelectedPlayer then
+        notify("No Target", "Select a player from the Players tab first", "warning")
+        return
+    end
+    local part = getTargetPart(State.SelectedPlayer)
+    if not part then
+        notify("Target Error", "Could not find target character", "error")
+        return
+    end
+    doUnweld()
+    workspace.FallenPartsDestroyHeight = 0/0
+    State.CurrentWeld = WeldTo(part, computeOffset())
+    State.Stats.WeldCount = State.Stats.WeldCount + 1
+
+    local anims = getTargetAnimations(State.SelectedPlayer)
+    local n = 0
+    if #anims > 0 and State.Settings.AutoCopyAnimation then
+        n = playAnimations(anims, State.AnimSpeed)
+        State.Stats.CopyCount = State.Stats.CopyCount + n
+    end
+    setStatus("Welded to " .. State.SelectedPlayer.Name, true)
+    notify("Weld Success", string.format("Welded to %s • %d animation(s) copied", State.SelectedPlayer.Name, n), "success")
+end)
+
+actionUnweldBtn.MouseButton1Click:Connect(function()
+    doUnweld()
+    stopCopiedAnimations()
+    setStatus("Unwelded", nil)
+    notify("Unwelded", "Weld session ended", "info")
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- PAGE: ANIMATION
+-- ═══════════════════════════════════════════════════════════════
+local AnimPage = createPage("Animation")
+
+sectionHeader(AnimPage, "Animation Controls", "Copy target's animation with adjustable speed")
+
+-- Speed control
+local speedCard = card(AnimPage, 96)
+create("TextLabel", {
+    Size = UDim2.new(0.5, 0, 0, 18),
+    Position = UDim2.new(0, 12, 0, 10),
+    BackgroundTransparency = 1,
+    Text = "SPEED MULTIPLIER",
+    TextColor3 = CFG.Theme.TextMuted,
+    Font = Enum.Font.GothamBold,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = speedCard,
+})
+
+local speedValueLbl = create("TextLabel", {
+    Size = UDim2.new(0.5, -12, 0, 22),
+    Position = UDim2.new(0.5, 0, 0, 6),
+    BackgroundTransparency = 1,
+    Text = "1.00×",
+    TextColor3 = CFG.Theme.Primary,
+    Font = Enum.Font.GothamBlack,
+    TextSize = 18,
+    TextXAlignment = Enum.TextXAlignment.Right,
+    Parent = speedCard,
+})
+
+local speedSliderBg = create("Frame", {
+    Size = UDim2.new(1, -24, 0, 6),
+    Position = UDim2.new(0, 12, 0, 44),
+    BackgroundColor3 = CFG.Theme.SurfaceLight,
+    BorderSizePixel = 0,
+    Parent = speedCard,
+})
+corner(speedSliderBg, 3)
+
+local speedSliderFill = create("Frame", {
+    Size = UDim2.new(0.5, 0, 1, 0),
+    BackgroundColor3 = CFG.Theme.Primary,
+    BorderSizePixel = 0,
+    Parent = speedSliderBg,
+})
+corner(speedSliderFill, 3)
+
+local speedKnob = create("Frame", {
+    Size = UDim2.new(0, 16, 0, 16),
+    Position = UDim2.new(0.5, -8, 0.5, -8),
+    BackgroundColor3 = Color3.new(1, 1, 1),
+    BorderSizePixel = 0,
+    Parent = speedSliderBg,
+})
+corner(speedKnob, 8)
+stroke(speedKnob, CFG.Theme.Primary, 2)
+
+local speedClick = create("TextButton", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "",
+    Parent = speedSliderBg,
+})
+
+create("TextLabel", {
+    Size = UDim2.new(1, -24, 0, 14),
+    Position = UDim2.new(0, 12, 0, 60),
+    BackgroundTransparency = 1,
+    Text = "0.10× ————————————————————— 3.00×",
+    TextColor3 = CFG.Theme.TextMuted,
+    Font = Enum.Font.Gotham,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Center,
+    Parent = speedCard,
+})
+
+local speedPresets = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 26),
+    Position = UDim2.new(0, 0, 0, 72),
+    BackgroundTransparency = 1,
+    Parent = speedCard,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 4),
+    FillDirection = Enum.FillDirection.Horizontal,
+    HorizontalAlignment = Enum.HorizontalAlignment.Center,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = speedPresets,
+})
+
+local speedPresetValues = {0.25, 0.5, 1, 1.5, 2, 3}
+local speedPresetBtns = {}
+local function setSpeed(v)
+    v = math.clamp(v, 0.1, 3)
+    State.AnimSpeed = v
+    speedValueLbl.Text = string.format("%.2f×", v)
+    local t = (v - 0.1) / 2.9
+    tween(speedSliderFill, {Size = UDim2.new(t, 0, 1, 0)}, 0.1)
+    tween(speedKnob, {Position = UDim2.new(t, -8, 0.5, -8)}, 0.1)
+    updateSpeedAll(v)
+    for val, btn in pairs(speedPresetBtns) do
+        tween(btn, {BackgroundColor3 = (math.abs(val - v) < 0.01) and CFG.Theme.Primary or CFG.Theme.SurfaceLight}, 0.1)
+    end
+end
+
+for _, v in ipairs(speedPresetValues) do
+    local b = create("TextButton", {
+        Size = UDim2.new(0, 46, 1, 0),
+        BackgroundColor3 = (v == 1) and CFG.Theme.Primary or CFG.Theme.SurfaceLight,
+        BorderSizePixel = 0,
+        Text = v .. "×",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        AutoButtonColor = false,
+        Parent = speedPresets,
+    })
+    corner(b, 6)
+    b.MouseButton1Click:Connect(function() setSpeed(v) end)
+    speedPresetBtns[v] = b
+end
+
+-- Slider drag
+local speedDragging = false
+local function updateSpeedFromX(mouseX)
+    local absPos = speedSliderBg.AbsolutePosition.X
+    local absSize = speedSliderBg.AbsoluteSize.X
+    local t = math.clamp((mouseX - absPos) / absSize, 0, 1)
+    setSpeed(0.1 + t * 2.9)
+end
+
+speedClick.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        speedDragging = true
+        updateSpeedFromX(input.Position.X)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if speedDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateSpeedFromX(input.Position.X)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        speedDragging = false
+    end
+end)
+
+-- Animation controls
+sectionHeader(AnimPage, "Playback Controls", "Manage current animation session")
+
+local animActions = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 96),
+    BackgroundTransparency = 1,
+    Parent = AnimPage,
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = animActions,
+})
+
+local animCopyBtn = bigButton(animActions, "Copy Target Animation", "📋", CFG.Theme.Primary, 44)
+local animStopBtn = bigButton(animActions, "Stop All Animations", "⏹", CFG.Theme.Warning, 44)
+
+animCopyBtn.MouseButton1Click:Connect(function()
+    if not State.SelectedPlayer then
+        notify("No Target", "Select a player first", "warning")
+        return
+    end
+    local anims = getTargetAnimations(State.SelectedPlayer)
+    if #anims == 0 then
+        notify("No Animation", "Target has no active animations right now", "warning")
+        return
+    end
+    local n = playAnimations(anims, State.AnimSpeed)
+    State.Stats.CopyCount = State.Stats.CopyCount + n
+    setStatus("Copied " .. n .. " animation(s) at " .. string.format("%.2f×", State.AnimSpeed), true)
+    notify("Animations Copied", string.format("%d animation(s) at %.2f× speed", n, State.AnimSpeed), "success")
+end)
+
+animStopBtn.MouseButton1Click:Connect(function()
+    stopCopiedAnimations()
+    setStatus("All animations stopped", nil)
+    notify("Stopped", "All copied animations have been stopped", "info")
+end)
+
+-- Info card
+sectionHeader(AnimPage, "Info", nil)
+local animInfo = card(AnimPage, 90)
+create("TextLabel", {
+    Size = UDim2.new(1, -20, 1, -20),
+    Position = UDim2.new(0, 12, 0, 10),
+    BackgroundTransparency = 1,
+    Text = "The script reads all currently playing animation tracks from the target humanoid. Speed is adjusted in real time — you can change it while animations are playing.",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Parent = animInfo,
+})
+
+-- ═══════════════════════════════════════════════════════════════
+-- PAGE: PRESETS
+-- ═══════════════════════════════════════════════════════════════
+local PresetsPage = createPage("Presets")
+
+sectionHeader(PresetsPage, "Preset Weld Positions", "One-tap weld configurations with animations")
+
+local PRESETS = {
+    {name = "Backpack",  icon = "🎒", x = 0,   y = 0,  z = 1.05, rx = 0, ry = 180, rz = 0, anim = 178130996,  color = CFG.Theme.Primary},
+    {name = "Attack",    icon = "⚔️", x = 0,   y = 0.5, z = -2.55, rx = 0, ry = 180, rz = 0, anim = 117183737438245, color = CFG.Theme.Danger},
+    {name = "Head Sit",  icon = "🪑", x = 0,   y = 3,  z = 0,    rx = 0, ry = 0, rz = 0, anim = 178130996,  color = CFG.Theme.Success},
+    {name = "Carpet",    icon = "🟦", x = 0,   y = -1, z = 0,    rx = 0, ry = 0, rz = 0, anim = 282574440,  color = CFG.Theme.Warning},
+    {name = "Sit",       icon = "💺", x = 1.5, y = 1.25, z = 2,  rx = 0, ry = 0, rz = 0, anim = 313762630,  color = CFG.Theme.Primary},
+    {name = "Front",     icon = "👤", x = 0,   y = 0,  z = 2.5,  rx = 0, ry = 180, rz = 0, anim = 0,          color = CFG.Theme.Success},
+    {name = "Side Left", icon = "⬅️", x = -1.8, y = 0, z = 0,   rx = 0, ry = 90,  rz = 0, anim = 0,          color = CFG.Theme.Warning},
+    {name = "Side Right",icon = "➡️", x = 1.8, y = 0,  z = 0,   rx = 0, ry = -90, rz = 0, anim = 0,          color = CFG.Theme.Primary},
+}
+
+local presetGrid = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 0),
+    BackgroundTransparency = 1,
+    Parent = PresetsPage,
+})
+create("UIGridLayout", {
+    CellSize = UDim2.new(0.5, -5, 0, 96),
+    CellPadding = UDim2.new(0, 10, 0, 10),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = presetGrid,
+})
+
+local function applyPreset(p)
+    if not State.SelectedPlayer then
+        notify("No Target", "Select a player first", "warning")
+        return
+    end
+    local part = getTargetPart(State.SelectedPlayer)
+    if not part then
+        notify("Target Error", "Target character not found", "error")
+        return
+    end
+    doUnweld()
+    workspace.FallenPartsDestroyHeight = 0/0
+    local offset = CFrame.new(p.x, p.y, p.z) * CFrame.Angles(math.rad(p.rx), math.rad(p.ry), math.rad(p.rz))
+    State.CurrentWeld = WeldTo(part, offset)
+    State.Stats.WeldCount = State.Stats.WeldCount + 1
+
+    -- Update weld page inputs to match preset
+    weldX_tb.Text = tostring(p.x)
+    weldY_tb.Text = tostring(p.y)
+    weldZ_tb.Text = tostring(p.z)
+    rotX_tb.Text = tostring(p.rx)
+    rotY_tb.Text = tostring(p.ry)
+    rotZ_tb.Text = tostring(p.rz)
+    computeOffset()
+
+    -- Play preset animation
+    if p.anim ~= 0 then
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local animator = hum and hum:FindFirstChildOfClass("Animator")
+            if animator then
+                stopCopiedAnimations()
+                local a = Instance.new("Animation")
+                a.AnimationId = "rbxassetid://" .. tostring(p.anim)
+                local t = animator:LoadAnimation(a)
+                t:Play()
+                t:AdjustSpeed(State.AnimSpeed)
+                table.insert(State.CopiedTracks, {track = t, baseSpeed = 1})
+            end
+        end
+    end
+
+    setStatus("Preset: " .. p.name, true)
+    notify("Preset Applied", p.icon .. " " .. p.name .. " applied", "success")
+end
+
+for _, p in ipairs(PRESETS) do
+    local btn = create("TextButton", {
+        Size = UDim2.new(0, 100, 0, 96),
+        BackgroundColor3 = CFG.Theme.Surface,
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
+        Parent = presetGrid,
+    })
+    corner(btn, 10)
+    stroke(btn, CFG.Theme.Border, 1)
+
+    local iconBox = create("Frame", {
+        Size = UDim2.new(0, 36, 0, 36),
+        Position = UDim2.new(0.5, -18, 0, 10),
+        BackgroundColor3 = p.color,
+        BackgroundTransparency = 0.75,
+        BorderSizePixel = 0,
+        Parent = btn,
+    })
+    corner(iconBox, 10)
+    create("TextLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = p.icon,
+        Font = Enum.Font.Gotham,
+        TextSize = 18,
+        Parent = iconBox,
+    })
+    create("TextLabel", {
+        Size = UDim2.new(1, -8, 0, 18),
+        Position = UDim2.new(0, 4, 0, 52),
+        BackgroundTransparency = 1,
+        Text = p.name,
+        TextColor3 = CFG.Theme.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        Parent = btn,
+    })
+    create("TextLabel", {
+        Size = UDim2.new(1, -8, 0, 14),
+        Position = UDim2.new(0, 4, 0, 70),
+        BackgroundTransparency = 1,
+        Text = string.format("(%.1f, %.1f, %.1f)", p.x, p.y, p.z),
+        TextColor3 = CFG.Theme.TextMuted,
+        Font = Enum.Font.Code,
+        TextSize = 9,
+        Parent = btn,
+    })
+    btn.MouseEnter:Connect(function() tween(btn, {BackgroundColor3 = CFG.Theme.SurfaceHover}, 0.15) end)
+    btn.MouseLeave:Connect(function() tween(btn, {BackgroundColor3 = CFG.Theme.Surface}, 0.15) end)
+    btn.MouseButton1Click:Connect(function() applyPreset(p) end)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- PAGE: SETTINGS
+-- ═══════════════════════════════════════════════════════════════
+local SettingsPage = createPage("Settings")
+
+sectionHeader(SettingsPage, "Preferences", "Customize AetherSuite behaviour")
+
+local settingsCard = card(SettingsPage, 220)
+padding(settingsCard, 10)
+
+local sLayout = create("UIListLayout", {
+    Padding = UDim.new(0, 10),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = settingsCard,
+})
+
+local _, getShowNotif = toggleSwitch(settingsCard, "Show Notifications", true)
+local _, getAutoCopy  = toggleSwitch(settingsCard, "Auto-Copy Animation on Weld", true)
+local _, getAutoUpdate= toggleSwitch(settingsCard, "Auto-Update Player List", true)
+local _, getCompact   = toggleSwitch(settingsCard, "Compact Mode", false)
+
+-- Opacity slider
+local opacityLbl = create("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 16),
+    BackgroundTransparency = 1,
+    Text = "GUI Opacity",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.GothamBold,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = settingsCard,
+})
+
+local opacBar = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 6),
+    BackgroundColor3 = CFG.Theme.SurfaceLight,
+    BorderSizePixel = 0,
+    Parent = settingsCard,
+})
+corner(opacBar, 3)
+local opacFill = create("Frame", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundColor3 = CFG.Theme.Primary,
+    BorderSizePixel = 0,
+    Parent = opacBar,
+})
+corner(opacFill, 3)
+
+-- Wire toggles
+local function syncSettings()
+    State.Settings.ShowNotifications = getShowNotif()
+    State.Settings.AutoCopyAnimation = getAutoCopy()
+    State.Settings.AutoUpdatePlayers = getAutoUpdate()
+    State.Settings.CompactMode       = getCompact()
+end
+task.spawn(function()
+    while settingsCard.Parent do
+        syncSettings()
+        task.wait(0.3)
+    end
+end)
+
+-- Danger zone
+sectionHeader(SettingsPage, "Danger Zone", "Irreversible actions — use with care")
+
+local dangerCard = card(SettingsPage, 120)
+padding(dangerCard, 10)
+create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = dangerCard,
+})
+create("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 18),
+    BackgroundTransparency = 1,
+    Text = "Reset session statistics",
+    TextColor3 = CFG.Theme.Text,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = dangerCard,
+})
+local resetBtn = bigButton(dangerCard, "Reset Stats", "🔄", CFG.Theme.Warning, 36)
+resetBtn.MouseButton1Click:Connect(function()
+    State.Stats.WeldCount = 0
+    State.Stats.CopyCount = 0
+    State.Stats.SessionStart = os.time()
+    notify("Stats Reset", "Session counters cleared", "success")
+end)
+
+create("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 18),
+    BackgroundTransparency = 1,
+    Text = "Unweld and stop everything",
+    TextColor3 = CFG.Theme.Text,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = dangerCard,
+})
+local fullStop = bigButton(dangerCard, "Full Stop", "⛔", CFG.Theme.Danger, 36)
+fullStop.MouseButton1Click:Connect(function()
+    doUnweld()
+    stopCopiedAnimations()
+    setStatus("Everything stopped", nil)
+    notify("Stopped", "All welds and animations cleared", "info")
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- PAGE: ABOUT
+-- ═══════════════════════════════════════════════════════════════
+local AboutPage = createPage("About")
+
+sectionHeader(AboutPage, "About AetherSuite", "Version " .. CFG.Version)
+
+local aboutCard = card(AboutPage, 140)
+create("TextLabel", {
+    Size = UDim2.new(0, 60, 0, 60),
+    Position = UDim2.new(0, 16, 0, 16),
+    BackgroundColor3 = CFG.Theme.Primary,
+    BackgroundTransparency = 0,
+    BorderSizePixel = 0,
+    Text = "A",
+    TextColor3 = Color3.new(1, 1, 1),
+    Font = Enum.Font.GothamBlack,
+    TextSize = 32,
+    Parent = aboutCard,
+})
+corner(aboutCard:FindFirstChildOfClass("TextLabel"), 12)
+
+create("TextLabel", {
+    Size = UDim2.new(1, -100, 0, 22),
+    Position = UDim2.new(0, 90, 0, 20),
+    BackgroundTransparency = 1,
+    Text = "AetherSuite",
+    TextColor3 = CFG.Theme.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 18,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = aboutCard,
+})
+create("TextLabel", {
+    Size = UDim2.new(1, -100, 0, 18),
+    Position = UDim2.new(0, 90, 0, 44),
+    BackgroundTransparency = 1,
+    Text = "Animation Copier • Zero-Delay Welder",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = aboutCard,
+})
+create("TextLabel", {
+    Size = UDim2.new(1, -100, 0, 14),
+    Position = UDim2.new(0, 90, 0, 62),
+    BackgroundTransparency = 1,
+    Text = "Build • " .. CFG.Version .. " • Premium",
+    TextColor3 = CFG.Theme.Primary,
+    Font = Enum.Font.Gotham,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = aboutCard,
+})
+create("TextLabel", {
+    Size = UDim2.new(1, -32, 0, 40),
+    Position = UDim2.new(0, 16, 0, 90),
+    BackgroundTransparency = 1,
+    Text = "A modern, mobile-first welding utility designed for precision control and seamless animation mirroring. Built for explorers, creators, and tinkerers.",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = aboutCard,
+})
+
+-- Credits
+sectionHeader(AboutPage, "Credits", "Who made this possible")
+local creditsCard = card(AboutPage, 120)
+padding(creditsCard, 10)
+create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = creditsCard,
+})
+
+local credits = {
+    {name = "Failedmite", role = "Core weld logic"},
+    {name = "Janmandio",  role = "Animation system"},
+    {name = "deerius",    role = "Weld utilities"},
+    {name = LocalPlayer.Name, role = "You (this session)"},
+}
+for _, c in ipairs(credits) do
+    local row = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 22),
+        BackgroundTransparency = 1,
+        Parent = creditsCard,
+    })
+    create("TextLabel", {
+        Size = UDim2.new(0.5, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = c.name,
+        TextColor3 = CFG.Theme.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = row,
+    })
+    create("TextLabel", {
+        Size = UDim2.new(0.5, 0, 1, 0),
+        Position = UDim2.new(0.5, 0, 0, 0),
+        BackgroundTransparency = 1,
+        Text = c.role,
+        TextColor3 = CFG.Theme.TextMuted,
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        Parent = row,
+    })
+end
+
+-- Changelog
+sectionHeader(AboutPage, "Changelog", "Recent updates")
+local changeCard = card(AboutPage, 100)
+padding(changeCard, 10)
+create("TextLabel", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "v2.0.0 — Complete UI redesign, mobile support, alphabetical player list, animation speed control, preset system.\n\nv1.0.0 — Initial zero-delay welder.",
+    TextColor3 = CFG.Theme.TextDim,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Parent = changeCard,
+)
+
+-- ═══════════════════════════════════════════════════════════════
+-- NAVIGATION BUTTONS (create AFTER pages exist)
+-- ═══════════════════════════════════════════════════════════════
+createNavButton("Dashboard", "🏠")
+createNavButton("Players",   "👥")
+createNavButton("Weld",      "🔗")
+createNavButton("Animation", "🎬")
+createNavButton("Presets",   "⭐")
+createNavButton("Settings",  "⚙️")
+createNavButton("About",     "ℹ️")
+
+switchPage("Dashboard")
+
+-- ═══════════════════════════════════════════════════════════════
+-- INITIAL NOTIFICATION
+-- ═══════════════════════════════════════════════════════════════
+task.delay(1.7, function()
+    notify("Welcome to AetherSuite", "v" .. CFG.Version .. " loaded successfully. Pick a player to begin.", "success", 4)
+    setStatus("Ready — select a target player", nil)
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- CLEANUP
+-- ═══════════════════════════════════════════════════════════════
+ScreenGui.AncestryChanged:Connect(function()
+    if not ScreenGui.Parent then
+        doUnweld()
+        stopCopiedAnimations()
+    end
+end)
