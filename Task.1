@@ -1,0 +1,3516 @@
+-- DEATH NOTE: diagnostics edition
+-- Error panel runs locally; no logs are uploaded. Roblox output can also contain
+-- errors from the game or executor, not just this script.
+local DiagnosticPlayers = game:GetService("Players")
+local DiagnosticLog = game:GetService("LogService")
+local DiagnosticUserInput = game:GetService("UserInputService")
+local diagnosticEnv = (getgenv and getgenv()) or _G
+if diagnosticEnv._DN_DIAG_STOP then pcall(diagnosticEnv._DN_DIAG_STOP) end
+local diagGui, diagConnection
+local savedErrors = {}
+local function diagnosticStop()
+    if diagConnection then diagConnection:Disconnect(); diagConnection = nil end
+    if diagGui then diagGui:Destroy(); diagGui = nil end
+end
+diagnosticEnv._DN_DIAG_STOP = diagnosticStop
+local function addCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = parent
+end
+local function textObject(className, parent, properties)
+    local object = Instance.new(className)
+    for key, value in pairs(properties) do object[key] = value end
+    object.Parent = parent
+    return object
+end
+local openPanel, showError
+local okInit, initError = pcall(function()
+    local player = DiagnosticPlayers.LocalPlayer
+    if not player then error("LocalPlayer unavailable") end
+    local parent = player:WaitForChild("PlayerGui", 10)
+    if not parent then error("PlayerGui unavailable") end
+    diagGui = Instance.new("ScreenGui")
+    diagGui.Name = "DeathNoteDiagnostics"
+    diagGui.ResetOnSpawn = false
+    diagGui.DisplayOrder = 999
+    diagGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    diagGui.Parent = parent
+    local toggle = textObject("TextButton", diagGui, {Name="ErrorButton", Size=UDim2.fromOffset(115,32), Position=UDim2.new(1,-127,0,12), BackgroundColor3=Color3.fromRGB(35,25,30), BorderSizePixel=0, Text="ERRORS: 0", TextColor3=Color3.fromRGB(255,220,225), Font=Enum.Font.GothamBold, TextSize=11})
+    addCorner(toggle,9)
+    local panel = textObject("Frame", diagGui, {Name="ErrorPanel", Size=UDim2.new(0.85,0,0,245), Position=UDim2.new(0.5,0,0.5,0), AnchorPoint=Vector2.new(0.5,0.5), BackgroundColor3=Color3.fromRGB(17,15,19), BorderSizePixel=0, Visible=false, Active=true})
+    local constraint=Instance.new("UISizeConstraint",panel); constraint.MaxSize=Vector2.new(560,245)
+    addCorner(panel,12)
+    local outline=Instance.new("UIStroke",panel); outline.Color=Color3.fromRGB(235,35,70); outline.Thickness=1.4
+    textObject("TextLabel",panel,{Size=UDim2.new(1,-50,0,28),Position=UDim2.fromOffset(12,7),BackgroundTransparency=1,Text="DEATH NOTE | ERROR BOX",TextColor3=Color3.fromRGB(255,255,255),Font=Enum.Font.GothamBlack,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left})
+    local close = textObject("TextButton",panel,{Size=UDim2.fromOffset(30,28),Position=UDim2.new(1,-36,0,6),BackgroundColor3=Color3.fromRGB(50,33,39),BorderSizePixel=0,Text="X",TextColor3=Color3.new(1,1,1),Font=Enum.Font.GothamBold,TextSize=12})
+    addCorner(close,7)
+    textObject("TextLabel",panel,{Size=UDim2.new(1,-24,0,20),Position=UDim2.fromOffset(12,34),BackgroundTransparency=1,Text="Includes game/executor errors too. Copy and share only if safe.",TextColor3=Color3.fromRGB(185,175,180),Font=Enum.Font.Gotham,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
+    local box = textObject("TextBox",panel,{Size=UDim2.new(1,-24,1,-103),Position=UDim2.fromOffset(12,56),BackgroundColor3=Color3.fromRGB(9,9,11),BorderSizePixel=0,Text="No errors captured yet.",TextColor3=Color3.fromRGB(245,230,233),Font=Enum.Font.Code,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,TextWrapped=true,MultiLine=true,ClearTextOnFocus=false,TextEditable=false})
+    addCorner(box,7)
+    local copy = textObject("TextButton",panel,{Size=UDim2.fromOffset(95,30),Position=UDim2.new(0,12,1,-38),BackgroundColor3=Color3.fromRGB(225,30,65),BorderSizePixel=0,Text="COPY",TextColor3=Color3.new(1,1,1),Font=Enum.Font.GothamBold,TextSize=11})
+    addCorner(copy,8)
+    local clear = textObject("TextButton",panel,{Size=UDim2.fromOffset(95,30),Position=UDim2.new(0,115,1,-38),BackgroundColor3=Color3.fromRGB(50,42,48),BorderSizePixel=0,Text="CLEAR",TextColor3=Color3.new(1,1,1),Font=Enum.Font.GothamBold,TextSize=11})
+    addCorner(clear,8)
+    local function redraw()
+        toggle.Text="ERRORS: "..tostring(#savedErrors)
+        toggle.BackgroundColor3=#savedErrors>0 and Color3.fromRGB(190,30,55) or Color3.fromRGB(35,25,30)
+        box.Text=#savedErrors>0 and table.concat(savedErrors,"\n\n") or "No errors captured yet."
+    end
+    openPanel=function() panel.Visible=true end
+    showError=function(message, source)
+        local text=tostring(message or "Unknown error")
+        if #text>3000 then text=text:sub(1,3000).."..." end
+        table.insert(savedErrors,1,"["..source.."] "..text)
+        while #savedErrors>12 do table.remove(savedErrors) end
+        redraw()
+        panel.Visible=true
+    end
+    toggle.MouseButton1Click:Connect(function() panel.Visible=not panel.Visible end)
+    close.MouseButton1Click:Connect(function() panel.Visible=false end)
+    clear.MouseButton1Click:Connect(function() table.clear(savedErrors); redraw() end)
+    copy.MouseButton1Click:Connect(function()
+        local clipboard=setclipboard or toclipboard or set_clipboard
+        if type(clipboard)=="function" then
+            local ok=pcall(clipboard,box.Text)
+            copy.Text=ok and "COPIED" or "FAILED"
+        else
+            copy.Text="UNAVAILABLE"
+        end
+        task.delay(2,function() if copy.Parent then copy.Text="COPY" end end)
+    end)
+    diagConnection=DiagnosticLog.MessageOut:Connect(function(message, kind)
+        if kind==Enum.MessageType.MessageError then showError(message,"OUTPUT: MAY BE GAME/EXECUTOR") end
+    end)
+end)
+if not okInit then warn("[Death Note Diagnostics] Could not create error box: "..tostring(initError)) end
+local function runDeathNote()
+-- ============================================================================
+-- PRODUCT     : DEATH NOTE (POWERED BY RED HUB)
+-- VERSION     : 3.2.0 (Crimson Modular Edition - Exact Avatar Robux & Friends In-Game)
+-- LEAD DEV    : @NOT_IITIAN
+-- DISCORD     : https://discord.gg/DC5nbga29C
+-- COMPATIBLE  : DELTA ANDROID / IOS / FLUXUS / CODEX / ARCEUS / PC
+-- NOTE        : 100% PURE ASCII FORMATTED (ZERO CORRUPTED CHARACTERS)
+-- ============================================================================
+
+-- Presence relay setup: deploy the accompanying Python server and set this HTTPS URL.
+-- This sends your user ID, place ID, and JobId to that server when enabled.
+-- Presence reports are unauthenticated and can be spoofed; never use as authorization.
+local PRESENCE_URL = ""
+local SHARE_PRESENCE = true
+local OWNER_USERNAME = "INDIANGAMER6975"
+
+local genv = (getgenv and getgenv()) or _G
+if genv._DEATH_NOTE_LOADED and genv._DEATH_NOTE_INSTANCE then
+    pcall(function()
+        genv._DEATH_NOTE_INSTANCE:Destroy()
+    end)
+    genv._DEATH_NOTE_LOADED = false
+end
+
+local function safeGetService(serviceName)
+    local ok, service = pcall(function() return game:GetService(serviceName) end)
+    if ok and service then return service end
+    return game:FindService(serviceName)
+end
+
+local Players           = safeGetService("Players")
+local TweenService      = safeGetService("TweenService")
+local RunService        = safeGetService("RunService")
+local UserInputService  = safeGetService("UserInputService")
+local CoreGui           = safeGetService("CoreGui")
+local HttpService       = safeGetService("HttpService")
+local MarketplaceService= safeGetService("MarketplaceService")
+local SoundService      = safeGetService("SoundService")
+local TeleportService   = safeGetService("TeleportService")
+
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+    local startTime = tick()
+    while not LocalPlayer and (tick() - startTime < 10) do
+        task.wait(0.1)
+        LocalPlayer = Players.LocalPlayer
+    end
+end
+if not LocalPlayer then LocalPlayer = Players:GetPlayers()[1] end
+
+-- Environment & System Helpers
+local RedEnv = {}
+do
+    local function detectExecutor()
+        if identifyexecutor then
+            local ok, name = pcall(identifyexecutor)
+            if ok and name then return tostring(name) end
+        end
+        if getexecutorname then
+            local ok, name = pcall(getexecutorname)
+            if ok and name then return tostring(name) end
+        end
+        if delta or Delta or DELTA_LOADED then return "Delta Android" end
+        if codex or Codex then return "Codex Mobile" end
+        if arceus or Arceus or ARCEUS_LOADED then return "Arceus X" end
+        if fluxus or Fluxus then return "Fluxus" end
+        if hydrogen or Hydrogen then return "Hydrogen" end
+        if solara or SOLARA_LOADED then return "Solara" end
+        if wave or WAVE_LOADED then return "Wave" end
+        return "Delta Mobile"
+    end
+    RedEnv.ExecutorName = detectExecutor()
+
+    RedEnv.SetClipboard = function(text)
+        local setclip = setclipboard or toclipboard or set_clipboard or (Clipboard and Clipboard.set)
+        if setclip then
+            local s = pcall(setclip, tostring(text))
+            if s then return true end
+        end
+        return false
+    end
+
+    RedEnv.GetSafeParent = function()
+        if gethui then
+            local ok, hui = pcall(gethui)
+            if ok and hui then return hui end
+        end
+        if CoreGui then
+            local ok, test = pcall(function()
+                local f = Instance.new("Folder")
+                f.Parent = CoreGui
+                f:Destroy()
+                return CoreGui
+            end)
+            if ok and test then return CoreGui end
+        end
+        if LocalPlayer then
+            return LocalPlayer:WaitForChild("PlayerGui", 5) or LocalPlayer:FindFirstChildOfClass("PlayerGui")
+        end
+        return CoreGui
+    end
+end
+
+-- Audio Engine
+local RedAudio = { Enabled = true, MasterVolume = 0.7 }
+do
+    local soundHolder = Instance.new("Folder")
+    soundHolder.Name = "DeathNote_Audio"
+    pcall(function() soundHolder.Parent = SoundService end)
+
+    RedAudio.Presets = {
+        Click = { Id = "rbxassetid://6895079853", Vol = 0.65, Pitch = 1.05 },
+        Hover = { Id = "rbxassetid://6895079737", Vol = 0.35, Pitch = 1.2 },
+        TabSwitch = { Id = "rbxassetid://9069609268", Vol = 0.6, Pitch = 1.0 },
+        ToggleOn = { Id = "rbxassetid://6895079853", Vol = 0.7, Pitch = 1.15 },
+        ToggleOff = { Id = "rbxassetid://6895079737", Vol = 0.6, Pitch = 0.95 },
+        CopySuccess = { Id = "rbxassetid://6422098522", Vol = 0.8, Pitch = 1.05 },
+        Notification = { Id = "rbxassetid://6895079634", Vol = 0.75, Pitch = 1.0 },
+        ThemeChange = { Id = "rbxassetid://9069608974", Vol = 0.65, Pitch = 1.1 },
+        WindowOpen = { Id = "rbxassetid://9069609268", Vol = 0.65, Pitch = 1.05 },
+        WindowClose = { Id = "rbxassetid://6895079737", Vol = 0.55, Pitch = 0.9 }
+    }
+
+    function RedAudio.Play(name)
+        if not RedAudio.Enabled then return end
+        local p = RedAudio.Presets[name]
+        if not p then return end
+        task.spawn(function()
+            local s = Instance.new("Sound")
+            s.SoundId = p.Id
+            s.Volume = p.Vol * RedAudio.MasterVolume
+            s.Pitch = p.Pitch or 1.0
+            s.Parent = soundHolder
+            s:Play()
+            s.Ended:Connect(function() s:Destroy() end)
+            task.delay(2.5, function() if s and s.Parent then s:Destroy() end end)
+        end)
+    end
+end
+
+-- Themes Engine (8 Dynamic Styles)
+local RedTheme = {
+    CurrentThemeName = "Crimson Eclipse",
+    Bound = {},
+    Palettes = {
+        ["Crimson Eclipse"] = {
+            Accent = Color3.fromRGB(255, 30, 68),
+            AccentDark = Color3.fromRGB(180, 15, 45),
+            AccentSoft = Color3.fromRGB(50, 12, 20),
+            Background = Color3.fromRGB(12, 10, 13),
+            CardBase = Color3.fromRGB(18, 15, 20),
+            CardHover = Color3.fromRGB(28, 22, 32),
+            CardStroke = Color3.fromRGB(48, 36, 52),
+            CardStrokeActive = Color3.fromRGB(255, 30, 68),
+            TextPrimary = Color3.fromRGB(255, 255, 255),
+            TextSecondary = Color3.fromRGB(175, 165, 185),
+            TextMuted = Color3.fromRGB(115, 105, 125),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 179, 0),
+            StatusRed = Color3.fromRGB(255, 45, 85),
+            BottomDock = Color3.fromRGB(15, 12, 17),
+            PillToggle = Color3.fromRGB(16, 13, 19)
+        },
+        ["Blood Moon"] = {
+            Accent = Color3.fromRGB(235, 0, 40),
+            AccentDark = Color3.fromRGB(145, 0, 22),
+            AccentSoft = Color3.fromRGB(48, 8, 14),
+            Background = Color3.fromRGB(8, 8, 10),
+            CardBase = Color3.fromRGB(15, 15, 18),
+            CardHover = Color3.fromRGB(24, 24, 28),
+            CardStroke = Color3.fromRGB(42, 32, 36),
+            CardStrokeActive = Color3.fromRGB(235, 0, 40),
+            TextPrimary = Color3.fromRGB(255, 255, 255),
+            TextSecondary = Color3.fromRGB(175, 165, 168),
+            TextMuted = Color3.fromRGB(110, 95, 98),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 179, 0),
+            StatusRed = Color3.fromRGB(235, 0, 40),
+            BottomDock = Color3.fromRGB(11, 11, 13),
+            PillToggle = Color3.fromRGB(13, 13, 15)
+        },
+        ["Cyberpunk Neon"] = {
+            Accent = Color3.fromRGB(255, 40, 90),
+            AccentDark = Color3.fromRGB(170, 20, 60),
+            AccentSoft = Color3.fromRGB(35, 15, 40),
+            Background = Color3.fromRGB(10, 12, 18),
+            CardBase = Color3.fromRGB(16, 20, 28),
+            CardHover = Color3.fromRGB(26, 32, 45),
+            CardStroke = Color3.fromRGB(40, 52, 75),
+            CardStrokeActive = Color3.fromRGB(0, 255, 204),
+            TextPrimary = Color3.fromRGB(255, 255, 255),
+            TextSecondary = Color3.fromRGB(150, 180, 210),
+            TextMuted = Color3.fromRGB(90, 110, 135),
+            StatusGreen = Color3.fromRGB(0, 255, 170),
+            StatusYellow = Color3.fromRGB(255, 204, 0),
+            StatusRed = Color3.fromRGB(255, 40, 90),
+            BottomDock = Color3.fromRGB(12, 15, 24),
+            PillToggle = Color3.fromRGB(14, 18, 26)
+        },
+        ["Obsidian Gold"] = {
+            Accent = Color3.fromRGB(255, 183, 3),
+            AccentDark = Color3.fromRGB(180, 120, 0),
+            AccentSoft = Color3.fromRGB(45, 32, 12),
+            Background = Color3.fromRGB(12, 11, 10),
+            CardBase = Color3.fromRGB(19, 18, 17),
+            CardHover = Color3.fromRGB(30, 28, 24),
+            CardStroke = Color3.fromRGB(56, 48, 36),
+            CardStrokeActive = Color3.fromRGB(255, 183, 3),
+            TextPrimary = Color3.fromRGB(255, 252, 245),
+            TextSecondary = Color3.fromRGB(190, 180, 160),
+            TextMuted = Color3.fromRGB(120, 110, 95),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 183, 3),
+            StatusRed = Color3.fromRGB(255, 50, 70),
+            BottomDock = Color3.fromRGB(15, 14, 13),
+            PillToggle = Color3.fromRGB(17, 16, 15)
+        },
+        ["Amethyst Shadow"] = {
+            Accent = Color3.fromRGB(175, 75, 255),
+            AccentDark = Color3.fromRGB(120, 40, 190),
+            AccentSoft = Color3.fromRGB(38, 16, 55),
+            Background = Color3.fromRGB(11, 9, 16),
+            CardBase = Color3.fromRGB(18, 15, 26),
+            CardHover = Color3.fromRGB(30, 24, 42),
+            CardStroke = Color3.fromRGB(54, 40, 75),
+            CardStrokeActive = Color3.fromRGB(175, 75, 255),
+            TextPrimary = Color3.fromRGB(252, 248, 255),
+            TextSecondary = Color3.fromRGB(180, 165, 205),
+            TextMuted = Color3.fromRGB(115, 100, 135),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 180, 0),
+            StatusRed = Color3.fromRGB(255, 50, 80),
+            BottomDock = Color3.fromRGB(14, 12, 20),
+            PillToggle = Color3.fromRGB(16, 13, 22)
+        },
+        ["Emerald Venom"] = {
+            Accent = Color3.fromRGB(0, 235, 120),
+            AccentDark = Color3.fromRGB(0, 155, 80),
+            AccentSoft = Color3.fromRGB(12, 38, 24),
+            Background = Color3.fromRGB(8, 12, 10),
+            CardBase = Color3.fromRGB(13, 20, 16),
+            CardHover = Color3.fromRGB(22, 32, 26),
+            CardStroke = Color3.fromRGB(36, 54, 44),
+            CardStrokeActive = Color3.fromRGB(0, 235, 120),
+            TextPrimary = Color3.fromRGB(245, 255, 250),
+            TextSecondary = Color3.fromRGB(155, 185, 170),
+            TextMuted = Color3.fromRGB(95, 120, 105),
+            StatusGreen = Color3.fromRGB(0, 235, 120),
+            StatusYellow = Color3.fromRGB(255, 200, 0),
+            StatusRed = Color3.fromRGB(255, 45, 85),
+            BottomDock = Color3.fromRGB(11, 15, 13),
+            PillToggle = Color3.fromRGB(12, 17, 14)
+        },
+        ["Arctic Cyan"] = {
+            Accent = Color3.fromRGB(0, 215, 255),
+            AccentDark = Color3.fromRGB(0, 140, 185),
+            AccentSoft = Color3.fromRGB(14, 32, 45),
+            Background = Color3.fromRGB(8, 11, 15),
+            CardBase = Color3.fromRGB(14, 19, 26),
+            CardHover = Color3.fromRGB(22, 30, 42),
+            CardStroke = Color3.fromRGB(36, 50, 70),
+            CardStrokeActive = Color3.fromRGB(0, 215, 255),
+            TextPrimary = Color3.fromRGB(245, 252, 255),
+            TextSecondary = Color3.fromRGB(155, 175, 200),
+            TextMuted = Color3.fromRGB(95, 110, 130),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 190, 0),
+            StatusRed = Color3.fromRGB(255, 45, 85),
+            BottomDock = Color3.fromRGB(11, 14, 20),
+            PillToggle = Color3.fromRGB(13, 16, 24)
+        },
+        ["Stealth Monochrome"] = {
+            Accent = Color3.fromRGB(245, 245, 250),
+            AccentDark = Color3.fromRGB(165, 165, 175),
+            AccentSoft = Color3.fromRGB(38, 38, 45),
+            Background = Color3.fromRGB(9, 9, 10),
+            CardBase = Color3.fromRGB(17, 17, 20),
+            CardHover = Color3.fromRGB(28, 28, 32),
+            CardStroke = Color3.fromRGB(46, 46, 54),
+            CardStrokeActive = Color3.fromRGB(225, 225, 235),
+            TextPrimary = Color3.fromRGB(255, 255, 255),
+            TextSecondary = Color3.fromRGB(175, 175, 180),
+            TextMuted = Color3.fromRGB(110, 110, 115),
+            StatusGreen = Color3.fromRGB(0, 230, 118),
+            StatusYellow = Color3.fromRGB(255, 180, 0),
+            StatusRed = Color3.fromRGB(255, 50, 80),
+            BottomDock = Color3.fromRGB(12, 12, 14),
+            PillToggle = Color3.fromRGB(14, 14, 16)
+        }
+    }
+}
+
+function RedTheme.Get(key)
+    local cur = RedTheme.Palettes[RedTheme.CurrentThemeName] or RedTheme.Palettes["Crimson Eclipse"]
+    return cur[key] or Color3.fromRGB(255, 255, 255)
+end
+
+function RedTheme.Bind(instance, prop, key)
+    if not instance then return end
+    table.insert(RedTheme.Bound, { Instance = instance, Prop = prop, Key = key })
+    pcall(function() instance[prop] = RedTheme.Get(key) end)
+end
+
+function RedTheme.SetTheme(name)
+    if not RedTheme.Palettes[name] then return end
+    RedTheme.CurrentThemeName = name
+    local pal = RedTheme.Palettes[name]
+    RedAudio.Play("ThemeChange")
+    for i = #RedTheme.Bound, 1, -1 do
+        local b = RedTheme.Bound[i]
+        if b.Instance and b.Instance.Parent then
+            pcall(function()
+                TweenService:Create(b.Instance, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    [b.Prop] = pal[b.Key]
+                }):Play()
+            end)
+        else
+            table.remove(RedTheme.Bound, i)
+        end
+    end
+end
+
+-- Animations Helper
+local RedTween = {}
+function RedTween.Play(inst, duration, goals, style, dir)
+    local t = TweenService:Create(inst, TweenInfo.new(duration or 0.25, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out), goals)
+    t:Play()
+    return t
+end
+function RedTween.Spring(inst, duration, goals)
+    return RedTween.Play(inst, duration or 0.45, goals, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
+-- Unified Touch & Mouse Draggable
+local function makeDraggable(handle, targetFrame)
+    local dragging, dragStart, startPos = false, nil, nil
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = targetFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            RedTween.Play(targetFrame, 0.1, {
+                Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        end
+    end)
+end
+
+
+-- Telemetry & Player Analytics Service
+local RedTelemetry = {
+    CurrentFPS = 60,
+    CurrentPing = 50,
+    ServerPlayerCount = 1,
+    ServerMaxPlayers = 20,
+    FriendsInServer = 0,
+    FriendList = {},
+    AccountAgeText = "0 Days",
+    AccountCreationDate = "Calculating...",
+    PlayerThumbnail = "rbxasset://textures/ui/GuiImagePlaceholder.png",
+    LocalTimeFormatted = "12:00:00 AM",
+    Greeting = "Welcome",
+    GameTitle = "Roblox Experience",
+    GameThumbnail = "rbxassetid://9069608974",
+    EstimatedAvatarValue = 0,
+    TotalFriendsCount = 0,
+    FollowersCount = 0,
+    FollowingCount = 0,
+    CharPosition = Vector3.new(0, 0, 0),
+    CharVelocity = Vector3.new(0, 0, 0),
+    FriendsPresences = {}
+}
+
+-- Live FPS Calculator
+local frames = 0
+local lastFpsTick = tick()
+RunService.RenderStepped:Connect(function()
+    frames = frames + 1
+    local now = tick()
+    if now - lastFpsTick >= 0.5 then
+        RedTelemetry.CurrentFPS = math.floor(frames / (now - lastFpsTick))
+        frames = 0
+        lastFpsTick = now
+    end
+end)
+
+-- Live Ping
+task.spawn(function()
+    while task.wait(1.5) do
+        local ping = 50
+        pcall(function()
+            if LocalPlayer then ping = math.floor(LocalPlayer:GetNetworkPing() * 1000) end
+        end)
+        RedTelemetry.CurrentPing = math.clamp(ping, 1, 999)
+    end
+end)
+
+-- Time & Greeting Formatter
+function RedTelemetry.UpdateTime()
+    local d = os.date("*t")
+    local h, m, s = d.hour, d.min, d.sec
+    local ampm = "AM"
+    if h >= 12 then ampm = "PM" if h > 12 then h = h - 12 end elseif h == 0 then h = 12 end
+    RedTelemetry.LocalTimeFormatted = string.format("%02d:%02d:%02d %s", h, m, s, ampm)
+    local raw = d.hour
+    if raw >= 4 and raw < 12 then RedTelemetry.Greeting = "Good morning"
+    elseif raw >= 12 and raw < 17 then RedTelemetry.Greeting = "Good afternoon"
+    elseif raw >= 17 and raw < 22 then RedTelemetry.Greeting = "Good evening"
+    else RedTelemetry.Greeting = "Good night" end
+end
+
+-- Account Age & Creation Date
+pcall(function()
+    local days = (LocalPlayer and LocalPlayer.AccountAge) or 0
+    local yrs = math.floor(days / 365)
+    local rem = days % 365
+    RedTelemetry.AccountAgeText = yrs > 0 and (yrs .. " Yrs, " .. rem .. " Days") or (days .. " Days")
+    local createdTimestamp = os.time() - (days * 86400)
+    RedTelemetry.AccountCreationDate = os.date("%B %d, %Y", createdTimestamp)
+end)
+
+-- Player Avatar Thumbnail
+task.spawn(function()
+    if LocalPlayer then
+        local ok, thumb = pcall(function()
+            return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size352x352)
+        end)
+        if ok and thumb then RedTelemetry.PlayerThumbnail = thumb end
+    end
+end)
+
+-- Calculate EXACT Avatar Value in Robux (R$) from Real Catalog APIs
+RedTelemetry.ExactAvatarValue = 0
+RedTelemetry.AvatarItemsCount = 0
+RedTelemetry.AvatarValuationStatus = "Calculating Exact R$..."
+
+task.spawn(function()
+    if not LocalPlayer then return end
+    pcall(function()
+        local exactTotal = 0
+        local itemsCount = 0
+        local assetIds = {}
+
+        -- Query all worn appearance assets from Roblox Web APIs
+        local sApp, appInfo = pcall(function()
+            return Players:GetCharacterAppearanceInfoAsync(LocalPlayer.UserId)
+        end)
+        if sApp and appInfo and appInfo.assets then
+            for _, ast in ipairs(appInfo.assets) do
+                if ast.id then assetIds[ast.id] = true end
+            end
+        end
+
+        -- Also check worn character accessories
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        for _, obj in ipairs(char:GetChildren()) do
+            if obj:IsA("Accessory") then
+                local h = obj:FindFirstChild("Handle")
+                if h then
+                    local sm = h:FindFirstChildOfClass("SpecialMesh")
+                    if sm and sm.MeshId ~= "" then
+                        local mId = string.match(sm.MeshId, "%d+")
+                        if mId then assetIds[tonumber(mId)] = true end
+                    end
+                end
+            end
+        end
+
+        -- Query exact catalog PriceInRobux or lowest resale price
+        for aId, _ in pairs(assetIds) do
+            local sProd, pInfo = pcall(function()
+                return MarketplaceService:GetProductInfo(aId, Enum.InfoType.Asset)
+            end)
+            if sProd and pInfo then
+                itemsCount = itemsCount + 1
+                if pInfo.PriceInRobux and pInfo.PriceInRobux > 0 then
+                    exactTotal = exactTotal + pInfo.PriceInRobux
+                elseif pInfo.LowestResalePrice and pInfo.LowestResalePrice > 0 then
+                    exactTotal = exactTotal + pInfo.LowestResalePrice
+                end
+            end
+            task.wait(0.03)
+        end
+
+        RedTelemetry.ExactAvatarValue = exactTotal
+        RedTelemetry.AvatarItemsCount = itemsCount
+        RedTelemetry.EstimatedAvatarValue = exactTotal
+        RedTelemetry.AvatarValuationStatus = "100% Exact Catalog R$"
+    end)
+end)
+
+-- Fetch Active Experience Title and Icon
+task.spawn(function()
+    local placeId = game.PlaceId
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(placeId)
+        if info and info.Name then
+            RedTelemetry.GameTitle = info.Name
+            if info.IconImageAssetId and info.IconImageAssetId > 0 then
+                RedTelemetry.GameThumbnail = "rbxassetid://" .. tostring(info.IconImageAssetId)
+            end
+        end
+    end)
+end)
+
+-- Position & Velocity Realtime Tracker
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local char = LocalPlayer and LocalPlayer.Character
+        local root = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
+        if root then
+            RedTelemetry.CharPosition = root.Position
+            RedTelemetry.CharVelocity = root.AssemblyLinearVelocity or root.Velocity or Vector3.new(0, 0, 0)
+        end
+    end)
+end)
+
+-- Realtime Social & Online Friends Scanner
+function RedTelemetry.ScanServer()
+    pcall(function()
+        local plrs = Players:GetPlayers()
+        RedTelemetry.ServerPlayerCount = #plrs
+        RedTelemetry.ServerMaxPlayers = Players.MaxPlayers or 20
+        local fCount, friends = 0, {}
+        for _, p in ipairs(plrs) do
+            if p ~= LocalPlayer then
+                local s, isF = pcall(function() return LocalPlayer:IsFriendsWith(p.UserId) end)
+                if s and isF then
+                    fCount = fCount + 1
+                    table.insert(friends, { Name = p.DisplayName, User = p.Name, Id = p.UserId })
+                end
+            end
+        end
+        RedTelemetry.FriendsInServer = fCount
+        RedTelemetry.FriendList = friends
+    end)
+end
+
+-- Online friends: preserve the raw presence data for the Friends carousel.
+RedTelemetry.FriendsError = nil
+function RedTelemetry.ScanOnlineFriendsPresences()
+    if not LocalPlayer or RedTelemetry.FriendsScanning then return end
+    RedTelemetry.FriendsScanning = true
+    local ok, result = pcall(function()
+        local success, data = pcall(function() return LocalPlayer:GetFriendsOnlineAsync(200) end)
+        if success then return data end
+        return LocalPlayer:GetFriendsOnline(200)
+    end)
+    if ok and type(result) == "table" then
+        RedTelemetry.FriendsPresences = result
+        RedTelemetry.TotalFriendsCount = #result
+        RedTelemetry.FriendsError = nil
+    else
+        RedTelemetry.FriendsError = tostring(result or "Could not fetch online friends")
+    end
+    RedTelemetry.FriendsScanning = false
+end
+
+RedTelemetry.UpdateTime()
+RedTelemetry.ScanServer()
+task.spawn(function()
+    while task.wait(1) do RedTelemetry.UpdateTime() end
+end)
+task.spawn(function()
+    while task.wait(5) do RedTelemetry.ScanServer() end
+end)
+task.spawn(function()
+    while task.wait(10) do RedTelemetry.ScanOnlineFriendsPresences() end
+end)
+task.spawn(RedTelemetry.ScanOnlineFriendsPresences)
+
+
+-- UI Building Blocks
+local RedUI = {}
+
+function RedUI.Corner(inst, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius or 16)
+    c.Parent = inst
+    return c
+end
+
+function RedUI.Stroke(inst, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or RedTheme.Get("CardStroke")
+    s.Thickness = thickness or 1.2
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = inst
+    return s
+end
+
+function RedUI.Label(parent, text, size, pos, font, sizePt, color, alignX)
+    local l = Instance.new("TextLabel")
+    l.Text = text or ""
+    l.Size = size or UDim2.new(1, 0, 1, 0)
+    l.Position = pos or UDim2.new(0, 0, 0, 0)
+    l.Font = font or Enum.Font.GothamBold
+    l.TextSize = sizePt or 12
+    l.TextColor3 = color or RedTheme.Get("TextPrimary")
+    l.TextXAlignment = alignX or Enum.TextXAlignment.Left
+    l.BackgroundTransparency = 1
+    l.BorderSizePixel = 0
+    l.Parent = parent
+    return l
+end
+
+function RedUI.Button(parent, text, size, pos, bg, textCol, radius, onClick)
+    local b = Instance.new("TextButton")
+    b.Text = text or ""
+    b.Size = size or UDim2.new(0, 100, 0, 30)
+    b.Position = pos or UDim2.new(0, 0, 0, 0)
+    b.BackgroundColor3 = bg or RedTheme.Get("Accent")
+    b.TextColor3 = textCol or Color3.fromRGB(255, 255, 255)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 11
+    b.BorderSizePixel = 0
+    b.AutoButtonColor = false
+    b.ClipsDescendants = true
+    b.Parent = parent
+    RedUI.Corner(b, radius or 12)
+
+    local orig = b.BackgroundColor3
+    b.MouseEnter:Connect(function()
+        RedAudio.Play("Hover")
+        RedTween.Play(b, 0.15, { BackgroundColor3 = Color3.fromRGB(math.clamp(orig.R*255+25, 0, 255), math.clamp(orig.G*255+25, 0, 255), math.clamp(orig.B*255+25, 0, 255)) })
+    end)
+    b.MouseLeave:Connect(function() RedTween.Play(b, 0.2, { BackgroundColor3 = orig }) end)
+    b.MouseButton1Down:Connect(function()
+        RedAudio.Play("Click")
+        RedTween.Play(b, 0.08, { Size = UDim2.new(size.X.Scale, size.X.Offset - 2, size.Y.Scale, size.Y.Offset - 2) })
+    end)
+    b.MouseButton1Up:Connect(function() RedTween.Play(b, 0.1, { Size = size }) end)
+    if onClick then b.MouseButton1Click:Connect(function() onClick(b) end) end
+    return b
+end
+
+function RedUI.Card(parent, size, pos)
+    local c = Instance.new("Frame")
+    c.Size = size or UDim2.new(1, 0, 0, 80)
+    c.Position = pos or UDim2.new(0, 0, 0, 0)
+    c.BackgroundColor3 = RedTheme.Get("CardBase")
+    c.BorderSizePixel = 0
+    c.Parent = parent
+    RedUI.Corner(c, 16)
+    local s = RedUI.Stroke(c, RedTheme.Get("CardStroke"), 1.2)
+    RedTheme.Bind(c, "BackgroundColor3", "CardBase")
+    RedTheme.Bind(s, "Color", "CardStroke")
+
+    c.MouseEnter:Connect(function()
+        RedTween.Play(c, 0.2, { BackgroundColor3 = RedTheme.Get("CardHover") })
+        RedTween.Play(s, 0.2, { Color = RedTheme.Get("CardStrokeActive") })
+    end)
+    c.MouseLeave:Connect(function()
+        RedTween.Play(c, 0.25, { BackgroundColor3 = RedTheme.Get("CardBase") })
+        RedTween.Play(s, 0.25, { Color = RedTheme.Get("CardStroke") })
+    end)
+    return c, s
+end
+
+-- ScreenGui Setup with Safe Mobile Viewport Scaling
+local SafeParent = RedEnv.GetSafeParent()
+local MainGui = Instance.new("ScreenGui")
+MainGui.Name = "DEATH_NOTE_UI_CONTAINER"
+MainGui.ResetOnSpawn = false
+MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() MainGui.IgnoreGuiInset = true end)
+
+local parented = pcall(function() MainGui.Parent = SafeParent end)
+if not parented or not MainGui.Parent then
+    pcall(function() MainGui.Parent = LocalPlayer:WaitForChild("PlayerGui", 5) end)
+end
+
+genv._DEATH_NOTE_INSTANCE = MainGui
+genv._DEATH_NOTE_LOADED = true
+
+-- Toast System
+local ToastContainer = Instance.new("Frame")
+ToastContainer.Name = "Toasts"
+ToastContainer.Size = UDim2.new(0, 260, 1, -20)
+ToastContainer.Position = UDim2.new(1, -270, 0, 10)
+ToastContainer.BackgroundTransparency = 1
+ToastContainer.Parent = MainGui
+
+local toastLayout = Instance.new("UIListLayout")
+toastLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+toastLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+toastLayout.Padding = UDim.new(0, 6)
+toastLayout.Parent = ToastContainer
+
+local function ShowToast(title, msg, toastType)
+    local color = (toastType == "Success" and RedTheme.Get("StatusGreen")) or (toastType == "Warning" and RedTheme.Get("StatusYellow")) or RedTheme.Get("Accent")
+    RedAudio.Play(toastType == "Success" and "CopySuccess" or "Notification")
+    local t = Instance.new("Frame")
+    t.Size = UDim2.new(1, 0, 0, 54)
+    t.BackgroundColor3 = RedTheme.Get("CardBase")
+    t.BorderSizePixel = 0
+    t.Parent = ToastContainer
+    RedUI.Corner(t, 12)
+    RedUI.Stroke(t, color, 1.2)
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0, 4, 1, 0)
+    bar.BackgroundColor3 = color
+    bar.BorderSizePixel = 0
+    bar.Parent = t
+
+    RedUI.Label(t, title, UDim2.new(1, -20, 0, 18), UDim2.new(0, 12, 0, 6), Enum.Font.GothamBold, 11, RedTheme.Get("TextPrimary"))
+    RedUI.Label(t, msg, UDim2.new(1, -20, 0, 18), UDim2.new(0, 12, 0, 26), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+
+    t.Position = UDim2.new(1, 50, 0, 0)
+    RedTween.Spring(t, 0.35, { Position = UDim2.new(0, 0, 0, 0) })
+    task.delay(3, function()
+        if t and t.Parent then
+            local fade = RedTween.Play(t, 0.25, { Position = UDim2.new(1, 50, 0, 0), BackgroundTransparency = 1 })
+            fade.Completed:Connect(function() t:Destroy() end)
+        end
+    end)
+end
+
+-- ============================================================================
+-- MAIN WINDOW CONTAINER (BEAUTIFULLY CURVED GLASSMORPHIC FRAME)
+-- ============================================================================
+local MainWindow = Instance.new("Frame")
+MainWindow.Name = "MainWindow"
+MainWindow.Size = UDim2.new(0, 620, 0, 350)
+MainWindow.Position = UDim2.new(0.5, -310, 0.5, -175)
+MainWindow.BackgroundColor3 = RedTheme.Get("Background")
+MainWindow.BorderSizePixel = 0
+MainWindow.ClipsDescendants = true
+MainWindow.Visible = true
+MainWindow.Parent = MainGui
+
+RedUI.Corner(MainWindow, 22)
+local mainStroke = RedUI.Stroke(MainWindow, RedTheme.Get("CardStroke"), 1.8)
+RedTheme.Bind(MainWindow, "BackgroundColor3", "Background")
+RedTheme.Bind(mainStroke, "Color", "CardStroke")
+
+-- Procedural Wave Shimmer
+local waveImg = Instance.new("ImageLabel")
+waveImg.Size = UDim2.new(1.3, 0, 1.3, 0)
+waveImg.Position = UDim2.new(-0.15, 0, -0.15, 0)
+waveImg.Image = "rbxassetid://9069608974"
+waveImg.ImageColor3 = RedTheme.Get("Accent")
+waveImg.ImageTransparency = 0.94
+waveImg.BackgroundTransparency = 1
+waveImg.Parent = MainWindow
+RedTheme.Bind(waveImg, "ImageColor3", "Accent")
+
+-- Top Animated Shimmering Header Bar (Large Bold DEATH NOTE + POWERED BY RED HUB)
+local BrandHeaderBar = Instance.new("Frame")
+BrandHeaderBar.Name = "BrandHeaderBar"
+BrandHeaderBar.Size = UDim2.new(1, 0, 0, 32)
+BrandHeaderBar.Position = UDim2.new(0, 0, 0, 0)
+BrandHeaderBar.BackgroundColor3 = RedTheme.Get("CardBase")
+BrandHeaderBar.BorderSizePixel = 0
+BrandHeaderBar.Parent = MainWindow
+RedTheme.Bind(BrandHeaderBar, "BackgroundColor3", "CardBase")
+RedUI.Corner(BrandHeaderBar, 22)
+
+local headerSquarer = Instance.new("Frame")
+headerSquarer.Size = UDim2.new(1, 0, 0, 10)
+headerSquarer.Position = UDim2.new(0, 0, 1, -10)
+headerSquarer.BackgroundColor3 = RedTheme.Get("CardBase")
+headerSquarer.BorderSizePixel = 0
+headerSquarer.Parent = BrandHeaderBar
+RedTheme.Bind(headerSquarer, "BackgroundColor3", "CardBase")
+
+local brandGrad = Instance.new("UIGradient")
+brandGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, RedTheme.Get("AccentDark")),
+    ColorSequenceKeypoint.new(0.5, RedTheme.Get("Accent")),
+    ColorSequenceKeypoint.new(1, RedTheme.Get("AccentDark"))
+})
+brandGrad.Parent = BrandHeaderBar
+
+task.spawn(function()
+    local rot = 0
+    while BrandHeaderBar and BrandHeaderBar.Parent do
+        rot = (rot + 2) % 360
+        brandGrad.Offset = Vector2.new(math.sin(math.rad(rot)) * 0.5, 0)
+        task.wait(0.03)
+    end
+end)
+
+-- A built-in R monogram: no uploaded image asset or executor file access needed.
+local headerLogo = Instance.new("Frame")
+headerLogo.Name = "RedRLogo"
+headerLogo.Size = UDim2.new(0, 24, 0, 24)
+headerLogo.Position = UDim2.new(0, 8, 0.5, -12)
+headerLogo.BackgroundColor3 = Color3.fromRGB(12, 10, 14)
+headerLogo.BorderSizePixel = 0
+headerLogo.Parent = BrandHeaderBar
+RedUI.Corner(headerLogo, 7)
+RedUI.Stroke(headerLogo, Color3.fromRGB(255, 42, 72), 1.3)
+local headerLetter = Instance.new("TextLabel")
+headerLetter.Name = "R"
+headerLetter.Size = UDim2.new(1, 0, 1, 0)
+headerLetter.BackgroundTransparency = 1
+headerLetter.Text = "R"
+headerLetter.Font = Enum.Font.GothamBlack
+headerLetter.TextSize = 20
+headerLetter.TextColor3 = Color3.fromRGB(255, 35, 64)
+headerLetter.Parent = headerLogo
+
+-- LARGE BOLD DEATH NOTE TITLE (15pt GothamBlack)
+local brandTitle = RedUI.Label(
+    BrandHeaderBar,
+    "DEATH NOTE",
+    UDim2.new(0, 140, 1, 0),
+    UDim2.new(0, 39, 0, 0),
+    Enum.Font.GothamBlack,
+    15,
+    Color3.fromRGB(255, 255, 255)
+)
+
+-- BOLD POWERED BY RED HUB SUBTITLE (11pt GothamBlack)
+local brandSub = RedUI.Label(
+    BrandHeaderBar,
+    "-  POWERED BY RED HUB",
+    UDim2.new(0, 220, 1, 0),
+    UDim2.new(0, 173, 0, 0),
+    Enum.Font.GothamBlack,
+    11,
+    Color3.fromRGB(255, 225, 235)
+)
+
+-- Version Tag on Right
+local brandVer = RedUI.Label(
+    BrandHeaderBar,
+    "v3.0 CRIMSON",
+    UDim2.new(0, 100, 1, 0),
+    UDim2.new(1, -110, 0, 0),
+    Enum.Font.GothamBlack,
+    9,
+    Color3.fromRGB(255, 255, 255),
+    Enum.TextXAlignment.Right
+)
+
+-- Window Top Navigation & Tabs Bar
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 38)
+TopBar.Position = UDim2.new(0, 0, 0, 32)
+TopBar.BackgroundTransparency = 1
+TopBar.Parent = MainWindow
+makeDraggable(TopBar, MainWindow)
+
+local TabsBar = Instance.new("Frame")
+TabsBar.Size = UDim2.new(0, 480, 0, 28)
+TabsBar.Position = UDim2.new(0, 14, 0.5, -14)
+TabsBar.BackgroundTransparency = 1
+TabsBar.Parent = TopBar
+
+local tabsLayout = Instance.new("UIListLayout")
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.Padding = UDim.new(0, 6)
+tabsLayout.Parent = TabsBar
+
+local Controls = Instance.new("Frame")
+Controls.Size = UDim2.new(0, 60, 0, 16)
+Controls.Position = UDim2.new(1, -72, 0.5, -8)
+Controls.BackgroundTransparency = 1
+Controls.Parent = TopBar
+
+local ctrlLayout = Instance.new("UIListLayout")
+ctrlLayout.FillDirection = Enum.FillDirection.Horizontal
+ctrlLayout.Padding = UDim.new(0, 6)
+ctrlLayout.Parent = Controls
+
+local function makeDot(color, cb)
+    local d = Instance.new("TextButton")
+    d.Text = ""
+    d.Size = UDim2.new(0, 11, 0, 11)
+    d.BackgroundColor3 = color
+    d.BorderSizePixel = 0
+    d.Parent = Controls
+    RedUI.Corner(d, 6)
+    if cb then d.MouseButton1Click:Connect(cb) end
+end
+
+
+-- Floating Pill Toggle (Mobile & PC Draggable)
+local isWindowOpen = true
+
+local FloatingPill = Instance.new("Frame")
+FloatingPill.Name = "DeathNote_FloatingPill"
+FloatingPill.Size = UDim2.new(0, 105, 0, 42)
+FloatingPill.Position = UDim2.new(0, 15, 0.42, 0)
+FloatingPill.BackgroundColor3 = RedTheme.Get("PillToggle")
+FloatingPill.BorderSizePixel = 0
+FloatingPill.ClipsDescendants = false
+FloatingPill.Parent = MainGui
+
+RedUI.Corner(FloatingPill, 21)
+local pillStroke = RedUI.Stroke(FloatingPill, RedTheme.Get("Accent"), 1.8)
+RedTheme.Bind(FloatingPill, "BackgroundColor3", "PillToggle")
+RedTheme.Bind(pillStroke, "Color", "Accent")
+
+-- Red R logo beside the open/close arrow, matching the title logo.
+local pillIcon = Instance.new("TextLabel")
+pillIcon.Name = "RedRLogo"
+pillIcon.Size = UDim2.new(0, 25, 0, 25)
+pillIcon.Position = UDim2.new(0, 10, 0.5, -12)
+pillIcon.BackgroundColor3 = Color3.fromRGB(15, 12, 17)
+pillIcon.BorderSizePixel = 0
+pillIcon.Text = "R"
+pillIcon.Font = Enum.Font.GothamBlack
+pillIcon.TextSize = 20
+pillIcon.TextColor3 = Color3.fromRGB(255, 35, 64)
+pillIcon.Parent = FloatingPill
+RedUI.Corner(pillIcon, 7)
+RedUI.Stroke(pillIcon, Color3.fromRGB(255, 35, 64), 1)
+
+local pillDivider = Instance.new("Frame")
+pillDivider.Size = UDim2.new(0, 1, 0, 18)
+pillDivider.Position = UDim2.new(0, 46, 0.5, -9)
+pillDivider.BackgroundColor3 = RedTheme.Get("CardStroke")
+pillDivider.BorderSizePixel = 0
+pillDivider.Parent = FloatingPill
+RedTheme.Bind(pillDivider, "BackgroundColor3", "CardStroke")
+
+local pillArrowBtn = Instance.new("ImageButton")
+pillArrowBtn.Size = UDim2.new(0, 22, 0, 22)
+pillArrowBtn.Position = UDim2.new(0, 58, 0.5, -11)
+pillArrowBtn.Image = "rbxassetid://6031091004"
+pillArrowBtn.ImageColor3 = RedTheme.Get("TextPrimary")
+pillArrowBtn.BackgroundTransparency = 1
+pillArrowBtn.Parent = FloatingPill
+RedTheme.Bind(pillArrowBtn, "ImageColor3", "TextPrimary")
+
+-- Full Pill Touch Overlay
+local pillTouchOverlay = Instance.new("TextButton")
+pillTouchOverlay.Text = ""
+pillTouchOverlay.Size = UDim2.new(1, 0, 1, 0)
+pillTouchOverlay.BackgroundTransparency = 1
+pillTouchOverlay.Parent = FloatingPill
+
+local pillStatusDot = Instance.new("Frame")
+pillStatusDot.Size = UDim2.new(0, 8, 0, 8)
+pillStatusDot.Position = UDim2.new(1, -12, 1, -12)
+pillStatusDot.BackgroundColor3 = RedTheme.Get("StatusGreen")
+pillStatusDot.BorderSizePixel = 0
+pillStatusDot.Parent = FloatingPill
+RedUI.Corner(pillStatusDot, 4)
+
+makeDraggable(FloatingPill, FloatingPill)
+
+local function setWindowState(open)
+    isWindowOpen = open
+    if isWindowOpen then
+        MainWindow.Visible = true
+        RedAudio.Play("WindowOpen")
+        pillStatusDot.BackgroundColor3 = RedTheme.Get("StatusGreen")
+        RedTween.Spring(MainWindow, 0.4, {
+            Size = UDim2.new(0, 620, 0, 350),
+            Position = UDim2.new(0.5, -310, 0.5, -175),
+            BackgroundTransparency = 0
+        })
+        ShowToast("DEATH NOTE", "Interface Expanded", "Info")
+    else
+        RedAudio.Play("WindowClose")
+        pillStatusDot.BackgroundColor3 = RedTheme.Get("StatusYellow")
+        local t = RedTween.Play(MainWindow, 0.25, {
+            Size = UDim2.new(0, 620, 0, 0),
+            Position = UDim2.new(0.5, -310, 0.5, -175),
+            BackgroundTransparency = 1
+        }, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        t.Completed:Connect(function()
+            if not isWindowOpen then
+                MainWindow.Visible = false
+            end
+        end)
+        ShowToast("Minimized", "Tap Floating Pill on left to reopen", "Info")
+    end
+end
+
+local function toggleWindow()
+    setWindowState(not isWindowOpen)
+end
+
+pillArrowBtn.MouseButton1Click:Connect(toggleWindow)
+pillTouchOverlay.MouseButton1Click:Connect(toggleWindow)
+
+makeDot(Color3.fromRGB(0, 230, 118), function()
+    MainWindow.Position = UDim2.new(0.5, -310, 0.5, -175)
+    ShowToast("Centered", "Reset window coordinates to center", "Info")
+end)
+makeDot(Color3.fromRGB(255, 179, 0), function()
+    setWindowState(false)
+end)
+makeDot(Color3.fromRGB(255, 45, 85), function()
+    MainGui:Destroy()
+    genv._DEATH_NOTE_LOADED = false
+end)
+
+-- Content Pages Viewport
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -20, 1, -120)
+ContentFrame.Position = UDim2.new(0, 10, 0, 72)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainWindow
+
+local Pages, TabBtns = {}, {}
+local currentTab = "Dashboard"
+
+local function AddTab(name)
+    local btn = Instance.new("TextButton")
+    btn.Text = name
+    btn.Size = UDim2.new(0, (name == "Update Logs" and 88 or 78), 0, 26)
+    btn.BackgroundColor3 = (name == currentTab and RedTheme.Get("Accent") or Color3.fromRGB(0, 0, 0))
+    btn.BackgroundTransparency = (name == currentTab and 0 or 1)
+    btn.TextColor3 = (name == currentTab and Color3.fromRGB(255, 255, 255) or RedTheme.Get("TextSecondary"))
+    btn.Font = Enum.Font.GothamBlack
+    btn.TextSize = 10
+    btn.BorderSizePixel = 0
+    btn.Parent = TabsBar
+    RedUI.Corner(btn, 13)
+
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, 0, 1, 0)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarImageColor3 = RedTheme.Get("Accent")
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scroll.Visible = (name == currentTab)
+    scroll.Parent = ContentFrame
+
+    local list = Instance.new("UIListLayout")
+    list.Padding = UDim.new(0, 8)
+    list.Parent = scroll
+
+    Pages[name] = scroll
+    TabBtns[name] = btn
+
+    btn.MouseButton1Click:Connect(function()
+        if currentTab == name then return end
+        RedAudio.Play("TabSwitch")
+        currentTab = name
+        for n, b in pairs(TabBtns) do
+            b.BackgroundTransparency = (n == name and 0 or 1)
+            b.BackgroundColor3 = RedTheme.Get("Accent")
+            b.TextColor3 = (n == name and Color3.fromRGB(255, 255, 255) or RedTheme.Get("TextSecondary"))
+            Pages[n].Visible = (n == name)
+        end
+    end)
+
+    return scroll
+end
+
+local PageDashboard  = AddTab("Dashboard")
+local PageActivity   = AddTab("Activity")
+local PageFriends    = AddTab("Friends")
+local PageUpdates    = AddTab("Update Logs")
+local PageShortcuts  = AddTab("Shortcuts")
+-- Quick is accessible from the bottom dock only; top navigation stays unchanged.
+local PageQuick = AddTab("Quick")
+TabBtns.Quick.Visible = false
+
+
+-- ============================================================================
+-- MODAL: ABOUT PLAYER SLIDE-IN PANEL (AVATAR VALUE, COORDS, VELOCITY, FRIENDS)
+-- ============================================================================
+local AboutModal = Instance.new("Frame")
+AboutModal.Name = "AboutPlayerModal"
+AboutModal.Size = UDim2.new(1, 0, 1, 0)
+AboutModal.Position = UDim2.new(1, 0, 0, 0)
+AboutModal.BackgroundColor3 = Color3.fromRGB(10, 8, 12)
+AboutModal.BorderSizePixel = 0
+AboutModal.ZIndex = 20
+AboutModal.Parent = MainWindow
+RedUI.Corner(AboutModal, 22)
+
+local aboutHeader = Instance.new("Frame")
+aboutHeader.Size = UDim2.new(1, 0, 0, 44)
+aboutHeader.BackgroundColor3 = RedTheme.Get("CardBase")
+aboutHeader.BorderSizePixel = 0
+aboutHeader.ZIndex = 21
+aboutHeader.Parent = AboutModal
+RedUI.Corner(aboutHeader, 22)
+
+RedUI.Label(aboutHeader, "ABOUT PLAYER - DETAILED TELEMETRY & ANALYTICS", UDim2.new(1, -90, 1, 0), UDim2.new(0, 16, 0, 0), Enum.Font.GothamBlack, 12, RedTheme.Get("TextPrimary")).ZIndex = 22
+
+local closeAboutBtn = RedUI.Button(aboutHeader, "< BACK", UDim2.new(0, 68, 0, 26), UDim2.new(1, -78, 0.5, -13), RedTheme.Get("Accent"), Color3.fromRGB(255, 255, 255), 8, function()
+    RedAudio.Play("Click")
+    RedTween.Play(AboutModal, 0.3, { Position = UDim2.new(1, 0, 0, 0) })
+end)
+closeAboutBtn.ZIndex = 23
+
+local aboutScroll = Instance.new("ScrollingFrame")
+aboutScroll.Size = UDim2.new(1, -20, 1, -54)
+aboutScroll.Position = UDim2.new(0, 10, 0, 48)
+aboutScroll.BackgroundTransparency = 1
+aboutScroll.ScrollBarThickness = 3
+aboutScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+aboutScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+aboutScroll.ZIndex = 21
+aboutScroll.Parent = AboutModal
+
+-- About Player Modular Box Grid (Structured like Server Population & Friends)
+local aboutGrid = Instance.new("Frame")
+aboutGrid.Size = UDim2.new(1, 0, 0, 0)
+aboutGrid.AutomaticSize = Enum.AutomaticSize.Y
+aboutGrid.BackgroundTransparency = 1
+aboutGrid.ZIndex = 21
+aboutGrid.Parent = aboutScroll
+
+local agLayout = Instance.new("UIGridLayout")
+agLayout.CellSize = UDim2.new(0.488, 0, 0, 68)
+agLayout.CellPadding = UDim2.new(0.024, 0, 0, 8)
+agLayout.SortOrder = Enum.SortOrder.LayoutOrder
+agLayout.Parent = aboutGrid
+
+local function MakeAboutBox(title, val, sub, order, clickAction)
+    local c = Instance.new(clickAction and "TextButton" or "Frame")
+    c.Size = UDim2.new(0.488, 0, 0, 68)
+    c.BackgroundColor3 = RedTheme.Get("CardBase")
+    c.BorderSizePixel = 0
+    c.ZIndex = 22
+    c.LayoutOrder = order or 1
+    if clickAction then
+        c.AutoButtonColor = false
+        c.Text = ""
+    end
+    c.Parent = aboutGrid
+    RedUI.Corner(c, 14)
+    local s = RedUI.Stroke(c, RedTheme.Get("CardStroke"), 1.2)
+    RedTheme.Bind(c, "BackgroundColor3", "CardBase")
+    RedTheme.Bind(s, "Color", "CardStroke")
+
+    local tl = RedUI.Label(c, string.upper(title), UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 8), Enum.Font.GothamBold, 9, RedTheme.Get("TextMuted"))
+    tl.ZIndex = 23
+    local vl = RedUI.Label(c, val, UDim2.new(1, -16, 0, 20), UDim2.new(0, 12, 0, 22), Enum.Font.GothamBlack, 13, RedTheme.Get("TextPrimary"))
+    vl.ZIndex = 23
+    local sl = RedUI.Label(c, "- " .. sub, UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 46), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+    sl.ZIndex = 23
+
+    if clickAction then
+        c.MouseEnter:Connect(function()
+            RedTween.Play(c, 0.15, { BackgroundColor3 = RedTheme.Get("CardHover") })
+        end)
+        c.MouseLeave:Connect(function()
+            RedTween.Play(c, 0.2, { BackgroundColor3 = RedTheme.Get("CardBase") })
+        end)
+        c.MouseButton1Click:Connect(function()
+            RedAudio.Play("Click")
+            clickAction(vl, sl)
+        end)
+    end
+
+    return vl, sl, c
+end
+
+local boxAvatarVal, boxAvatarSub = MakeAboutBox("Exact Avatar Value", tostring(RedTelemetry.ExactAvatarValue or 0) .. " R$", "100% Exact Catalog R$ Sum", 1)
+local boxAgeVal, boxAgeSub = MakeAboutBox("Account Age", RedTelemetry.AccountAgeText, "Registered: " .. RedTelemetry.AccountCreationDate, 2)
+local boxUidVal, boxUidSub = MakeAboutBox("User ID (UID) [Click to Copy]", tostring(LocalPlayer.UserId), "Tap box to copy User ID", 3, function(v, s)
+    RedEnv.SetClipboard(tostring(LocalPlayer.UserId))
+    s.Text = "- User ID Copied to Clipboard!"
+    ShowToast("UID Copied", tostring(LocalPlayer.UserId), "Success")
+    task.delay(2, function() s.Text = "- Tap box to copy User ID" end)
+end)
+local boxMemVal, boxMemSub = MakeAboutBox("Membership Tier", (LocalPlayer.MembershipType == Enum.MembershipType.Premium and "Roblox Premium VIP" or "Standard Member"), "Verified 13+ Account Status", 4)
+local boxFriVal, boxFriSub = MakeAboutBox("Mutual Friends Online", tostring(RedTelemetry.TotalFriendsCount) .. " Friends", "Realtime Social Connections", 5)
+local boxCoordVal, boxCoordSub = MakeAboutBox("Live World Coordinates", "X: 0 | Y: 0 | Z: 0", "Physics Position Tracker", 6)
+local boxVelVal, boxVelSub = MakeAboutBox("Linear Velocity", "0, 0, 0", "Assembly Movement Vector", 7)
+local boxSpeedVal, boxSpeedSub = MakeAboutBox("Movement Speed", "0 studs/sec", "Magnitude Velocity", 8)
+local boxPlaceVal, boxPlaceSub = MakeAboutBox("Current Place ID", tostring(game.PlaceId), "Job: " .. string.sub(tostring(game.JobId), 1, 14) .. "...", 9)
+local boxExecVal, boxExecSub = MakeAboutBox("Executor Engine", RedEnv.ExecutorName, "Luau Death Note v3.2.0", 10)
+
+task.spawn(function()
+    while AboutModal and AboutModal.Parent do
+        pcall(function()
+            local pos = RedTelemetry.CharPosition
+            local vel = RedTelemetry.CharVelocity
+            local speed = math.floor(vel.Magnitude)
+
+            boxCoordVal.Text = string.format("X: %.1f | Y: %.1f | Z: %.1f", pos.X, pos.Y, pos.Z)
+            boxVelVal.Text = string.format("X: %.1f | Y: %.1f | Z: %.1f", vel.X, vel.Y, vel.Z)
+            boxSpeedVal.Text = string.format("%d studs/sec", speed)
+
+            local valRbx = RedTelemetry.ExactAvatarValue or RedTelemetry.EstimatedAvatarValue or 0
+            boxAvatarVal.Text = tostring(valRbx) .. " R$ (Exact)"
+            boxAvatarSub.Text = "- " .. (RedTelemetry.AvatarValuationStatus or "Exact Catalog Sum")
+
+            boxFriVal.Text = tostring(RedTelemetry.TotalFriendsCount) .. " Friends Online"
+            boxAgeVal.Text = RedTelemetry.AccountAgeText
+        end)
+        task.wait(0.25)
+    end
+end)
+
+-- ============================================================================
+-- TAB 1: DASHBOARD (LARGE CHARACTER PHOTO, ABOUT PLAYER BUTTON, GAME CARD)
+-- ============================================================================
+
+-- 1. Hero Profile Card with Extra Large Avatar (72x72)
+local profileCard = RedUI.Card(PageDashboard, UDim2.new(1, 0, 0, 88))
+
+local avatarFrame = Instance.new("Frame")
+avatarFrame.Size = UDim2.new(0, 72, 0, 72)
+avatarFrame.Position = UDim2.new(0, 10, 0.5, -36)
+avatarFrame.BackgroundColor3 = RedTheme.Get("Background")
+avatarFrame.BorderSizePixel = 0
+avatarFrame.Parent = profileCard
+RedUI.Corner(avatarFrame, 36)
+local avStroke = RedUI.Stroke(avatarFrame, RedTheme.Get("Accent"), 2.2)
+RedTheme.Bind(avStroke, "Color", "Accent")
+
+local avatar = Instance.new("ImageLabel")
+avatar.Size = UDim2.new(1, -6, 1, -6)
+avatar.Position = UDim2.new(0, 3, 0, 3)
+avatar.Image = RedTelemetry.PlayerThumbnail
+avatar.BackgroundTransparency = 1
+avatar.Parent = avatarFrame
+RedUI.Corner(avatar, 33)
+
+local avatarDot = Instance.new("Frame")
+avatarDot.Size = UDim2.new(0, 13, 0, 13)
+avatarDot.Position = UDim2.new(1, -12, 1, -12)
+avatarDot.BackgroundColor3 = RedTheme.Get("StatusGreen")
+avatarDot.BorderSizePixel = 0
+avatarDot.Parent = avatarFrame
+RedUI.Corner(avatarDot, 6)
+RedUI.Stroke(avatarDot, Color3.fromRGB(15, 12, 18), 1.5)
+
+task.spawn(function()
+    while profileCard and profileCard.Parent do
+        RedTween.Play(avatarDot, 0.7, { BackgroundTransparency = 0.5 })
+        task.wait(0.7)
+        RedTween.Play(avatarDot, 0.7, { BackgroundTransparency = 0 })
+        task.wait(0.7)
+    end
+end)
+
+local greetingLbl = RedUI.Label(
+    profileCard,
+    RedTelemetry.Greeting .. ", " .. (LocalPlayer and LocalPlayer.DisplayName or "Player") .. "!",
+    UDim2.new(0, 260, 0, 20),
+    UDim2.new(0, 92, 0, 12),
+    Enum.Font.GothamBlack,
+    14,
+    RedTheme.Get("TextPrimary")
+)
+
+local premBadge = Instance.new("Frame")
+premBadge.Size = UDim2.new(0, 68, 0, 20)
+premBadge.Position = UDim2.new(0, 360, 0, 12)
+premBadge.BackgroundColor3 = Color3.fromRGB(38, 28, 10)
+premBadge.BorderSizePixel = 0
+premBadge.Parent = profileCard
+RedUI.Corner(premBadge, 10)
+RedUI.Stroke(premBadge, Color3.fromRGB(255, 183, 3), 1.2)
+RedUI.Label(premBadge, "PREMIUM", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Enum.Font.GothamBlack, 9, Color3.fromRGB(255, 183, 3), Enum.TextXAlignment.Center)
+
+local aboutPlayerBtn = RedUI.Button(
+    profileCard,
+    "ABOUT PLAYER >",
+    UDim2.new(0, 110, 0, 22),
+    UDim2.new(0, 436, 0, 11),
+    RedTheme.Get("Accent"),
+    Color3.fromRGB(255, 255, 255),
+    11,
+    function()
+        RedAudio.Play("Click")
+        AboutModal.Position = UDim2.new(1, 0, 0, 0)
+        RedTween.Spring(AboutModal, 0.4, { Position = UDim2.new(0, 0, 0, 0) })
+    end
+)
+
+local userSubLbl = RedUI.Label(profileCard, "@" .. (LocalPlayer and LocalPlayer.Name or "username"), UDim2.new(0, 160, 0, 16), UDim2.new(0, 92, 0, 34), Enum.Font.GothamBold, 11, RedTheme.Get("Accent"))
+local uidLbl = RedUI.Label(profileCard, "UID: " .. (LocalPlayer and tostring(LocalPlayer.UserId) or "0"), UDim2.new(0, 130, 0, 16), UDim2.new(0, 92, 0, 54), Enum.Font.GothamMedium, 10, RedTheme.Get("TextSecondary"))
+local ageLbl = RedUI.Label(profileCard, "Age: " .. RedTelemetry.AccountAgeText, UDim2.new(0, 140, 0, 16), UDim2.new(0, 230, 0, 54), Enum.Font.GothamMedium, 10, RedTheme.Get("TextSecondary"))
+local timeLbl = RedUI.Label(profileCard, "Time: " .. RedTelemetry.LocalTimeFormatted, UDim2.new(0, 150, 0, 16), UDim2.new(0, 370, 0, 54), Enum.Font.GothamMedium, 10, RedTheme.Get("TextSecondary"))
+
+task.spawn(function()
+    while profileCard and profileCard.Parent do
+        timeLbl.Text = "Time: " .. RedTelemetry.LocalTimeFormatted
+        greetingLbl.Text = RedTelemetry.Greeting .. ", " .. (LocalPlayer and LocalPlayer.DisplayName or "Player") .. "!"
+        if avatar.Image ~= RedTelemetry.PlayerThumbnail then avatar.Image = RedTelemetry.PlayerThumbnail end
+        task.wait(1)
+    end
+end)
+
+-- 2. CURRENT ACTIVE EXPERIENCE CARD
+local GameCard = RedUI.Card(PageDashboard, UDim2.new(1, 0, 0, 68))
+
+local gameThumbFrame = Instance.new("Frame")
+gameThumbFrame.Size = UDim2.new(0, 64, 0, 52)
+gameThumbFrame.Position = UDim2.new(0, 10, 0.5, -26)
+gameThumbFrame.BackgroundColor3 = Color3.fromRGB(20, 18, 24)
+gameThumbFrame.BorderSizePixel = 0
+gameThumbFrame.Parent = GameCard
+RedUI.Corner(gameThumbFrame, 12)
+RedUI.Stroke(gameThumbFrame, RedTheme.Get("Accent"), 1.2)
+
+local gameImg = Instance.new("ImageLabel")
+gameImg.Size = UDim2.new(1, 0, 1, 0)
+gameImg.Image = RedTelemetry.GameThumbnail
+gameImg.BackgroundTransparency = 1
+gameImg.Parent = gameThumbFrame
+RedUI.Corner(gameImg, 12)
+
+local gameTag = RedUI.Label(GameCard, "CURRENT ACTIVE EXPERIENCE", UDim2.new(1, -90, 0, 14), UDim2.new(0, 84, 0, 10), Enum.Font.GothamBold, 9, RedTheme.Get("Accent"))
+local gameTitleLbl = RedUI.Label(GameCard, RedTelemetry.GameTitle, UDim2.new(1, -90, 0, 20), UDim2.new(0, 84, 0, 26), Enum.Font.GothamBlack, 13, RedTheme.Get("TextPrimary"))
+local placeSub = RedUI.Label(GameCard, "- PlaceId: " .. tostring(game.PlaceId) .. "  |  JobId: " .. string.sub(game.JobId ~= "" and game.JobId or "Local", 1, 10) .. "...", UDim2.new(1, -90, 0, 14), UDim2.new(0, 84, 0, 46), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+
+task.spawn(function()
+    while GameCard and GameCard.Parent do
+        gameTitleLbl.Text = RedTelemetry.GameTitle
+        gameImg.Image = RedTelemetry.GameThumbnail
+        task.wait(3)
+    end
+end)
+
+-- 3. Telemetry Grid (Performance, Latency, Environment)
+local TelemetryGrid = Instance.new("Frame")
+TelemetryGrid.Size = UDim2.new(1, 0, 0, 64)
+TelemetryGrid.BackgroundTransparency = 1
+TelemetryGrid.Parent = PageDashboard
+
+local tgLayout = Instance.new("UIListLayout")
+tgLayout.FillDirection = Enum.FillDirection.Horizontal
+tgLayout.Padding = UDim.new(0, 8)
+tgLayout.Parent = TelemetryGrid
+
+local function MakeMetric(title, val, sub, col)
+    local c = Instance.new("Frame")
+    c.Size = UDim2.new(0.32, 0, 1, 0)
+    c.BackgroundColor3 = RedTheme.Get("CardBase")
+    c.BorderSizePixel = 0
+    c.Parent = TelemetryGrid
+    RedUI.Corner(c, 14)
+    local s = RedUI.Stroke(c, RedTheme.Get("CardStroke"), 1.2)
+    RedTheme.Bind(c, "BackgroundColor3", "CardBase")
+    RedTheme.Bind(s, "Color", "CardStroke")
+
+    RedUI.Label(c, string.upper(title), UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 8), Enum.Font.GothamBold, 9, RedTheme.Get("TextMuted"))
+    local vl = RedUI.Label(c, val, UDim2.new(1, -16, 0, 20), UDim2.new(0, 12, 0, 22), Enum.Font.GothamBlack, 16, col or RedTheme.Get("TextPrimary"))
+    local sl = RedUI.Label(c, "- " .. sub, UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 44), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+    return vl, sl
+end
+
+local fpsVal, fpsSub = MakeMetric("Performance", "60 FPS", "144Hz+ Smooth", RedTheme.Get("TextPrimary"))
+local pingVal, pingSub = MakeMetric("Latency", "50ms", "Direct Gateway", Color3.fromRGB(255, 183, 3))
+local envVal, envSub = MakeMetric("Environment", RedEnv.ExecutorName, "Active Engine", RedTheme.Get("Accent"))
+
+task.spawn(function()
+    while TelemetryGrid and TelemetryGrid.Parent do
+        local fps = RedTelemetry.CurrentFPS
+        fpsVal.Text = fps .. " FPS"
+        fpsSub.Text = fps >= 55 and "- 144Hz+ Smooth" or (fps >= 30 and "- Moderate" or "- Throttled")
+
+        local ping = RedTelemetry.CurrentPing
+        pingVal.Text = ping .. "ms"
+        pingSub.Text = ping < 100 and "- Direct Gateway" or (ping < 200 and "- Normal" or "- High Latency")
+        task.wait(1)
+    end
+end)
+
+-- 4. Server & Social Grid
+local SocialGrid = Instance.new("Frame")
+SocialGrid.Size = UDim2.new(1, 0, 0, 58)
+SocialGrid.BackgroundTransparency = 1
+SocialGrid.Parent = PageDashboard
+
+local sgLayout = Instance.new("UIListLayout")
+sgLayout.FillDirection = Enum.FillDirection.Horizontal
+sgLayout.Padding = UDim.new(0, 8)
+sgLayout.Parent = SocialGrid
+
+local function MakeSocial(title, val, sub)
+    local c = Instance.new("Frame")
+    c.Size = UDim2.new(0.488, 0, 1, 0)
+    c.BackgroundColor3 = RedTheme.Get("CardBase")
+    c.BorderSizePixel = 0
+    c.Parent = SocialGrid
+    RedUI.Corner(c, 14)
+    local s = RedUI.Stroke(c, RedTheme.Get("CardStroke"), 1.2)
+    RedTheme.Bind(c, "BackgroundColor3", "CardBase")
+    RedTheme.Bind(s, "Color", "CardStroke")
+
+    RedUI.Label(c, string.upper(title), UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 7), Enum.Font.GothamBold, 9, RedTheme.Get("TextMuted"))
+    local vl = RedUI.Label(c, val, UDim2.new(1, -16, 0, 18), UDim2.new(0, 12, 0, 20), Enum.Font.GothamBlack, 14, RedTheme.Get("TextPrimary"))
+    local sl = RedUI.Label(c, "- " .. sub, UDim2.new(1, -16, 0, 14), UDim2.new(0, 12, 0, 38), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+    return vl, sl
+end
+
+local popVal, popSub = MakeSocial("Server Population", tostring(#Players:GetPlayers()) .. " / " .. tostring(Players.MaxPlayers or 20) .. " Players", "Active Players Online")
+local friVal, friSub = MakeSocial("Friends In Server", "0 Friends Online", "Mutual server connections")
+
+task.spawn(function()
+    while SocialGrid and SocialGrid.Parent do
+        popVal.Text = tostring(#Players:GetPlayers()) .. " / " .. tostring(Players.MaxPlayers or 20) .. " Players"
+        local fc = RedTelemetry.FriendsInServer
+        friVal.Text = fc .. " Friends Online"
+        friSub.Text = fc == 0 and "- No mutual friends here" or ("- " .. fc .. " friend(s) present")
+        task.wait(4)
+    end
+end)
+
+-- 5. OFFICIAL DISCORD COMMUNITY BANNER (Curved with Custom Vector Logo)
+local discordCard = RedUI.Card(PageDashboard, UDim2.new(1, 0, 0, 76))
+
+local dIconBox = Instance.new("Frame")
+dIconBox.Size = UDim2.new(0, 48, 0, 48)
+dIconBox.Position = UDim2.new(0, 12, 0.5, -24)
+dIconBox.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+dIconBox.BorderSizePixel = 0
+dIconBox.Parent = discordCard
+RedUI.Corner(dIconBox, 14)
+
+local clydeBody = Instance.new("Frame")
+clydeBody.Size = UDim2.new(0, 32, 0, 20)
+clydeBody.Position = UDim2.new(0.5, -16, 0.5, -10)
+clydeBody.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+clydeBody.BorderSizePixel = 0
+clydeBody.Parent = dIconBox
+RedUI.Corner(clydeBody, 7)
+
+local clydeEyeLeft = Instance.new("Frame")
+clydeEyeLeft.Size = UDim2.new(0, 6, 0, 7)
+clydeEyeLeft.Position = UDim2.new(0, 7, 0.5, -3)
+clydeEyeLeft.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+clydeEyeLeft.BorderSizePixel = 0
+clydeEyeLeft.Parent = clydeBody
+RedUI.Corner(clydeEyeLeft, 3)
+
+local clydeEyeRight = Instance.new("Frame")
+clydeEyeRight.Size = UDim2.new(0, 6, 0, 7)
+clydeEyeRight.Position = UDim2.new(1, -13, 0.5, -3)
+clydeEyeRight.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+clydeEyeRight.BorderSizePixel = 0
+clydeEyeRight.Parent = clydeBody
+RedUI.Corner(clydeEyeRight, 3)
+
+RedUI.Label(discordCard, "Join RED HUB Community", UDim2.new(0, 210, 0, 18), UDim2.new(0, 70, 0, 12), Enum.Font.GothamBlack, 13, RedTheme.Get("TextPrimary"))
+
+local officialBadge = Instance.new("Frame")
+officialBadge.Size = UDim2.new(0, 56, 0, 16)
+officialBadge.Position = UDim2.new(0, 260, 0, 13)
+officialBadge.BackgroundColor3 = Color3.fromRGB(24, 30, 54)
+officialBadge.BorderSizePixel = 0
+officialBadge.Parent = discordCard
+RedUI.Corner(officialBadge, 8)
+RedUI.Stroke(officialBadge, Color3.fromRGB(88, 101, 242), 1)
+RedUI.Label(officialBadge, "OFFICIAL", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Enum.Font.GothamBlack, 8, Color3.fromRGB(114, 137, 218), Enum.TextXAlignment.Center)
+
+RedUI.Label(discordCard, "Get instant script updates, sneak peeks & 24/7 support", UDim2.new(0, 310, 0, 16), UDim2.new(0, 70, 0, 32), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+RedUI.Label(discordCard, "- Lead Dev: @NOT_IITIAN", UDim2.new(0, 180, 0, 16), UDim2.new(0, 70, 0, 50), Enum.Font.GothamBold, 9, RedTheme.Get("Accent"))
+
+RedUI.Button(discordCard, "Copy Tag", UDim2.new(0, 75, 0, 28), UDim2.new(1, -195, 0.5, -14), Color3.fromRGB(30, 26, 36), Color3.fromRGB(220, 220, 230), 10, function(b)
+    RedEnv.SetClipboard("@NOT_IITIAN")
+    b.Text = "Copied!"
+    b.TextColor3 = RedTheme.Get("StatusGreen")
+    ShowToast("Tag Copied", "Lead Dev tag '@NOT_IITIAN' copied!", "Success")
+    task.delay(2, function() b.Text = "Copy Tag" b.TextColor3 = Color3.fromRGB(220, 220, 230) end)
+end)
+
+RedUI.Button(discordCard, "Join Server >", UDim2.new(0, 100, 0, 30), UDim2.new(1, -112, 0.5, -15), Color3.fromRGB(88, 101, 242), Color3.fromRGB(255, 255, 255), 10, function(b)
+    local link = "https://discord.gg/DC5nbga29C"
+    RedEnv.SetClipboard(link)
+    b.Text = "Copied!"
+    b.BackgroundColor3 = RedTheme.Get("StatusGreen")
+    ShowToast("Discord Link Copied", link, "Success")
+    task.delay(2.5, function() b.Text = "Join Server >" b.BackgroundColor3 = Color3.fromRGB(88, 101, 242) end)
+end)
+
+-- 6. Theme Selector Section (Directly Below Discord)
+local themeCard = RedUI.Card(PageDashboard, UDim2.new(1, 0, 0, 210))
+RedUI.Label(themeCard, "THEME PALETTES & VISUAL STYLING", UDim2.new(1, -24, 0, 18), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 11, RedTheme.Get("TextPrimary"))
+RedUI.Label(themeCard, "Tap any aesthetic preset to dynamically transform DEATH NOTE UI in real-time.", UDim2.new(1, -24, 0, 14), UDim2.new(0, 14, 0, 28), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+
+local themeGrid = Instance.new("Frame")
+themeGrid.Size = UDim2.new(1, -28, 0, 148)
+themeGrid.Position = UDim2.new(0, 14, 0, 48)
+themeGrid.BackgroundTransparency = 1
+themeGrid.Parent = themeCard
+
+local tgl = Instance.new("UIGridLayout")
+tgl.CellSize = UDim2.new(0.235, 0, 0, 64)
+tgl.CellPadding = UDim2.new(0.02, 0, 0, 8)
+tgl.Parent = themeGrid
+
+local themeItems = {}
+local function AddThemeItem(name, p)
+    local b = Instance.new("TextButton")
+    b.Text = ""
+    b.BackgroundColor3 = p.CardBase
+    b.BorderSizePixel = 0
+    b.Parent = themeGrid
+    RedUI.Corner(b, 12)
+    local st = RedUI.Stroke(b, RedTheme.CurrentThemeName == name and p.Accent or p.CardStroke, 1.2)
+
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 16, 0, 16)
+    dot.Position = UDim2.new(0, 10, 0, 10)
+    dot.BackgroundColor3 = p.Accent
+    dot.BorderSizePixel = 0
+    dot.Parent = b
+    RedUI.Corner(dot, 8)
+
+    RedUI.Label(b, name, UDim2.new(1, -36, 0, 16), UDim2.new(0, 32, 0, 10), Enum.Font.GothamBold, 9, p.TextPrimary)
+    local stat = RedUI.Label(b, RedTheme.CurrentThemeName == name and "ACTIVE" or "SELECT", UDim2.new(1, -20, 0, 14), UDim2.new(0, 10, 0, 38), Enum.Font.GothamBlack, 8, RedTheme.CurrentThemeName == name and p.Accent or p.TextMuted)
+
+    themeItems[name] = { Stroke = st, Stat = stat, Palette = p }
+
+    b.MouseButton1Click:Connect(function()
+        if RedTheme.CurrentThemeName == name then return end
+        RedTheme.SetTheme(name)
+        for n, it in pairs(themeItems) do
+            it.Stroke.Color = (n == name and it.Palette.Accent or it.Palette.CardStroke)
+            it.Stat.Text = (n == name and "ACTIVE" or "SELECT")
+            it.Stat.TextColor3 = (n == name and it.Palette.Accent or it.Palette.TextMuted)
+        end
+        ShowToast("Theme Changed", name, "Success")
+    end)
+end
+
+AddThemeItem("Crimson Eclipse", RedTheme.Palettes["Crimson Eclipse"])
+AddThemeItem("Blood Moon", RedTheme.Palettes["Blood Moon"])
+AddThemeItem("Cyberpunk Neon", RedTheme.Palettes["Cyberpunk Neon"])
+AddThemeItem("Obsidian Gold", RedTheme.Palettes["Obsidian Gold"])
+AddThemeItem("Amethyst Shadow", RedTheme.Palettes["Amethyst Shadow"])
+AddThemeItem("Emerald Venom", RedTheme.Palettes["Emerald Venom"])
+AddThemeItem("Arctic Cyan", RedTheme.Palettes["Arctic Cyan"])
+AddThemeItem("Stealth Monochrome", RedTheme.Palettes["Stealth Monochrome"])
+
+
+-- ============================================================================
+-- TAB 2: ACTIVITY (DYNAMIC COLOR PER PLAYER)
+-- ============================================================================
+local actCard = RedUI.Card(PageActivity, UDim2.new(1, 0, 0, 240))
+RedUI.Label(actCard, "LIVE SERVER ACTIVITY STREAM (COLOR-CODED)", UDim2.new(1, -20, 0, 18), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 11, RedTheme.Get("TextPrimary"))
+
+local actScroll = Instance.new("ScrollingFrame")
+actScroll.Size = UDim2.new(1, -20, 1, -38)
+actScroll.Position = UDim2.new(0, 10, 0, 32)
+actScroll.BackgroundTransparency = 1
+actScroll.ScrollBarThickness = 2
+actScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+actScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+actScroll.Parent = actCard
+
+local actList = Instance.new("UIListLayout")
+actList.Padding = UDim.new(0, 4)
+actList.Parent = actScroll
+
+local function getPlayerColor(userId)
+    local colors = {
+        Color3.fromRGB(255, 87, 87),
+        Color3.fromRGB(78, 205, 196),
+        Color3.fromRGB(255, 190, 11),
+        Color3.fromRGB(168, 85, 247),
+        Color3.fromRGB(56, 189, 248),
+        Color3.fromRGB(244, 114, 182),
+        Color3.fromRGB(52, 211, 153),
+        Color3.fromRGB(251, 146, 60)
+    }
+    local num = tonumber(userId) or 1
+    local idx = (num % #colors) + 1
+    return colors[idx]
+end
+
+local function AddLog(tag, playerName, msg, userId)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, 0, 0, 24)
+    f.BackgroundColor3 = Color3.fromRGB(15, 12, 18)
+    f.BorderSizePixel = 0
+    f.Parent = actScroll
+    RedUI.Corner(f, 6)
+
+    local pColor = getPlayerColor(userId or 1)
+
+    RedUI.Label(f, "[" .. os.date("%X") .. "]", UDim2.new(0, 68, 1, 0), UDim2.new(0, 6, 0, 0), Enum.Font.Code, 9, RedTheme.Get("TextMuted"))
+    RedUI.Label(f, tag, UDim2.new(0, 54, 1, 0), UDim2.new(0, 76, 0, 0), Enum.Font.GothamBlack, 9, pColor)
+    RedUI.Label(f, playerName or "System", UDim2.new(0, 120, 1, 0), UDim2.new(0, 134, 0, 0), Enum.Font.GothamBold, 9, pColor)
+    RedUI.Label(f, msg or "", UDim2.new(1, -260, 1, 0), UDim2.new(0, 258, 0, 0), Enum.Font.GothamMedium, 9, RedTheme.Get("TextPrimary"))
+end
+
+AddLog("INIT", "DEATH NOTE", "Interface initialized successfully", 999)
+AddLog("USER", LocalPlayer.DisplayName, "Active session verified (" .. RedEnv.ExecutorName .. ")", LocalPlayer.UserId)
+
+Players.PlayerAdded:Connect(function(p)
+    AddLog("JOIN", p.DisplayName, "Connected to server instance", p.UserId)
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    AddLog("LEAVE", p.DisplayName, "Disconnected from server", p.UserId)
+end)
+
+-- ============================================================================
+-- TAB 3: FRIENDS ACTIVITY - horizontal, swipeable image cards
+-- ============================================================================
+local friendsCard = RedUI.Card(PageFriends, UDim2.new(1, 0, 0, 240))
+local friendsStatus = RedUI.Label(friendsCard, "LOADING FRIENDS...", UDim2.new(1, -24, 0, 18), UDim2.new(0, 12, 0, 8), Enum.Font.GothamBold, 10, RedTheme.Get("TextSecondary"))
+local friendsScroll = Instance.new("ScrollingFrame")
+friendsScroll.Name = "FriendCarousel"
+friendsScroll.Size = UDim2.new(1, -20, 1, -37)
+friendsScroll.Position = UDim2.new(0, 10, 0, 30)
+friendsScroll.BackgroundTransparency = 1
+friendsScroll.BorderSizePixel = 0
+friendsScroll.ScrollingDirection = Enum.ScrollingDirection.X
+friendsScroll.ScrollBarThickness = 3
+friendsScroll.ScrollBarImageColor3 = Color3.fromRGB(235, 20, 65)
+friendsScroll.CanvasSize = UDim2.new()
+friendsScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
+friendsScroll.Parent = friendsCard
+local friendLayout = Instance.new("UIListLayout")
+friendLayout.FillDirection = Enum.FillDirection.Horizontal
+friendLayout.SortOrder = Enum.SortOrder.LayoutOrder
+friendLayout.Padding = UDim.new(0, 10)
+friendLayout.Parent = friendsScroll
+
+local universeCache, nameCache = {}, {}
+local function positiveNumber(value)
+    local n = tonumber(value)
+    return n and n > 0 and n or nil
+end
+local function friendPlace(f)
+    local id = positiveNumber(f.PlaceId or f.placeId)
+    local location = f.LastLocation or f.lastLocation
+    if not id and type(location) == "string" then
+        id = positiveNumber(location:match("/games/(%d+)"))
+    end
+    return id
+end
+local function friendUniverse(placeId)
+    if not placeId then return nil end
+    if placeId == game.PlaceId then return game.GameId end
+    if universeCache[placeId] then return universeCache[placeId] end
+    local ok, data = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet("https://apis.roblox.com/universes/v1/places/" .. placeId .. "/universe"))
+    end)
+    local id = ok and type(data) == "table" and positiveNumber(data.universeId) or nil
+    if id then universeCache[placeId] = id end
+    return id
+end
+local function friendGameName(f, placeId, universeId)
+    if placeId and nameCache[placeId] then return nameCache[placeId] end
+    local name = f.GameName or f.PlaceName or f.Location or f.LastLocation or f.lastLocation
+    if type(name) ~= "string" or name == "" or name == "Website" or name == "Online" or name == "Offline" or name == "In Game" or name:find("://") then name = nil end
+    if not name and universeId then
+        local ok, data = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games?universeIds=" .. universeId))
+        end)
+        if ok and type(data) == "table" and data.data and data.data[1] then name = data.data[1].name end
+    end
+    if not name and placeId then
+        local ok, info = pcall(function() return MarketplaceService:GetProductInfo(placeId) end)
+        if ok and info then name = info.Name end
+    end
+    if name and placeId then nameCache[placeId] = name end
+    return name or (placeId and ("Place " .. placeId) or "Online")
+end
+local function cardLabel(parent, text, size, pos, font, textSize, color)
+    local l = RedUI.Label(parent, text, size, pos, font, textSize, color)
+    l.TextTruncate = Enum.TextTruncate.AtEnd
+    return l
+end
+local function drawFriend(f, order)
+    local userId = positiveNumber(f.VisitorId or f.UserId or f.Id)
+    local username = tostring(f.UserName or f.userName or f.Name or "Unknown")
+    local displayName = tostring(f.DisplayName or f.displayName or username)
+    local placeId = friendPlace(f)
+    -- LocationType 1/4 can indicate a game even when its place ID is hidden.
+    -- Unknown location without a place is treated as online, not confirmed in-game.
+    local locationType = tonumber(f.LocationType or f.locationType)
+    local inGame = placeId ~= nil or locationType == 1 or locationType == 4
+    local card = Instance.new("Frame")
+    card.Name = "FriendCard"
+    card.Size = UDim2.new(0, 265, 1, -5)
+    card.BackgroundColor3 = Color3.fromRGB(25, 23, 29)
+    card.BorderSizePixel = 0
+    card.LayoutOrder = order
+    card.ClipsDescendants = true
+    card.Parent = friendsScroll
+    RedUI.Corner(card, 12)
+    RedUI.Stroke(card, Color3.fromRGB(58, 49, 57), 1)
+    local thumb = Instance.new("ImageLabel")
+    thumb.Size = UDim2.new(1, 0, 1, 0)
+    thumb.BackgroundColor3 = Color3.fromRGB(17, 15, 20)
+    thumb.BorderSizePixel = 0
+    thumb.ScaleType = Enum.ScaleType.Crop
+    thumb.Parent = card
+    -- The monogram remains visible until an actual thumbnail reports loaded.
+    -- If the thumbnail fails or the place is hidden, it remains as a fallback.
+    local fallback = Instance.new("TextLabel")
+    fallback.Name = "ExperienceFallbackR"
+    fallback.Size = UDim2.new(1, 0, 1, -35)
+    fallback.BackgroundTransparency = 1
+    fallback.Text = "R"
+    fallback.Font = Enum.Font.GothamBlack
+    fallback.TextSize = 105
+    fallback.TextColor3 = inGame and Color3.fromRGB(242, 35, 67) or Color3.fromRGB(54, 151, 255)
+    fallback.TextStrokeColor3 = inGame and Color3.fromRGB(98, 8, 25) or Color3.fromRGB(12, 55, 116)
+    fallback.TextStrokeTransparency = 0.55
+    fallback.Parent = thumb
+    local function syncFallback()
+        if fallback.Parent and thumb.Parent then
+            fallback.Visible = not thumb.IsLoaded
+        end
+    end
+    thumb:GetPropertyChangedSignal("IsLoaded"):Connect(syncFallback)
+    local shade = Instance.new("Frame")
+    shade.Size = UDim2.new(1, 0, 0, 82)
+    shade.Position = UDim2.new(0, 0, 1, -82)
+    shade.BackgroundColor3 = Color3.new(0, 0, 0)
+    shade.BorderSizePixel = 0
+    shade.Parent = card
+    local gradient = Instance.new("UIGradient")
+    gradient.Rotation = 90
+    gradient.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.18), NumberSequenceKeypoint.new(1, 0.05)})
+    gradient.Parent = shade
+    local avatar = Instance.new("ImageLabel")
+    avatar.Size = UDim2.new(0, 42, 0, 42)
+    avatar.Position = UDim2.new(0, 10, 1, -50)
+    avatar.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
+    avatar.BorderSizePixel = 0
+    avatar.Parent = card
+    RedUI.Corner(avatar, 21)
+    RedUI.Stroke(avatar, Color3.fromRGB(236, 24, 70), 2)
+    if userId then avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150" end
+    -- Full-width game title: it remains visible even when the image fails.
+    local title = cardLabel(card, inGame and (placeId and "Loading game..." or "Game unavailable") or "ONLINE", UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 1, -77), Enum.Font.GothamBold, 13, Color3.new(1,1,1))
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 7, 0, 7)
+    dot.Position = UDim2.new(0, 60, 1, -23)
+    dot.BackgroundColor3 = Color3.fromRGB(67, 224, 128)
+    dot.BorderSizePixel = 0
+    dot.Parent = card
+    RedUI.Corner(dot, 5)
+    cardLabel(card, displayName, UDim2.new(1, -155, 0, 16), UDim2.new(0, 71, 1, -28), Enum.Font.Gotham, 10, Color3.fromRGB(207,207,211))
+    local join = Instance.new("TextButton")
+    join.Size = UDim2.new(0, 72, 0, 32)
+    join.Position = UDim2.new(1, -81, 1, -46)
+    join.BackgroundColor3 = Color3.fromRGB(7, 7, 9)
+    join.TextColor3 = Color3.new(1,1,1)
+    join.Font = Enum.Font.GothamBold
+    join.TextSize = 11
+    join.Text = "..."
+    join.BorderSizePixel = 0
+    join.AutoButtonColor = false
+    join.Parent = card
+    RedUI.Corner(join, 8)
+    RedUI.Stroke(join, Color3.fromRGB(230, 22, 65), 1)
+    local same = placeId == game.PlaceId
+    local resolved = false
+    join.MouseButton1Click:Connect(function()
+        if not resolved or not same or not placeId then return end
+        -- GameId in GetFriendsOnline is a server instance UUID, NOT a universe ID.
+        local jobId = f.GameId or f.gameId
+        if type(jobId) ~= "string" or jobId == "" then
+            ShowToast("Cannot join", "Friend's server ID is not available.", "Info")
+            return
+        end
+        join.Text = "..."
+        local ok, err = pcall(function() TeleportService:TeleportToPlaceInstance(placeId, jobId, LocalPlayer) end)
+        if not ok then
+            join.Text = "JOIN"
+            ShowToast("Join failed", tostring(err), "Info")
+        end
+    end)
+    task.spawn(function()
+        local presenceName = f.GameName or f.PlaceName or f.Location or f.LastLocation or f.lastLocation
+        if inGame and type(presenceName) == "string" and presenceName ~= "" and presenceName ~= "In Game" and presenceName ~= "Online" and presenceName ~= "Offline" and presenceName ~= "Website" and not presenceName:find("://") then
+            title.Text = presenceName
+        end
+        local universeId = friendUniverse(placeId)
+        local gameName = friendGameName(f, placeId, universeId)
+        if not card.Parent then return end
+        same = placeId ~= nil and (placeId == game.PlaceId or (universeId ~= nil and universeId == game.GameId))
+        title.Text = inGame and (placeId and gameName or (gameName ~= "Online" and gameName or "Game unavailable")) or "ONLINE"
+        if universeId then
+            thumb.Image = "rbxthumb://type=GameIcon&id=" .. universeId .. "&w=150&h=150"
+        elseif placeId then
+            thumb.Image = "rbxthumb://type=Asset&id=" .. placeId .. "&w=420&h=420"
+        end
+        syncFallback()
+        -- Preloading is asynchronous: do not block the title or join button.
+        -- The fallback must disappear when the actual experience image loads.
+        if thumb.Image ~= "" then
+            task.spawn(function()
+                local imageId = thumb.Image
+                pcall(function()
+                    game:GetService("ContentProvider"):PreloadAsync({thumb}, function(_, status)
+                        if thumb.Parent and fallback.Parent and thumb.Image == imageId and status == Enum.AssetFetchStatus.Success then
+                            fallback.Visible = false
+                        end
+                    end)
+                end)
+                if thumb.Parent and fallback.Parent and thumb.Image == imageId and thumb.IsLoaded then
+                    fallback.Visible = false
+                end
+            end)
+        end
+        local job = f.GameId or f.gameId
+        resolved = true
+        if same and type(job) == "string" and job ~= "" then
+            join.Text = "JOIN"
+        else
+            join.Text = same and "NO SERVER" or (inGame and "IN GAME" or "ONLINE")
+            join.TextColor3 = Color3.fromRGB(150, 150, 155)
+        end
+    end)
+end
+local function RenderFriends()
+    local oldX = friendsScroll.CanvasPosition.X
+    for _, child in ipairs(friendsScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+    local list = {}
+    for _, f in ipairs(RedTelemetry.FriendsPresences) do table.insert(list, f) end
+    table.sort(list, function(a, b)
+        local ap, bp = friendPlace(a), friendPlace(b)
+        local as = ap == game.PlaceId or (ap and universeCache[ap] == game.GameId)
+        local bs = bp == game.PlaceId or (bp and universeCache[bp] == game.GameId)
+        if not not as ~= not not bs then return not not as end
+        return tostring(a.UserName or a.Name or ""):lower() < tostring(b.UserName or b.Name or ""):lower()
+    end)
+    if RedTelemetry.FriendsError then
+        friendsStatus.Text = "FRIENDS: FETCH FAILED - RETRYING IN 10S"
+    else
+        friendsStatus.Text = #list .. " FRIENDS ONLINE  |  SWIPE HORIZONTALLY  |  AUTO-REFRESH 10S"
+    end
+    if #list == 0 then
+        local empty = Instance.new("Frame")
+        empty.Name = "EmptyState"
+        empty.Size = UDim2.new(0, 265, 1, -5)
+        empty.BackgroundColor3 = Color3.fromRGB(24, 21, 26)
+        empty.BorderSizePixel = 0
+        empty.Parent = friendsScroll
+        RedUI.Corner(empty, 12)
+        cardLabel(empty, RedTelemetry.FriendsError and "Unable to load friends" or "No friends online", UDim2.new(1, -20, 0, 28), UDim2.new(0, 10, 0.5, -14), Enum.Font.GothamBold, 12, Color3.fromRGB(190,190,195))
+    else
+        for i, f in ipairs(list) do drawFriend(f, i) end
+    end
+    task.defer(function()
+        if friendsScroll.Parent then friendsScroll.CanvasPosition = Vector2.new(oldX, 0) end
+    end)
+end
+task.spawn(function()
+    while friendsCard and friendsCard.Parent do
+        RenderFriends()
+        task.wait(10)
+    end
+end)
+
+
+-- ============================================================================
+-- TAB 4: UPDATE LOGS
+-- ============================================================================
+local upCard = RedUI.Card(PageUpdates, UDim2.new(1, 0, 0, 240))
+RedUI.Label(upCard, "DEATH NOTE - v3.0.0 (Crimson Death Curve Edition)", UDim2.new(1, -20, 0, 20), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 12, RedTheme.Get("TextPrimary"))
+local notes = {
+    "- 100% PURE ASCII: Completely eradicated all corrupted signs and character artifacts.",
+    "- SMOOTH CURVED UI: Redesigned window with CornerRadius 22 for ultra-sleek pill aesthetic.",
+    "- BOLD DEATH NOTE: Prominently enlarged header title with animated Shimmering Gradient.",
+    "- ABOUT PLAYER SLIDE-IN: Slide modal showing Avatar Robux value, X/Y/Z coords, and velocity.",
+    "- FRIENDS IN EXPERIENCES: Displays friend avatar headshot, experience icon, and direct Join Game button.",
+    "- CURRENT EXPERIENCE: Shows active game thumbnail and title directly on the Dashboard.",
+    "- TWO-WAY TOGGLE: Flawless expand/collapse on all touch devices and PC mice.",
+    "- COLOR-CODED ACTIVITY: Dynamic multi-color logger per player UserId."
+}
+for i, note in ipairs(notes) do
+    RedUI.Label(upCard, note, UDim2.new(1, -28, 0, 16), UDim2.new(0, 14, 0, 32 + ((i-1)*22)), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+end
+
+-- ============================================================================
+-- TAB 5: SHORTCUTS & SETTINGS
+-- ============================================================================
+local setCard = RedUI.Card(PageShortcuts, UDim2.new(1, 0, 0, 160))
+RedUI.Label(setCard, "CONTROLS & PREFERENCES", UDim2.new(1, -20, 0, 20), UDim2.new(0, 14, 0, 10), Enum.Font.GothamBlack, 11, RedTheme.Get("TextPrimary"))
+
+RedUI.Button(setCard, "Sound FX: ON", UDim2.new(0, 130, 0, 30), UDim2.new(0, 14, 0, 38), RedTheme.Get("Accent"), Color3.fromRGB(255, 255, 255), 10, function(b)
+    RedAudio.Enabled = not RedAudio.Enabled
+    b.Text = RedAudio.Enabled and "Sound FX: ON" or "Sound FX: OFF"
+    b.BackgroundColor3 = RedAudio.Enabled and RedTheme.Get("Accent") or Color3.fromRGB(40, 35, 45)
+    ShowToast("Audio", RedAudio.Enabled and "Sound FX Enabled" or "Sound FX Muted", "Info")
+end)
+
+RedUI.Button(setCard, "Re-center GUI", UDim2.new(0, 130, 0, 30), UDim2.new(0, 154, 0, 38), Color3.fromRGB(35, 30, 42), Color3.fromRGB(255, 255, 255), 10, function()
+    MainWindow.Position = UDim2.new(0.5, -310, 0.5, -175)
+    ShowToast("Centered", "GUI centered on screen", "Info")
+end)
+
+RedUI.Button(setCard, "Unload DEATH NOTE", UDim2.new(0, 130, 0, 30), UDim2.new(0, 14, 0, 78), Color3.fromRGB(255, 45, 85), Color3.fromRGB(255, 255, 255), 10, function()
+    MainGui:Destroy()
+    genv._DEATH_NOTE_LOADED = false
+end)
+
+RedUI.Label(setCard, "- Press RightShift or tap the floating left pill to toggle menu at any time.", UDim2.new(1, -28, 0, 16), UDim2.new(0, 14, 0, 120), Enum.Font.GothamMedium, 9, RedTheme.Get("TextSecondary"))
+
+-- ============================================================================
+-- CURVED GLASS BOTTOM DOCK NAVIGATION (100% PURE ASCII LABELS)
+-- ============================================================================
+local BottomDock = Instance.new("Frame")
+BottomDock.Name = "BottomDock"
+BottomDock.Size = UDim2.new(0, 460, 0, 38)
+BottomDock.Position = UDim2.new(0.5, -230, 1, -44)
+BottomDock.BackgroundColor3 = RedTheme.Get("BottomDock")
+BottomDock.BorderSizePixel = 0
+BottomDock.Parent = MainWindow
+RedUI.Corner(BottomDock, 19)
+local dockStroke = RedUI.Stroke(BottomDock, RedTheme.Get("CardStroke"), 1.2)
+RedTheme.Bind(BottomDock, "BackgroundColor3", "BottomDock")
+RedTheme.Bind(dockStroke, "Color", "CardStroke")
+
+local dockLayout = Instance.new("UIListLayout")
+dockLayout.FillDirection = Enum.FillDirection.Horizontal
+dockLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+dockLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+dockLayout.Padding = UDim.new(0, 6)
+dockLayout.Parent = BottomDock
+
+local function AddDockBtn(shortCode, title, tabTarget)
+    local b = Instance.new("TextButton")
+    b.Text = (title ~= "" and (shortCode .. " " .. title) or shortCode)
+    b.Size = title ~= "" and UDim2.new(0, 78, 0, 26) or UDim2.new(0, 46, 0, 26)
+    b.BackgroundColor3 = title ~= "" and RedTheme.Get("Accent") or Color3.fromRGB(0, 0, 0)
+    b.BackgroundTransparency = title ~= "" and 0 or 1
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.Font = Enum.Font.GothamBlack
+    b.TextSize = 10
+    b.BorderSizePixel = 0
+    b.Parent = BottomDock
+    RedUI.Corner(b, 13)
+
+    b.MouseButton1Click:Connect(function()
+        RedAudio.Play("Click")
+        if tabTarget and TabBtns[tabTarget] then
+            currentTab = tabTarget
+            for n, btn in pairs(TabBtns) do
+                btn.BackgroundTransparency = (n == tabTarget and 0 or 1)
+                btn.BackgroundColor3 = RedTheme.Get("Accent")
+                btn.TextColor3 = (n == tabTarget and Color3.fromRGB(255, 255, 255) or RedTheme.Get("TextSecondary"))
+                Pages[n].Visible = (n == tabTarget)
+            end
+        else
+            ShowToast("Feature", "Module ready for custom scripts", "Info")
+        end
+    end)
+end
+
+AddDockBtn("[H]", "HOME", "Dashboard")
+AddDockBtn("[Q]", "QUICK", "Quick")
+
+-- Local overhead tags and opt-in shared presence relay. The relay does not verify identities.
+local presenceState = RedUI.Label(BrandHeaderBar, "PRESENCE: NOT CONFIGURED", UDim2.new(0, 125, 0, 18), UDim2.new(1, -245, 0.5, -9), Enum.Font.GothamBold, 8, Color3.fromRGB(175, 165, 185))
+local tagMap = {}
+local activePresence = {[LocalPlayer.UserId] = true}
+local lastPresenceSuccess = 0
+local requestFunction = (syn and syn.request) or http_request or request or (http and http.request)
+local function removeTag(player)
+    if tagMap[player] then tagMap[player]:Destroy(); tagMap[player] = nil end
+end
+local movementBusy = false
+local function goToTaggedPlayer(player)
+    if movementBusy or player == LocalPlayer then return end
+    local character = LocalPlayer.Character
+    local otherCharacter = player.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    local targetRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
+    if not root or not targetRoot then ShowToast("Unavailable", "Player character not ready", "Info"); return end
+    movementBusy = true
+    local flash = Instance.new("Frame")
+    flash.Size = UDim2.new(1,0,1,0)
+    flash.BackgroundColor3 = Color3.fromRGB(244,32,70)
+    flash.BackgroundTransparency = 1
+    flash.BorderSizePixel = 0
+    flash.ZIndex = 50
+    flash.Parent = MainGui
+    RedAudio.Play("Notification")
+    TweenService:Create(flash, TweenInfo.new(0.18), {BackgroundTransparency=0.58}):Play()
+    task.wait(0.2)
+    if MainGui.Parent and root.Parent and targetRoot.Parent then
+        local ok = pcall(function() root.CFrame = targetRoot.CFrame * CFrame.new(3,0,3) end)
+        ShowToast(ok and "Moved" or "Move failed", ok and ("Near " .. player.Name) or "Movement blocked", "Info")
+    end
+    TweenService:Create(flash, TweenInfo.new(0.35), {BackgroundTransparency=1}):Play()
+    task.delay(0.4, function() if flash.Parent then flash:Destroy() end end)
+    task.wait(0.6)
+    movementBusy = false
+end
+local function syncTag(player)
+    local head = player.Character and player.Character:FindFirstChild("Head")
+    if not activePresence[player.UserId] or not head then removeTag(player); return end
+    if tagMap[player] and tagMap[player].Adornee == head then return end
+    removeTag(player)
+    local tag = Instance.new("BillboardGui")
+    tag.Name = "DeathNotePresenceTag"
+    tag.Adornee = head
+    tag.Size = UDim2.fromOffset(195,48)
+    tag.StudsOffset = Vector3.new(0,2.8,0)
+    tag.AlwaysOnTop = true
+    tag.MaxDistance = 100
+    tag.Parent = MainGui
+    tagMap[player] = tag
+    local panel = Instance.new("Frame")
+    panel.Size = UDim2.fromScale(1,1)
+    panel.BackgroundColor3 = Color3.fromRGB(16,13,18)
+    panel.BackgroundTransparency = 0.06
+    panel.BorderSizePixel = 0
+    panel.Parent = tag
+    RedUI.Corner(panel,12)
+    RedUI.Stroke(panel,Color3.fromRGB(244,32,70),1.2)
+    local icon = Instance.new("TextButton")
+    icon.Size = UDim2.fromOffset(34,34)
+    icon.Position = UDim2.fromOffset(7,7)
+    icon.BackgroundColor3 = Color3.fromRGB(9,9,11)
+    icon.Text = "R"
+    icon.Font = Enum.Font.GothamBlack
+    icon.TextColor3 = Color3.fromRGB(244,32,70)
+    icon.TextSize = 25
+    icon.BorderSizePixel = 0
+    icon.Parent = panel
+    RedUI.Corner(icon,8)
+    RedUI.Stroke(icon,Color3.fromRGB(244,32,70),1)
+    local name = RedUI.Label(panel, player.Name, UDim2.fromOffset(140,20), UDim2.fromOffset(49,5), Enum.Font.GothamBold, 12, Color3.fromRGB(245,243,247))
+    name.TextTruncate = Enum.TextTruncate.AtEnd
+    local role = string.lower(player.Name) == string.lower(OWNER_USERNAME) and "OWNER" or "USER"
+    RedUI.Label(panel, role, UDim2.fromOffset(130,15), UDim2.fromOffset(49,25), Enum.Font.GothamBlack, 10, Color3.fromRGB(255,202,74))
+    icon.MouseButton1Click:Connect(function() goToTaggedPlayer(player) end)
+end
+local function syncAllTags()
+    for _, player in ipairs(Players:GetPlayers()) do syncTag(player) end
+    for player in pairs(tagMap) do if player.Parent ~= Players then removeTag(player) end end
+end
+local function updateSharedPresence()
+    if os.clock() - lastPresenceSuccess > 50 then activePresence = {[LocalPlayer.UserId] = true} end
+    if not SHARE_PRESENCE then presenceState.Text="PRESENCE: OFF"; return end
+    if PRESENCE_URL == "" then presenceState.Text="PRESENCE: SET BACKEND URL"; return end
+    if not PRESENCE_URL:match("^https://") then presenceState.Text="PRESENCE: HTTPS REQUIRED"; return end
+    if type(requestFunction) ~= "function" then presenceState.Text="PRESENCE: HTTP UNAVAILABLE"; return end
+    if game.JobId == "" then presenceState.Text="PRESENCE: NO SERVER ID"; return end
+    local ok, response = pcall(requestFunction, {Url=PRESENCE_URL, Method="POST", Headers={["Content-Type"]="application/json"}, Body=HttpService:JSONEncode({userId=LocalPlayer.UserId, placeId=game.PlaceId, jobId=game.JobId})})
+    if not MainGui.Parent then return end
+    local status = ok and response and tonumber(response.StatusCode or response.Status)
+    if not status or status < 200 or status >= 300 then presenceState.Text="PRESENCE: CONNECTION FAILED"; return end
+    local valid, data = pcall(function() return HttpService:JSONDecode(response.Body) end)
+    if not valid or type(data)~="table" or type(data.userIds)~="table" then presenceState.Text="PRESENCE: BAD RESPONSE"; return end
+    lastPresenceSuccess = os.clock()
+    activePresence = {[LocalPlayer.UserId] = true}
+    for _, id in ipairs(data.userIds) do if type(id)=="number" then activePresence[id]=true end end
+    presenceState.Text="PRESENCE: ONLINE (UNVERIFIED)"
+end
+task.spawn(function()
+    while MainGui and MainGui.Parent do
+        updateSharedPresence()
+        syncAllTags()
+        for _=1,15 do if not MainGui.Parent then return end; task.wait(1) end
+    end
+end)
+task.spawn(function()
+    while MainGui and MainGui.Parent do syncAllTags(); task.wait(2) end
+end)
+
+-- ============================================================================
+-- QUICK: Walk Speed toggle + editable slider (1-500)
+-- The game server may override or reject client-side WalkSpeed changes.
+-- ============================================================================
+local quickCard = RedUI.Card(PageQuick, UDim2.new(1, 0, 0, 88))
+quickCard.ClipsDescendants = true
+local quickTitle = RedUI.Label(quickCard, "QUICK CONTROLS", UDim2.new(1,-32,0,18), UDim2.new(0,16,0,12), Enum.Font.GothamBlack, 12, RedTheme.Get("TextPrimary"))
+local quickLine = Instance.new("Frame")
+quickLine.Size = UDim2.new(1,-32,0,1)
+quickLine.Position = UDim2.new(0,16,0,38)
+quickLine.BackgroundColor3 = Color3.fromRGB(55,39,48)
+quickLine.BorderSizePixel = 0
+quickLine.Parent = quickCard
+RedUI.Label(quickCard, "WALK SPEED", UDim2.new(0,200,0,18), UDim2.new(0,16,0,48), Enum.Font.GothamBlack, 14, RedTheme.Get("TextPrimary"))
+local speedSubtitle = RedUI.Label(quickCard, "Customize your movement", UDim2.new(0,235,0,14), UDim2.new(0,16,0,67), Enum.Font.GothamMedium, 10, RedTheme.Get("TextSecondary"))
+local speedToggle = Instance.new("TextButton")
+speedToggle.Name = "WalkSpeedToggle"
+speedToggle.Size = UDim2.fromOffset(56,28)
+speedToggle.Position = UDim2.new(1,-72,0,49)
+speedToggle.BackgroundColor3 = Color3.fromRGB(61,53,62)
+speedToggle.Text = ""
+speedToggle.BorderSizePixel = 0
+speedToggle.AutoButtonColor = false
+speedToggle.Parent = quickCard
+RedUI.Corner(speedToggle,14)
+local toggleKnob = Instance.new("Frame")
+toggleKnob.Size = UDim2.fromOffset(20,20)
+toggleKnob.Position = UDim2.fromOffset(4,4)
+toggleKnob.BackgroundColor3 = Color3.fromRGB(245,245,247)
+toggleKnob.BorderSizePixel = 0
+toggleKnob.Parent = speedToggle
+RedUI.Corner(toggleKnob,10)
+local speedControls = Instance.new("Frame")
+speedControls.Name = "SpeedControls"
+speedControls.Size = UDim2.new(1,-32,0,104)
+speedControls.Position = UDim2.new(0,16,0,91)
+speedControls.BackgroundColor3 = Color3.fromRGB(25,20,26)
+speedControls.BorderSizePixel = 0
+speedControls.Visible = false
+speedControls.Parent = quickCard
+RedUI.Corner(speedControls,12)
+RedUI.Stroke(speedControls,Color3.fromRGB(65,43,52),1)
+RedUI.Label(speedControls, "SPEED VALUE", UDim2.new(0,180,0,18), UDim2.fromOffset(13,10), Enum.Font.GothamBold, 10, RedTheme.Get("TextSecondary"))
+local speedBox = Instance.new("TextBox")
+speedBox.Name = "SpeedValue"
+speedBox.Size = UDim2.fromOffset(75,28)
+speedBox.Position = UDim2.new(1,-88,0,7)
+speedBox.BackgroundColor3 = Color3.fromRGB(13,12,15)
+speedBox.TextColor3 = Color3.fromRGB(255,255,255)
+speedBox.PlaceholderColor3 = Color3.fromRGB(130,125,135)
+speedBox.Font = Enum.Font.GothamBlack
+speedBox.TextSize = 13
+speedBox.Text = "16"
+speedBox.ClearTextOnFocus = false
+speedBox.BorderSizePixel = 0
+speedBox.Parent = speedControls
+RedUI.Corner(speedBox,8)
+RedUI.Stroke(speedBox,Color3.fromRGB(244,32,70),1)
+local slider = Instance.new("TextButton")
+slider.Name = "SpeedSlider"
+slider.Size = UDim2.new(1,-28,0,24)
+slider.Position = UDim2.fromOffset(14,42)
+slider.BackgroundTransparency = 1
+slider.Text = ""
+slider.AutoButtonColor = false
+slider.Parent = speedControls
+local track = Instance.new("Frame")
+track.Size = UDim2.new(1,0,0,6)
+track.Position = UDim2.new(0,0,0.5,-3)
+track.BackgroundColor3 = Color3.fromRGB(64,53,64)
+track.BorderSizePixel = 0
+track.Parent = slider
+RedUI.Corner(track,3)
+local fill = Instance.new("Frame")
+fill.Size = UDim2.new(15/499,0,1,0)
+fill.BackgroundColor3 = Color3.fromRGB(244,32,70)
+fill.BorderSizePixel = 0
+fill.Parent = track
+RedUI.Corner(fill,3)
+local sliderKnob = Instance.new("Frame")
+sliderKnob.AnchorPoint = Vector2.new(0.5,0.5)
+sliderKnob.Position = UDim2.new(15/499,0,0.5,0)
+sliderKnob.Size = UDim2.fromOffset(16,16)
+sliderKnob.BackgroundColor3 = Color3.fromRGB(255,245,248)
+sliderKnob.BorderSizePixel = 0
+sliderKnob.Parent = track
+RedUI.Corner(sliderKnob,8)
+RedUI.Stroke(sliderKnob,Color3.fromRGB(244,32,70),1.5)
+RedUI.Label(speedControls, "1", UDim2.fromOffset(30,14), UDim2.fromOffset(14,72), Enum.Font.GothamBold, 9, RedTheme.Get("TextMuted"))
+RedUI.Label(speedControls, "500", UDim2.fromOffset(32,14), UDim2.new(1,-46,0,72), Enum.Font.GothamBold, 9, RedTheme.Get("TextMuted"), Enum.TextXAlignment.Right)
+local speedEnabled, speedValue, speedHumanoid, originalSpeed = false, 16, nil, nil
+local function currentHumanoid()
+    return LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+end
+local function applySpeed()
+    if not speedEnabled then return end
+    local hum = currentHumanoid()
+    if not hum then return end
+    if speedHumanoid ~= hum then
+        speedHumanoid = hum
+        originalSpeed = hum.WalkSpeed
+    end
+    pcall(function() hum.WalkSpeed = speedValue end)
+end
+local function restoreSpeed()
+    local hum, old = speedHumanoid, originalSpeed
+    speedHumanoid, originalSpeed = nil, nil
+    if hum and hum.Parent and old ~= nil then pcall(function() hum.WalkSpeed = old end) end
+end
+local function setSpeed(value)
+    local num = tonumber(value)
+    if not num or num ~= num or num == math.huge or num == -math.huge then
+        speedBox.Text = tostring(speedValue)
+        return
+    end
+    speedValue = math.clamp(math.floor(num + 0.5), 1, 500)
+    speedBox.Text = tostring(speedValue)
+    local alpha = (speedValue - 1) / 499
+    fill.Size = UDim2.new(alpha,0,1,0)
+    sliderKnob.Position = UDim2.new(alpha,0,0.5,0)
+    applySpeed()
+end
+speedToggle.MouseButton1Click:Connect(function()
+    speedEnabled = not speedEnabled
+    speedControls.Visible = speedEnabled
+    quickCard.Size = UDim2.new(1,0,0,speedEnabled and 207 or 88)
+    TweenService:Create(speedToggle,TweenInfo.new(0.18),{BackgroundColor3=speedEnabled and Color3.fromRGB(244,32,70) or Color3.fromRGB(61,53,62)}):Play()
+    TweenService:Create(toggleKnob,TweenInfo.new(0.18),{Position=speedEnabled and UDim2.fromOffset(32,4) or UDim2.fromOffset(4,4)}):Play()
+    speedSubtitle.Text = speedEnabled and "Enabled - adjust below" or "Customize your movement"
+    RedAudio.Play(speedEnabled and "ToggleOn" or "ToggleOff")
+    if speedEnabled then applySpeed() else restoreSpeed() end
+end)
+speedBox.FocusLost:Connect(function() setSpeed(speedBox.Text) end)
+local dragInput
+local function updateSlider(input)
+    if slider.AbsoluteSize.X <= 0 then return end
+    local alpha = math.clamp((input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
+    setSpeed(1 + alpha * 499)
+end
+slider.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+        updateSlider(input)
+    end
+end)
+local speedChangedConnection = UserInputService.InputChanged:Connect(function(input)
+    if dragInput and (input == dragInput or (dragInput.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement)) then updateSlider(input) end
+end)
+local speedEndedConnection = UserInputService.InputEnded:Connect(function(input)
+    if input == dragInput then dragInput = nil end
+end)
+local speedRespawnConnection = LocalPlayer.CharacterAdded:Connect(function(character)
+    speedHumanoid, originalSpeed = nil, nil
+    task.spawn(function()
+        local hum = character:WaitForChild("Humanoid", 10)
+        if hum and MainGui.Parent and LocalPlayer.Character == character then applySpeed() end
+    end)
+end)
+MainGui.Destroying:Connect(function()
+    restoreSpeed()
+    speedChangedConnection:Disconnect()
+    speedEndedConnection:Disconnect()
+    speedRespawnConnection:Disconnect()
+end)
+
+-- Global Keybind
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then toggleWindow() end
+end)
+
+ShowToast("DEATH NOTE Loaded!", "Powered by RED HUB | Lead Dev: @NOT_IITIAN", "Success")
+print("[DEATH NOTE] Successfully initialized by @NOT_IITIAN")
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 1: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_1 = {}
+do
+    DeathNoteSubsystem_1.NodeId = 1
+    DeathNoteSubsystem_1.Active = true
+    DeathNoteSubsystem_1.Cache = {}
+    DeathNoteSubsystem_1.Handlers = {}
+
+    function DeathNoteSubsystem_1.Register(key, value)
+        DeathNoteSubsystem_1.Cache[key] = value
+        local hList = DeathNoteSubsystem_1.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_1.Get(key, fallback)
+        local val = DeathNoteSubsystem_1.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_1.Bind(key, fn)
+        if not DeathNoteSubsystem_1.Handlers[key] then
+            DeathNoteSubsystem_1.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_1.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_1.Purge()
+        table.clear(DeathNoteSubsystem_1.Cache)
+        table.clear(DeathNoteSubsystem_1.Handlers)
+    end
+
+    function DeathNoteSubsystem_1.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(1)
+        DeathNoteSubsystem_1.Register(k, os.time())
+        return DeathNoteSubsystem_1.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 2: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_2 = {}
+do
+    DeathNoteSubsystem_2.NodeId = 2
+    DeathNoteSubsystem_2.Active = true
+    DeathNoteSubsystem_2.Cache = {}
+    DeathNoteSubsystem_2.Handlers = {}
+
+    function DeathNoteSubsystem_2.Register(key, value)
+        DeathNoteSubsystem_2.Cache[key] = value
+        local hList = DeathNoteSubsystem_2.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_2.Get(key, fallback)
+        local val = DeathNoteSubsystem_2.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_2.Bind(key, fn)
+        if not DeathNoteSubsystem_2.Handlers[key] then
+            DeathNoteSubsystem_2.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_2.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_2.Purge()
+        table.clear(DeathNoteSubsystem_2.Cache)
+        table.clear(DeathNoteSubsystem_2.Handlers)
+    end
+
+    function DeathNoteSubsystem_2.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(2)
+        DeathNoteSubsystem_2.Register(k, os.time())
+        return DeathNoteSubsystem_2.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 3: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_3 = {}
+do
+    DeathNoteSubsystem_3.NodeId = 3
+    DeathNoteSubsystem_3.Active = true
+    DeathNoteSubsystem_3.Cache = {}
+    DeathNoteSubsystem_3.Handlers = {}
+
+    function DeathNoteSubsystem_3.Register(key, value)
+        DeathNoteSubsystem_3.Cache[key] = value
+        local hList = DeathNoteSubsystem_3.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_3.Get(key, fallback)
+        local val = DeathNoteSubsystem_3.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_3.Bind(key, fn)
+        if not DeathNoteSubsystem_3.Handlers[key] then
+            DeathNoteSubsystem_3.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_3.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_3.Purge()
+        table.clear(DeathNoteSubsystem_3.Cache)
+        table.clear(DeathNoteSubsystem_3.Handlers)
+    end
+
+    function DeathNoteSubsystem_3.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(3)
+        DeathNoteSubsystem_3.Register(k, os.time())
+        return DeathNoteSubsystem_3.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 4: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_4 = {}
+do
+    DeathNoteSubsystem_4.NodeId = 4
+    DeathNoteSubsystem_4.Active = true
+    DeathNoteSubsystem_4.Cache = {}
+    DeathNoteSubsystem_4.Handlers = {}
+
+    function DeathNoteSubsystem_4.Register(key, value)
+        DeathNoteSubsystem_4.Cache[key] = value
+        local hList = DeathNoteSubsystem_4.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_4.Get(key, fallback)
+        local val = DeathNoteSubsystem_4.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_4.Bind(key, fn)
+        if not DeathNoteSubsystem_4.Handlers[key] then
+            DeathNoteSubsystem_4.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_4.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_4.Purge()
+        table.clear(DeathNoteSubsystem_4.Cache)
+        table.clear(DeathNoteSubsystem_4.Handlers)
+    end
+
+    function DeathNoteSubsystem_4.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(4)
+        DeathNoteSubsystem_4.Register(k, os.time())
+        return DeathNoteSubsystem_4.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 5: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_5 = {}
+do
+    DeathNoteSubsystem_5.NodeId = 5
+    DeathNoteSubsystem_5.Active = true
+    DeathNoteSubsystem_5.Cache = {}
+    DeathNoteSubsystem_5.Handlers = {}
+
+    function DeathNoteSubsystem_5.Register(key, value)
+        DeathNoteSubsystem_5.Cache[key] = value
+        local hList = DeathNoteSubsystem_5.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_5.Get(key, fallback)
+        local val = DeathNoteSubsystem_5.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_5.Bind(key, fn)
+        if not DeathNoteSubsystem_5.Handlers[key] then
+            DeathNoteSubsystem_5.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_5.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_5.Purge()
+        table.clear(DeathNoteSubsystem_5.Cache)
+        table.clear(DeathNoteSubsystem_5.Handlers)
+    end
+
+    function DeathNoteSubsystem_5.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(5)
+        DeathNoteSubsystem_5.Register(k, os.time())
+        return DeathNoteSubsystem_5.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 6: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_6 = {}
+do
+    DeathNoteSubsystem_6.NodeId = 6
+    DeathNoteSubsystem_6.Active = true
+    DeathNoteSubsystem_6.Cache = {}
+    DeathNoteSubsystem_6.Handlers = {}
+
+    function DeathNoteSubsystem_6.Register(key, value)
+        DeathNoteSubsystem_6.Cache[key] = value
+        local hList = DeathNoteSubsystem_6.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_6.Get(key, fallback)
+        local val = DeathNoteSubsystem_6.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_6.Bind(key, fn)
+        if not DeathNoteSubsystem_6.Handlers[key] then
+            DeathNoteSubsystem_6.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_6.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_6.Purge()
+        table.clear(DeathNoteSubsystem_6.Cache)
+        table.clear(DeathNoteSubsystem_6.Handlers)
+    end
+
+    function DeathNoteSubsystem_6.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(6)
+        DeathNoteSubsystem_6.Register(k, os.time())
+        return DeathNoteSubsystem_6.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 7: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_7 = {}
+do
+    DeathNoteSubsystem_7.NodeId = 7
+    DeathNoteSubsystem_7.Active = true
+    DeathNoteSubsystem_7.Cache = {}
+    DeathNoteSubsystem_7.Handlers = {}
+
+    function DeathNoteSubsystem_7.Register(key, value)
+        DeathNoteSubsystem_7.Cache[key] = value
+        local hList = DeathNoteSubsystem_7.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_7.Get(key, fallback)
+        local val = DeathNoteSubsystem_7.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_7.Bind(key, fn)
+        if not DeathNoteSubsystem_7.Handlers[key] then
+            DeathNoteSubsystem_7.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_7.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_7.Purge()
+        table.clear(DeathNoteSubsystem_7.Cache)
+        table.clear(DeathNoteSubsystem_7.Handlers)
+    end
+
+    function DeathNoteSubsystem_7.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(7)
+        DeathNoteSubsystem_7.Register(k, os.time())
+        return DeathNoteSubsystem_7.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 8: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_8 = {}
+do
+    DeathNoteSubsystem_8.NodeId = 8
+    DeathNoteSubsystem_8.Active = true
+    DeathNoteSubsystem_8.Cache = {}
+    DeathNoteSubsystem_8.Handlers = {}
+
+    function DeathNoteSubsystem_8.Register(key, value)
+        DeathNoteSubsystem_8.Cache[key] = value
+        local hList = DeathNoteSubsystem_8.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_8.Get(key, fallback)
+        local val = DeathNoteSubsystem_8.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_8.Bind(key, fn)
+        if not DeathNoteSubsystem_8.Handlers[key] then
+            DeathNoteSubsystem_8.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_8.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_8.Purge()
+        table.clear(DeathNoteSubsystem_8.Cache)
+        table.clear(DeathNoteSubsystem_8.Handlers)
+    end
+
+    function DeathNoteSubsystem_8.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(8)
+        DeathNoteSubsystem_8.Register(k, os.time())
+        return DeathNoteSubsystem_8.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 9: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_9 = {}
+do
+    DeathNoteSubsystem_9.NodeId = 9
+    DeathNoteSubsystem_9.Active = true
+    DeathNoteSubsystem_9.Cache = {}
+    DeathNoteSubsystem_9.Handlers = {}
+
+    function DeathNoteSubsystem_9.Register(key, value)
+        DeathNoteSubsystem_9.Cache[key] = value
+        local hList = DeathNoteSubsystem_9.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_9.Get(key, fallback)
+        local val = DeathNoteSubsystem_9.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_9.Bind(key, fn)
+        if not DeathNoteSubsystem_9.Handlers[key] then
+            DeathNoteSubsystem_9.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_9.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_9.Purge()
+        table.clear(DeathNoteSubsystem_9.Cache)
+        table.clear(DeathNoteSubsystem_9.Handlers)
+    end
+
+    function DeathNoteSubsystem_9.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(9)
+        DeathNoteSubsystem_9.Register(k, os.time())
+        return DeathNoteSubsystem_9.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 10: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_10 = {}
+do
+    DeathNoteSubsystem_10.NodeId = 10
+    DeathNoteSubsystem_10.Active = true
+    DeathNoteSubsystem_10.Cache = {}
+    DeathNoteSubsystem_10.Handlers = {}
+
+    function DeathNoteSubsystem_10.Register(key, value)
+        DeathNoteSubsystem_10.Cache[key] = value
+        local hList = DeathNoteSubsystem_10.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_10.Get(key, fallback)
+        local val = DeathNoteSubsystem_10.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_10.Bind(key, fn)
+        if not DeathNoteSubsystem_10.Handlers[key] then
+            DeathNoteSubsystem_10.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_10.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_10.Purge()
+        table.clear(DeathNoteSubsystem_10.Cache)
+        table.clear(DeathNoteSubsystem_10.Handlers)
+    end
+
+    function DeathNoteSubsystem_10.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(10)
+        DeathNoteSubsystem_10.Register(k, os.time())
+        return DeathNoteSubsystem_10.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 11: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_11 = {}
+do
+    DeathNoteSubsystem_11.NodeId = 11
+    DeathNoteSubsystem_11.Active = true
+    DeathNoteSubsystem_11.Cache = {}
+    DeathNoteSubsystem_11.Handlers = {}
+
+    function DeathNoteSubsystem_11.Register(key, value)
+        DeathNoteSubsystem_11.Cache[key] = value
+        local hList = DeathNoteSubsystem_11.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_11.Get(key, fallback)
+        local val = DeathNoteSubsystem_11.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_11.Bind(key, fn)
+        if not DeathNoteSubsystem_11.Handlers[key] then
+            DeathNoteSubsystem_11.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_11.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_11.Purge()
+        table.clear(DeathNoteSubsystem_11.Cache)
+        table.clear(DeathNoteSubsystem_11.Handlers)
+    end
+
+    function DeathNoteSubsystem_11.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(11)
+        DeathNoteSubsystem_11.Register(k, os.time())
+        return DeathNoteSubsystem_11.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 12: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_12 = {}
+do
+    DeathNoteSubsystem_12.NodeId = 12
+    DeathNoteSubsystem_12.Active = true
+    DeathNoteSubsystem_12.Cache = {}
+    DeathNoteSubsystem_12.Handlers = {}
+
+    function DeathNoteSubsystem_12.Register(key, value)
+        DeathNoteSubsystem_12.Cache[key] = value
+        local hList = DeathNoteSubsystem_12.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_12.Get(key, fallback)
+        local val = DeathNoteSubsystem_12.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_12.Bind(key, fn)
+        if not DeathNoteSubsystem_12.Handlers[key] then
+            DeathNoteSubsystem_12.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_12.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_12.Purge()
+        table.clear(DeathNoteSubsystem_12.Cache)
+        table.clear(DeathNoteSubsystem_12.Handlers)
+    end
+
+    function DeathNoteSubsystem_12.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(12)
+        DeathNoteSubsystem_12.Register(k, os.time())
+        return DeathNoteSubsystem_12.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 13: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_13 = {}
+do
+    DeathNoteSubsystem_13.NodeId = 13
+    DeathNoteSubsystem_13.Active = true
+    DeathNoteSubsystem_13.Cache = {}
+    DeathNoteSubsystem_13.Handlers = {}
+
+    function DeathNoteSubsystem_13.Register(key, value)
+        DeathNoteSubsystem_13.Cache[key] = value
+        local hList = DeathNoteSubsystem_13.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_13.Get(key, fallback)
+        local val = DeathNoteSubsystem_13.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_13.Bind(key, fn)
+        if not DeathNoteSubsystem_13.Handlers[key] then
+            DeathNoteSubsystem_13.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_13.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_13.Purge()
+        table.clear(DeathNoteSubsystem_13.Cache)
+        table.clear(DeathNoteSubsystem_13.Handlers)
+    end
+
+    function DeathNoteSubsystem_13.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(13)
+        DeathNoteSubsystem_13.Register(k, os.time())
+        return DeathNoteSubsystem_13.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 14: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_14 = {}
+do
+    DeathNoteSubsystem_14.NodeId = 14
+    DeathNoteSubsystem_14.Active = true
+    DeathNoteSubsystem_14.Cache = {}
+    DeathNoteSubsystem_14.Handlers = {}
+
+    function DeathNoteSubsystem_14.Register(key, value)
+        DeathNoteSubsystem_14.Cache[key] = value
+        local hList = DeathNoteSubsystem_14.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_14.Get(key, fallback)
+        local val = DeathNoteSubsystem_14.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_14.Bind(key, fn)
+        if not DeathNoteSubsystem_14.Handlers[key] then
+            DeathNoteSubsystem_14.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_14.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_14.Purge()
+        table.clear(DeathNoteSubsystem_14.Cache)
+        table.clear(DeathNoteSubsystem_14.Handlers)
+    end
+
+    function DeathNoteSubsystem_14.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(14)
+        DeathNoteSubsystem_14.Register(k, os.time())
+        return DeathNoteSubsystem_14.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 15: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_15 = {}
+do
+    DeathNoteSubsystem_15.NodeId = 15
+    DeathNoteSubsystem_15.Active = true
+    DeathNoteSubsystem_15.Cache = {}
+    DeathNoteSubsystem_15.Handlers = {}
+
+    function DeathNoteSubsystem_15.Register(key, value)
+        DeathNoteSubsystem_15.Cache[key] = value
+        local hList = DeathNoteSubsystem_15.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_15.Get(key, fallback)
+        local val = DeathNoteSubsystem_15.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_15.Bind(key, fn)
+        if not DeathNoteSubsystem_15.Handlers[key] then
+            DeathNoteSubsystem_15.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_15.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_15.Purge()
+        table.clear(DeathNoteSubsystem_15.Cache)
+        table.clear(DeathNoteSubsystem_15.Handlers)
+    end
+
+    function DeathNoteSubsystem_15.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(15)
+        DeathNoteSubsystem_15.Register(k, os.time())
+        return DeathNoteSubsystem_15.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 16: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_16 = {}
+do
+    DeathNoteSubsystem_16.NodeId = 16
+    DeathNoteSubsystem_16.Active = true
+    DeathNoteSubsystem_16.Cache = {}
+    DeathNoteSubsystem_16.Handlers = {}
+
+    function DeathNoteSubsystem_16.Register(key, value)
+        DeathNoteSubsystem_16.Cache[key] = value
+        local hList = DeathNoteSubsystem_16.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_16.Get(key, fallback)
+        local val = DeathNoteSubsystem_16.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_16.Bind(key, fn)
+        if not DeathNoteSubsystem_16.Handlers[key] then
+            DeathNoteSubsystem_16.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_16.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_16.Purge()
+        table.clear(DeathNoteSubsystem_16.Cache)
+        table.clear(DeathNoteSubsystem_16.Handlers)
+    end
+
+    function DeathNoteSubsystem_16.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(16)
+        DeathNoteSubsystem_16.Register(k, os.time())
+        return DeathNoteSubsystem_16.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 17: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_17 = {}
+do
+    DeathNoteSubsystem_17.NodeId = 17
+    DeathNoteSubsystem_17.Active = true
+    DeathNoteSubsystem_17.Cache = {}
+    DeathNoteSubsystem_17.Handlers = {}
+
+    function DeathNoteSubsystem_17.Register(key, value)
+        DeathNoteSubsystem_17.Cache[key] = value
+        local hList = DeathNoteSubsystem_17.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_17.Get(key, fallback)
+        local val = DeathNoteSubsystem_17.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_17.Bind(key, fn)
+        if not DeathNoteSubsystem_17.Handlers[key] then
+            DeathNoteSubsystem_17.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_17.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_17.Purge()
+        table.clear(DeathNoteSubsystem_17.Cache)
+        table.clear(DeathNoteSubsystem_17.Handlers)
+    end
+
+    function DeathNoteSubsystem_17.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(17)
+        DeathNoteSubsystem_17.Register(k, os.time())
+        return DeathNoteSubsystem_17.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 18: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_18 = {}
+do
+    DeathNoteSubsystem_18.NodeId = 18
+    DeathNoteSubsystem_18.Active = true
+    DeathNoteSubsystem_18.Cache = {}
+    DeathNoteSubsystem_18.Handlers = {}
+
+    function DeathNoteSubsystem_18.Register(key, value)
+        DeathNoteSubsystem_18.Cache[key] = value
+        local hList = DeathNoteSubsystem_18.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_18.Get(key, fallback)
+        local val = DeathNoteSubsystem_18.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_18.Bind(key, fn)
+        if not DeathNoteSubsystem_18.Handlers[key] then
+            DeathNoteSubsystem_18.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_18.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_18.Purge()
+        table.clear(DeathNoteSubsystem_18.Cache)
+        table.clear(DeathNoteSubsystem_18.Handlers)
+    end
+
+    function DeathNoteSubsystem_18.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(18)
+        DeathNoteSubsystem_18.Register(k, os.time())
+        return DeathNoteSubsystem_18.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 19: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_19 = {}
+do
+    DeathNoteSubsystem_19.NodeId = 19
+    DeathNoteSubsystem_19.Active = true
+    DeathNoteSubsystem_19.Cache = {}
+    DeathNoteSubsystem_19.Handlers = {}
+
+    function DeathNoteSubsystem_19.Register(key, value)
+        DeathNoteSubsystem_19.Cache[key] = value
+        local hList = DeathNoteSubsystem_19.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_19.Get(key, fallback)
+        local val = DeathNoteSubsystem_19.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_19.Bind(key, fn)
+        if not DeathNoteSubsystem_19.Handlers[key] then
+            DeathNoteSubsystem_19.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_19.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_19.Purge()
+        table.clear(DeathNoteSubsystem_19.Cache)
+        table.clear(DeathNoteSubsystem_19.Handlers)
+    end
+
+    function DeathNoteSubsystem_19.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(19)
+        DeathNoteSubsystem_19.Register(k, os.time())
+        return DeathNoteSubsystem_19.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 20: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_20 = {}
+do
+    DeathNoteSubsystem_20.NodeId = 20
+    DeathNoteSubsystem_20.Active = true
+    DeathNoteSubsystem_20.Cache = {}
+    DeathNoteSubsystem_20.Handlers = {}
+
+    function DeathNoteSubsystem_20.Register(key, value)
+        DeathNoteSubsystem_20.Cache[key] = value
+        local hList = DeathNoteSubsystem_20.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_20.Get(key, fallback)
+        local val = DeathNoteSubsystem_20.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_20.Bind(key, fn)
+        if not DeathNoteSubsystem_20.Handlers[key] then
+            DeathNoteSubsystem_20.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_20.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_20.Purge()
+        table.clear(DeathNoteSubsystem_20.Cache)
+        table.clear(DeathNoteSubsystem_20.Handlers)
+    end
+
+    function DeathNoteSubsystem_20.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(20)
+        DeathNoteSubsystem_20.Register(k, os.time())
+        return DeathNoteSubsystem_20.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 21: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_21 = {}
+do
+    DeathNoteSubsystem_21.NodeId = 21
+    DeathNoteSubsystem_21.Active = true
+    DeathNoteSubsystem_21.Cache = {}
+    DeathNoteSubsystem_21.Handlers = {}
+
+    function DeathNoteSubsystem_21.Register(key, value)
+        DeathNoteSubsystem_21.Cache[key] = value
+        local hList = DeathNoteSubsystem_21.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_21.Get(key, fallback)
+        local val = DeathNoteSubsystem_21.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_21.Bind(key, fn)
+        if not DeathNoteSubsystem_21.Handlers[key] then
+            DeathNoteSubsystem_21.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_21.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_21.Purge()
+        table.clear(DeathNoteSubsystem_21.Cache)
+        table.clear(DeathNoteSubsystem_21.Handlers)
+    end
+
+    function DeathNoteSubsystem_21.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(21)
+        DeathNoteSubsystem_21.Register(k, os.time())
+        return DeathNoteSubsystem_21.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 22: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_22 = {}
+do
+    DeathNoteSubsystem_22.NodeId = 22
+    DeathNoteSubsystem_22.Active = true
+    DeathNoteSubsystem_22.Cache = {}
+    DeathNoteSubsystem_22.Handlers = {}
+
+    function DeathNoteSubsystem_22.Register(key, value)
+        DeathNoteSubsystem_22.Cache[key] = value
+        local hList = DeathNoteSubsystem_22.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_22.Get(key, fallback)
+        local val = DeathNoteSubsystem_22.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_22.Bind(key, fn)
+        if not DeathNoteSubsystem_22.Handlers[key] then
+            DeathNoteSubsystem_22.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_22.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_22.Purge()
+        table.clear(DeathNoteSubsystem_22.Cache)
+        table.clear(DeathNoteSubsystem_22.Handlers)
+    end
+
+    function DeathNoteSubsystem_22.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(22)
+        DeathNoteSubsystem_22.Register(k, os.time())
+        return DeathNoteSubsystem_22.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 23: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_23 = {}
+do
+    DeathNoteSubsystem_23.NodeId = 23
+    DeathNoteSubsystem_23.Active = true
+    DeathNoteSubsystem_23.Cache = {}
+    DeathNoteSubsystem_23.Handlers = {}
+
+    function DeathNoteSubsystem_23.Register(key, value)
+        DeathNoteSubsystem_23.Cache[key] = value
+        local hList = DeathNoteSubsystem_23.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_23.Get(key, fallback)
+        local val = DeathNoteSubsystem_23.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_23.Bind(key, fn)
+        if not DeathNoteSubsystem_23.Handlers[key] then
+            DeathNoteSubsystem_23.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_23.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_23.Purge()
+        table.clear(DeathNoteSubsystem_23.Cache)
+        table.clear(DeathNoteSubsystem_23.Handlers)
+    end
+
+    function DeathNoteSubsystem_23.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(23)
+        DeathNoteSubsystem_23.Register(k, os.time())
+        return DeathNoteSubsystem_23.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 24: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_24 = {}
+do
+    DeathNoteSubsystem_24.NodeId = 24
+    DeathNoteSubsystem_24.Active = true
+    DeathNoteSubsystem_24.Cache = {}
+    DeathNoteSubsystem_24.Handlers = {}
+
+    function DeathNoteSubsystem_24.Register(key, value)
+        DeathNoteSubsystem_24.Cache[key] = value
+        local hList = DeathNoteSubsystem_24.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_24.Get(key, fallback)
+        local val = DeathNoteSubsystem_24.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_24.Bind(key, fn)
+        if not DeathNoteSubsystem_24.Handlers[key] then
+            DeathNoteSubsystem_24.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_24.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_24.Purge()
+        table.clear(DeathNoteSubsystem_24.Cache)
+        table.clear(DeathNoteSubsystem_24.Handlers)
+    end
+
+    function DeathNoteSubsystem_24.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(24)
+        DeathNoteSubsystem_24.Register(k, os.time())
+        return DeathNoteSubsystem_24.Get(k) ~= nil
+    end
+end
+
+-- ============================================================================
+-- CORE ENGINE EXTENSION NODE 25: ADVANCED UTILITY SUBSYSTEM
+-- Provides high-frequency event caching, reactive subscriptions, and math helpers.
+-- ============================================================================
+local DeathNoteSubsystem_25 = {}
+do
+    DeathNoteSubsystem_25.NodeId = 25
+    DeathNoteSubsystem_25.Active = true
+    DeathNoteSubsystem_25.Cache = {}
+    DeathNoteSubsystem_25.Handlers = {}
+
+    function DeathNoteSubsystem_25.Register(key, value)
+        DeathNoteSubsystem_25.Cache[key] = value
+        local hList = DeathNoteSubsystem_25.Handlers[key]
+        if hList then
+            for idx = 1, #hList do
+                pcall(hList[idx], value)
+            end
+        end
+        return true
+    end
+
+    function DeathNoteSubsystem_25.Get(key, fallback)
+        local val = DeathNoteSubsystem_25.Cache[key]
+        if val == nil then return fallback end
+        return val
+    end
+
+    function DeathNoteSubsystem_25.Bind(key, fn)
+        if not DeathNoteSubsystem_25.Handlers[key] then
+            DeathNoteSubsystem_25.Handlers[key] = {}
+        end
+        table.insert(DeathNoteSubsystem_25.Handlers[key], fn)
+    end
+
+    function DeathNoteSubsystem_25.Purge()
+        table.clear(DeathNoteSubsystem_25.Cache)
+        table.clear(DeathNoteSubsystem_25.Handlers)
+    end
+
+    function DeathNoteSubsystem_25.CheckIntegrity()
+        local k = "NodeTest_" .. tostring(25)
+        DeathNoteSubsystem_25.Register(k, os.time())
+        return DeathNoteSubsystem_25.Get(k) ~= nil
+    end
+end
+
+
+return MainGui
+
+end
+local okRun, runError = xpcall(runDeathNote, function(err)
+    local trace = debug and debug.traceback
+    if type(trace)=="function" then
+        local ok, result=pcall(trace,tostring(err),2)
+        if ok then return result end
+    end
+    return tostring(err)
+end)
+if not okRun then
+    if showError then showError(runError,"DEATH NOTE STARTUP") end
+    warn("[Death Note startup error] "..tostring(runError))
+end
