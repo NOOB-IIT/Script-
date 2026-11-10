@@ -1,0 +1,301 @@
+-- Public API endpoint only. NEVER put an OAuth secret in this loader.
+((getgenv and getgenv()) or _G).REDHUB_PREMIUM_API = "https://yyypoxxmndlrcyzfwaqx.supabase.co/functions/v1/redhub-premium"
+-- RED HUB 780K V8.8 SONIC FE R15 REMOVED / V80 PROVEN RESUMABLE TRANSPORT: CHAT after SPECIFIC GAME: opt-in free Basic/Premium Server and Global channels, avatar/display name/server timestamps, native send arrow, bounded near-live sync with safe limits. English wrong-game popup and upcoming scripts footer. Existing game locks, dock/Lite fixes preserved. Created by RED HUB.
+-- Loads the 780,000-line build with native games and existing verified access. No passwords,
+-- device tokens, premium keys or account data are sent to a diagnostic server.
+local PARTS = {
+ {size=524288,sha256="2faa320b8933593b9da1a60125b1c73ab20a15f0df7d60b1c565e04c41bd8bb3",urls={"https://api.pastes.dev/Vy6qBLW9bt","https://paste.c-net.org/FuturesBends"}},
+ {size=524288,sha256="69b88d5ed458c1f92d43b8a46753f994c67167f0d5c56a94a102f769b22f91e9",urls={"https://api.pastes.dev/cVi5oKJpKu","https://paste.c-net.org/FeaturedKristina"}},
+ {size=524288,sha256="5969391dd0acbbc082d286401b3b85c60edd5aef6489179739b01cc5221cf759",urls={"https://api.pastes.dev/X37E4r6p1u","https://paste.c-net.org/PentagonGroove"}},
+ {size=524288,sha256="df5b3608328210761319143033b30ffc83dbbbca539d3abd468fe9370b92c260",urls={"https://api.pastes.dev/G4KWcYT72a","https://paste.c-net.org/HawaiianHabits"}},
+ {size=524288,sha256="2fbc4d376cda5dcaa09b75c384261a4bb99d83a8ae2cdde89307fbacdaed81f3",urls={"https://api.pastes.dev/5FrEZbj1Ri","https://paste.c-net.org/HomerPuked"}},
+ {size=524288,sha256="bb0ce9fe3d3a846989fc9042e81549482c698b932074b44faa4ee10627cf0cd1",urls={"https://api.pastes.dev/TnnPuEeDZT","https://paste.c-net.org/SorryStars"}},
+ {size=524288,sha256="62e20b5fd647a9dd16d998c842b7374fda0f1777f03a94b8e7acbb715450f940",urls={"https://api.pastes.dev/TFCI9zxz9N","https://paste.c-net.org/ShannenColonies"}},
+ {size=524288,sha256="bdd5d14435a5b0c028ec9aabab518c6ef270b59cfa6ef634d0df8bd3de09b4fd",urls={"https://api.pastes.dev/FWqOFV0OSn","https://paste.c-net.org/SavesMarvel"}},
+ {size=524288,sha256="172c5e34d03a78dc8203788b4f71ddb4013bd402a35aaaaf49baaf58ebccb9a1",urls={"https://api.pastes.dev/qrjxAZFMcp","https://paste.c-net.org/MeantimeWrinkle"}},
+ {size=524288,sha256="d48ed0f10bf45f4153d58415353c143c70798d4064b5b3a79e4b5fcb15744d7e",urls={"https://api.pastes.dev/JOsWn5g2nK","https://paste.c-net.org/StanceDuties"}},
+ {size=524288,sha256="54ae0a03f9e2fa024f387741af7d4b39ec90f768bbfbf47086a868289ee29ff3",urls={"https://api.pastes.dev/4pKablYI8R","https://paste.c-net.org/AlcatrazPrinter"}},
+ {size=524288,sha256="746a7ac79e4b23094e6e29349cfb4a144d2a50761d72b043be71d4445eba0546",urls={"https://api.pastes.dev/LmNsVlgoyE","https://paste.c-net.org/EminenceWarranty"}},
+ {size=524288,sha256="2b497d6b2b045685a2c0ebc44d15c477980671294e43123fdee50d68568a5940",urls={"https://api.pastes.dev/q48ND4OaXF","https://paste.c-net.org/PillsMonument"}},
+ {size=524288,sha256="58a6f7424df26d66358407259dc115ec75c60dbe0e8ac5cf08dca2e3cb592289",urls={"https://api.pastes.dev/KV016fEypN","https://paste.c-net.org/ConsumedWitter"}},
+ {size=524288,sha256="e9ca97429de60980dd4f0b224345695aa579ed8273c0ef4e986055fcb76e134e",urls={"https://api.pastes.dev/K4vM8o6Ro9","https://paste.c-net.org/SlumpTaurus"}},
+ {size=524288,sha256="8f5838bc530fef2600b55dd863d140cabf17e5dba38df3f31fbe4d70e4e6d385",urls={"https://api.pastes.dev/L9c29b2Bcs","https://paste.c-net.org/CrunchFocker"}},
+ {size=524288,sha256="8722c359eac363d31a0d108822349c063284976bed8ef093f7c815b801013e66",urls={"https://api.pastes.dev/l9KLRrKnI8","https://paste.c-net.org/VogelShaman"}},
+ {size=524288,sha256="de31b3626e8743a68075a8d45236ce2a9339ac217d46e4eb3f5769efcec576bf",urls={"https://api.pastes.dev/aqWLKnZ9zS","https://paste.c-net.org/RoundingIntends"}},
+ {size=524288,sha256="da791a6ceb8f15e72e2ebbcb5bb896d5450b30491876f87e0f392826edccdfd5",urls={"https://api.pastes.dev/rnNG41b8l5","https://paste.c-net.org/RalphiePansy"}},
+ {size=524288,sha256="d7874777e29640a7db387faf2456d23aadfe34e09c4a6f44cde413dbb38df07d",urls={"https://api.pastes.dev/hBJzNliUHo","https://paste.c-net.org/FractureViable"}},
+ {size=524288,sha256="fc1b702fa7f8f07311d7d5fb22fdba73b798aeb25f50b08d5a7c02dbbb0b3ad2",urls={"https://api.pastes.dev/Hv1e2mMbjI","https://paste.c-net.org/MoronsHippy"}},
+ {size=524288,sha256="1d72c88952ca95b70637a0a507e5bfdd30abcbb651ce84293eca104a7c85ae18",urls={"https://api.pastes.dev/VSd4qBWZhF","https://paste.c-net.org/ClausFinchley"}},
+ {size=524288,sha256="662edcfaac4dd669ab1ad287c7e66d238c2c6505dfdcbbcc6856f56069ec6a65",urls={"https://api.pastes.dev/xpSlNAyWXY","https://paste.c-net.org/UpsideStella"}},
+ {size=65612,sha256="c2aeefc71ff0b8483da62a133a73b63a41ad76be75a32792812b332b49a6f8ef",urls={"https://api.pastes.dev/6VJ8h7TCGr","https://paste.c-net.org/InfernoFergus"}},
+}
+local TOTAL = 12124236
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+if not player then error("Join the game fully before running this diagnostic.") end
+local env = (getgenv and getgenv()) or _G
+if type(env._REDHUB_DIAGNOSTIC_CLEANUP) == "function" then pcall(env._REDHUB_DIAGNOSTIC_CLEANUP) end
+local parent = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui", 8)
+if not parent then error("PlayerGui is not ready. Wait for the game to finish loading, then retry.") end
+local gui = Instance.new("ScreenGui")
+gui.Name = "REDHUB_VISIBLE_DIAGNOSTIC"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 1000000
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = parent
+local frame = Instance.new("Frame")
+frame.AnchorPoint = Vector2.new(0.5, 0)
+frame.Size = UDim2.new(1, -24, 0, 260)
+frame.Position = UDim2.new(0.5, 0, 0, 38)
+frame.BackgroundColor3 = Color3.fromRGB(16, 12, 27)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+local limit = Instance.new("UISizeConstraint")
+limit.MaxSize = Vector2.new(620, 260)
+limit.Parent = frame
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 14)
+corner.Parent = frame
+local edge = Instance.new("UIStroke")
+edge.Color = Color3.fromRGB(177, 116, 255)
+edge.Thickness = 2
+edge.Parent = frame
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -28, 0, 26)
+title.Position = UDim2.fromOffset(14, 8)
+title.BackgroundTransparency = 1
+title.Text = "RED HUB / MOBILE LOADER"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Font = Enum.Font.GothamBold
+title.TextSize = 13
+title.Parent = frame
+local phase = title:Clone()
+phase.Name = "CurrentStage"
+phase.Position = UDim2.fromOffset(14, 37)
+phase.Text = "Preparing..."
+phase.TextSize = 11
+phase.TextColor3 = Color3.fromRGB(107, 226, 255)
+phase.Parent = frame
+local output = Instance.new("TextBox")
+output.Size = UDim2.new(1, -28, 0, 146)
+output.Position = UDim2.fromOffset(14, 68)
+output.BackgroundColor3 = Color3.fromRGB(9, 8, 17)
+output.BorderSizePixel = 0
+output.TextColor3 = Color3.fromRGB(235, 223, 250)
+output.Font = Enum.Font.Code
+output.TextSize = 11
+output.TextWrapped = true
+output.TextXAlignment = Enum.TextXAlignment.Left
+output.TextYAlignment = Enum.TextYAlignment.Top
+output.ClearTextOnFocus = false
+output.MultiLine = true
+output.TextEditable = false
+output.Text = ""
+output.Parent = frame
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 8)
+pad.PaddingLeft = UDim.new(0, 8)
+pad.PaddingRight = UDim.new(0, 8)
+pad.Parent = output
+local function button(value, x, width)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(width, -20, 0, 28)
+    b.Position = UDim2.new(x, 14, 1, -36)
+    b.BackgroundColor3 = Color3.fromRGB(70, 39, 105)
+    b.BorderSizePixel = 0
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 11
+    b.Text = value
+    b.Parent = frame
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 7); c.Parent = b
+    return b
+end
+local copyButton = button("COPY REPORT", 0, 0.34)
+local retryButton = button("RETRY FAILED", 0.34, 0.42)
+local hideButton = button("HIDE", 0.76, 0.24)
+local lines, alive, errorConnection, hasError = {}, true, nil, false
+local function log(value)
+    value = tostring(value)
+    table.insert(lines, value)
+    if #lines > 18 then table.remove(lines, 1) end
+    local message = table.concat(lines, "\n")
+    if alive and output.Parent then output.Text = message end
+    pcall(function() print("[RED HUB DIAGNOSTIC] " .. value) end)
+end
+local function stage(value, failed)
+    if failed then hasError = true end
+    if alive and phase.Parent then
+        phase.Text = value
+        phase.TextColor3 = failed and Color3.fromRGB(255, 145, 145) or Color3.fromRGB(107, 226, 255)
+    end
+end
+local function cleanup()
+    alive = false
+    if errorConnection then errorConnection:Disconnect(); errorConnection = nil end
+    gui:Destroy()
+end
+env._REDHUB_DIAGNOSTIC_CLEANUP = cleanup
+
+copyButton.Activated:Connect(function()
+    local copy = setclipboard or toclipboard or (clipboard and clipboard.set)
+    if type(copy) == "function" then
+        local ok = pcall(copy, table.concat(lines, "\n"))
+        stage(ok and "Report copied. Send the error/stage text." or "Copy failed. Send a screenshot.", not ok)
+    else stage("Clipboard unavailable. Send a screenshot of this panel.", true) end
+end)
+local function stop(message)
+    if alive then gui.Enabled = true end
+    stage("STOPPED - screenshot or copy this report", true)
+    log(message)
+    if alive and output.Parent then output.Text = message .. "\n\n" .. table.concat(lines, "\n") end
+end
+pcall(function()
+    errorConnection = game:GetService("ScriptContext").Error:Connect(function(message, trace)
+        if tostring(trace):find("RED_HUB_780K", 1, true) or tostring(message):find("RED_HUB_780K", 1, true) then
+            stage("Background script error - send this report", true)
+            log("BACKGROUND ERROR: " .. tostring(message):sub(1, 500))
+            log(tostring(trace):sub(1, 900))
+        end
+    end)
+end)
+-- V80 resumable download controller. Compiles only a complete per-part SHA-256 verified payload.
+local shaFallback=(function()return function ( text , pause , current ) local bit = bit32 ; local band , bxor , bnot , rrotate , rshift = bit . band , bit . bxor , bit . bnot , bit . rrotate , bit . rshift local K = { 0x428a2f98 , 0x71374491 , 0xb5c0fbcf , 0xe9b5dba5 , 0x3956c25b , 0x59f111f1 , 0x923f82a4 , 0xab1c5ed5 , 0xd807aa98 , 0x12835b01 , 0x243185be , 0x550c7dc3 , 0x72be5d74 , 0x80deb1fe , 0x9bdc06a7 , 0xc19bf174 , 0xe49b69c1 , 0xefbe4786 , 0x0fc19dc6 , 0x240ca1cc , 0x2de92c6f , 0x4a7484aa , 0x5cb0a9dc , 0x76f988da , 0x983e5152 , 0xa831c66d , 0xb00327c8 , 0xbf597fc7 , 0xc6e00bf3 , 0xd5a79147 , 0x06ca6351 , 0x14292967 , 0x27b70a85 , 0x2e1b2138 , 0x4d2c6dfc , 0x53380d13 , 0x650a7354 , 0x766a0abb , 0x81c2c92e , 0x92722c85 , 0xa2bfe8a1 , 0xa81a664b , 0xc24b8b70 , 0xc76c51a3 , 0xd192e819 , 0xd6990624 , 0xf40e3585 , 0x106aa070 , 0x19a4c116 , 0x1e376c08 , 0x2748774c , 0x34b0bcb5 , 0x391c0cb3 , 0x4ed8aa4a , 0x5b9cca4f , 0x682e6ff3 , 0x748f82ee , 0x78a5636f , 0x84c87814 , 0x8cc70208 , 0x90befffa , 0xa4506ceb , 0xbef9a3f7 , 0xc67178f2 } local MOD = 4294967296 ; local len = # text ; local bits = len * 8 ; local high = math . floor ( bits / MOD ) ; local low = bits % MOD local function word ( n ) return string . char ( math . floor ( n / 16777216 ) % 256 , math . floor ( n / 65536 ) % 256 , math . floor ( n / 256 ) % 256 , n % 256 ) end local padded = text .. string . char ( 128 ) .. string . rep ( '\0' , ( 55 - len ) % 64 ) .. word ( high ) .. word ( low ) local h1 , h2 , h3 , h4 , h5 , h6 , h7 , h8 = 0x6a09e667 , 0xbb67ae85 , 0x3c6ef372 , 0xa54ff53a , 0x510e527f , 0x9b05688c , 0x1f83d9ab , 0x5be0cd19 ; local W = { } for base = 1 , # padded , 64 do if ( base - 1 ) % 32768 == 0 then if current and not current ( ) then return nil , 'CANCELLED' end ; if pause then pause ( ) end end for j = 1 , 16 do local a , b , c , d = string . byte ( padded , base + ( j - 1 ) * 4 , base + ( j - 1 ) * 4 + 3 ) ; W [ j ] = a * 16777216 + b * 65536 + c * 256 + d end for j = 17 , 64 do local x , y = W [ j - 15 ] , W [ j - 2 ] ; W [ j ] = ( W [ j - 16 ] + bxor ( rrotate ( x , 7 ) , rrotate ( x , 18 ) , rshift ( x , 3 ) ) + W [ j - 7 ] + bxor ( rrotate ( y , 17 ) , rrotate ( y , 19 ) , rshift ( y , 10 ) ) ) % MOD end local a , b , c , d , e , f , g , h = h1 , h2 , h3 , h4 , h5 , h6 , h7 , h8 for j = 1 , 64 do local t1 = ( h + bxor ( rrotate ( e , 6 ) , rrotate ( e , 11 ) , rrotate ( e , 25 ) ) + bxor ( band ( e , f ) , band ( bnot ( e ) , g ) ) + K [ j ] + W [ j ] ) % MOD local t2 = ( bxor ( rrotate ( a , 2 ) , rrotate ( a , 13 ) , rrotate ( a , 22 ) ) + bxor ( band ( a , b ) , band ( a , c ) , band ( b , c ) ) ) % MOD h , g , f , e , d , c , b , a = g , f , e , ( d + t1 ) % MOD , c , b , a , ( t1 + t2 ) % MOD end h1 , h2 , h3 , h4 , h5 , h6 , h7 , h8 = ( h1 + a ) % MOD , ( h2 + b ) % MOD , ( h3 + c ) % MOD , ( h4 + d ) % MOD , ( h5 + e ) % MOD , ( h6 + f ) % MOD , ( h7 + g ) % MOD , ( h8 + h ) % MOD end return string . format ( '%08x%08x%08x%08x%08x%08x%08x%08x' , h1 , h2 , h3 , h4 , h5 , h6 , h7 , h8 ) end end)();local coreFactory=(function()return function ( D ) local E = { Alive = true , Busy = false , Received = 0 , Done = 0 , Failed = { } , Attempts = 0 , CacheHits = 0 , NetworkParts = 0 } ; local parts = D . parts ; local cache = D . cache ; local now = D . now ; local hints = D . hints or { preferred = 1 , avoid = { } , bad = { } } local function active ( ) return E . Alive and ( not D . current or D . current ( ) ) end local function event ( kind , i , text ) if active ( ) and D . event then D . event ( kind , i , text , E ) end end function E : Cancel ( ) self . Alive = false end function E : Validate ( body , p ) if type ( body ) ~= 'string' or # body ~= p . size then return false , 'BYTE_SIZE' end local ok , digest = pcall ( D . hash , body , active ) ; if not active ( ) then return false , 'CANCELLED' end return ok and type ( digest ) == 'string' and digest : lower ( ) == p . sha256 , ok and 'HASH_MISMATCH' or 'HASH_ERROR' end function E : Download ( ) if self . Busy then return nil , 'ALREADY_DOWNLOADING' end ; self . Busy = true ; self . Deadline = now ( ) + ( D . deadline or 180 ) ; local buffer = { } ; local missing = { } local function accept ( i , body , fromCache ) if not active ( ) then return end ; buffer [ i ] = body ; cache [ parts [ i ] . sha256 ] = body ; E . Received += # body ; E . Done += 1 if fromCache then E . CacheHits += 1 else E . NetworkParts += 1 end ; event ( fromCache and 'cached' or 'part' , i , 'SHA-256 verified' ) end for i , p in ipairs ( parts ) do if not active ( ) then self . Busy = false ; return nil , 'CANCELLED' end local body = cache [ p . sha256 ] ; local ok = body and self : Validate ( body , p ) if not ok and D . read then local read , value = pcall ( D . read , p . sha256 ) ; if read and value then body = value ; ok = self : Validate ( body , p ) end end if ok then accept ( i , body , true ) else cache [ p . sha256 ] = nil ; missing [ # missing + 1 ] = i end end local index = 0 ; local workers = math . min ( D . workers or 2 , # missing ) ; local pending = workers local function worker ( ) while active ( ) and now ( ) < E . Deadline do index += 1 ; local i = missing [ index ] ; if not i then break end ; local p = parts [ i ] ; local success = false ; local reason = 'NO_RESPONSE' ; local route = hints . preferred or 1 ; if ( hints . avoid [ route ] or 0 ) > now ( ) then local alt = route % # p . urls + 1 ; if ( hints . avoid [ alt ] or 0 ) <= now ( ) then route = alt end end for attempt = 1 , ( D . attempts or 4 ) do if not active ( ) or now ( ) >= E . Deadline then break end local url = p . urls [ route ] ; local method = ( attempt <= 2 and D . hasRequest ) and 'request' or 'httpget' ; if ( hints . bad [ route .. ':' .. method ] or 0 ) > now ( ) then method = method == 'request' and 'httpget' or ( D . hasRequest and 'request' or 'httpget' ) end E . Attempts += 1 ; event ( 'attempt' , i , 'Attempt ' .. attempt .. ' / ' .. method .. ' / ' .. tostring ( url : match ( 'https://([^/]+)' ) ) ) local ok , body , err = pcall ( D . fetch , url , method , math . min ( D . timeout or 30 , math . max ( .1 , E . Deadline - now ( ) ) ) , active ) if not active ( ) then break end local valid = ok and E : Validate ( body , p ) if valid then if ( hints . avoid [ route ] or 0 ) <= now ( ) then hints . preferred = route end ; accept ( i , body , false ) ; if D . write then pcall ( D . write , p . sha256 , body ) end ; success = true ; break end reason = not ok and 'REQUEST_EXCEPTION' or ( type ( body ) == 'string' and 'INVALID_SIZE_OR_SHA256' or tostring ( err or 'NO_RESPONSE' ) ) hints . avoid [ route ] = now ( ) + 60 ; hints . bad [ route .. ':' .. method ] = now ( ) + 60 ; route = route % # p . urls + 1 ; hints . preferred = route ; event ( 'retry' , i , reason ) ; if attempt < ( D . attempts or 4 ) then D . sleep ( math . min ( 3 , .6 * 2 ^ ( attempt - 1 ) ) ) end end if not success then E . Failed [ i ] = reason ; event ( 'failed' , i , reason ) end end pending -= 1 end for _ = 1 , workers do D . spawn ( function ( ) local ok , err = pcall ( worker ) ; if not ok then pending -= 1 ; E . WorkerError = tostring ( err ) : sub ( 1 , 150 ) end end ) end while pending > 0 and active ( ) and now ( ) < self . Deadline do D . sleep ( .05 ) end local expired = now ( ) >= self . Deadline ; if expired then self . Alive = false end ; self . Busy = false if not active ( ) then return nil , expired and 'DOWNLOAD_DEADLINE / verified chunks kept; retry missing parts.' or 'CANCELLED' end for i in ipairs ( parts ) do if not buffer [ i ] then return nil , 'PART ' .. i .. ' FAILED / ' .. tostring ( self . Failed [ i ] or self . WorkerError or 'INCOMPLETE' ) .. ' / verified chunks kept.' end end local body = table . concat ( buffer ) ; buffer = nil if # body ~= D . total then return nil , 'ASSEMBLED_BYTE_SIZE' end return body end return E end end)()
+local artifact='bcea7ea30b41a0692b1f8c518f093396eb3778f93e968109ab6d385363223f91';local rootCache=env._REDHUB_V80_CACHE
+if type(rootCache)~='table'or rootCache.id~=artifact or type(rootCache.parts)~='table'then rootCache={id=artifact,parts={},hints={preferred=1,avoid={},bad={}}};env._REDHUB_V80_CACHE=rootCache end
+local hints=rootCache.hints;if type(hints)~='table'then hints={preferred=1,avoid={},bad={}};rootCache.hints=hints end
+local requestFn=env.request or env.http_request or request or http_request or(syn and syn.request)
+local readFn=env.readfile or readfile;local writeFn=env.writefile or writefile;local makeFolder=env.makefolder or makefolder
+local folder='';if type(makeFolder)=='function'then local ok=pcall(makeFolder,'redhub_cache_v80');local exists=false;local checkFolder=env.isfolder or isfolder;if type(checkFolder)=='function'then local checked,value=pcall(checkFolder,'redhub_cache_v80');exists=checked and value==true end;if ok or exists then folder='redhub_cache_v80/'end end
+local function filename(sha)return folder..'redhub_v80_cache_'..sha..'.txt'end
+local expected='ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';local nativeHash
+local function normalDigest(result)
+ if type(result)~='string'then return nil end
+ if#result==32 then return(result:gsub('.',function(c)return string.format('%02x',string.byte(c))end))end
+ local v=result:lower():gsub('^0x','');if#v==64 and v:match('^%x+$')then return v end
+end
+local function consider(lib)
+ if nativeHash or type(lib)~='table'or type(lib.hash)~='function'then return end;local fn=lib.hash
+ for _,adapter in ipairs({function(s)return fn(s,'sha256')end,function(s)return fn(s)end,function(s)return fn('sha256',s)end})do
+  local ok,value=pcall(adapter,'abc');if ok and normalDigest(value)==expected then nativeHash=function(text)return normalDigest(adapter(text))end;return end
+ end
+end
+consider(env.crypt);consider(crypt);if syn then consider(syn.crypt)end
+local check,checkError=pcall(function()return nativeHash and nativeHash('abc')or shaFallback('abc')end)
+if not check or checkError~=expected then return stop('SHA-256 self-test failed. No downloaded source was executed.')end
+local function hash(text,current)
+ if nativeHash then local ok,v=pcall(nativeHash,text);if ok and v then return v end end
+ return shaFallback(text,function()task.wait()end,current)
+end
+local epoch=0;local engine;local busy=false;local retryAllowed=false;local writeWarning=false
+local function current(run)return alive and epoch==run end
+local function timed(fn,seconds,valid)
+ local done,value,err=false,nil,nil
+ local worker=task.spawn(function()local ok,result=pcall(fn);if ok then value=result else err=tostring(result):sub(1,200)end;done=true end)
+ local started=os.clock();while not done and valid()and os.clock()-started<seconds do task.wait(.05)end
+ if not done then pcall(task.cancel,worker);return nil,valid()and('HTTP timeout after '..math.floor(seconds)..'s')or'CANCELLED'end
+ return value,err
+end
+local function fetch(url,method,timeout,valid)
+ local response,err=timed(function()
+  if method=='request'and type(requestFn)=='function'then return requestFn({Url=url,Method='GET',Timeout=timeout})end
+  return game:HttpGet(url,true)
+ end,timeout,valid)
+ if method=='request'then
+  if type(response)=='table'then local code=tonumber(response.StatusCode or response.status_code or response.Status or 0)or 0
+   if code>=200 and code<300 then return response.Body or response.body end;return nil,'HTTP '..code
+  end
+  return nil,err or'HTTP adapter returned no response'
+ end
+ return response,err
+end
+local function progress(kind,i,text,e)
+ if not alive then return end
+ local percent=math.floor(e.Received/TOTAL*100);stage(('DOWNLOAD %d/%d / %d%% / cached %d'):format(e.Done,#PARTS,percent,e.CacheHits))
+ if kind=='part'or kind=='cached'then log(('Part %d/%d %s / %d bytes / SHA-256 OK'):format(i,#PARTS,kind=='cached'and'CACHE'or'OK',PARTS[i].size))
+ elseif kind=='attempt'then if alive then title.Text='RED HUB / RESUMABLE LOADER';phase.Text=phase.Text..' / part '..i end
+ elseif kind=='retry'or kind=='failed'then log(('Part %d %s: %s'):format(i,kind,tostring(text):sub(1,130)))end
+end
+local function cacheWrite(sha,body)
+ if type(writeFn)~='function'then return end
+ local ok=pcall(writeFn,filename(sha),body);if not ok and not writeWarning then writeWarning=true;log('Disk cache unavailable; valid pieces stay in RAM for retry.')end
+end
+local function cacheRead(sha)
+ if type(readFn)~='function'then return nil end;local ok,body=pcall(readFn,filename(sha));return ok and body or nil
+end
+if type(loadstring)~='function'then return stop('This executor does not expose loadstring().')end
+log('V88 hub: Sonic FE R15 removed; V80 proven loader; compact transport, balanced chunks, two workers, retries + independent mirror.')
+log(('Download %.2f MB instead of 18.40 MB. SHA-256: %s.'):format(TOTAL/1000000,nativeHash and'native'or'portable / yields to UI'))
+log('Public-code cache only; no account/device token is stored in this cache.')
+local function hubExists()
+ local found=parent:FindFirstChild('DEATH_NOTE_UI_CONTAINER');if found then return found end
+ local ok,value=pcall(function()return game:GetService('CoreGui'):FindFirstChild('DEATH_NOTE_UI_CONTAINER')end);return ok and value or nil
+end
+local function run()
+ if busy or not alive then return end
+ if hubExists()then retryAllowed=false;return stop('A hub GUI already exists. Unload it or rejoin before starting another copy.')end
+ epoch+=1;local thisRun=epoch;busy=true;retryAllowed=false;hasError=false;retryButton.Text='DOWNLOADING…';gui.Enabled=true
+ engine=coreFactory({parts=PARTS,total=TOTAL,cache=rootCache.parts,hints=hints,hash=hash,read=cacheRead,write=cacheWrite,hasRequest=type(requestFn)=='function',now=os.clock,spawn=task.spawn,sleep=task.wait,fetch=fetch,current=function()return current(thisRun)end,event=progress,workers=2,attempts=4,timeout=30,deadline=180})
+ stage('Checking cache / downloading missing parts…');local started=os.clock();local source,err=engine:Download()
+ if not current(thisRun)then return end
+ if not source then busy=false;retryAllowed=true;retryButton.Text='RETRY FAILED';gui.Enabled=true;return stop('DOWNLOAD PAUSED: '..tostring(err)..'\nPress RETRY FAILED; verified pieces will be reused.')end
+ log(('All parts verified in %.1fs / reused %d / fetched %d / HTTP attempts %d'):format(os.clock()-started,engine.CacheHits,engine.NetworkParts,engine.Attempts))
+ stage('COMPILE / full hub; a brief pause can still happen');retryButton.Text='COMPILING…';task.wait(.15)
+ if not current(thisRun)then return end
+ local compileStart=os.clock();local compiled,fn,compileError=pcall(loadstring,source,'=RED_HUB_780K_V80');source=nil
+ if not current(thisRun)then return end
+ if not compiled or type(fn)~='function'then busy=false;retryButton.Text='REPORT ERROR';return stop('COMPILE ERROR: '..tostring(compiled and compileError or fn):sub(1,1600))end
+ -- Release all raw chunk strings after successful compilation. Disk cache remains for later launches.
+ for _,p in ipairs(PARTS)do rootCache.parts[p.sha256]=nil end
+ log(('Compile OK in %.2fs. Raw RAM cache released.'):format(os.clock()-compileStart));stage('STARTING FULL HUB / do not run another copy');retryButton.Text='STARTING…';task.wait(.15)
+ if not current(thisRun)then return end
+ local returned=false
+ task.delay(25,function()if current(thisRun)and not returned then stage('Main startup still running / copy report',true);log('Main has not returned after 25s. Do not repeatedly run the loader.')end end)
+ local function trace(message)if debug and type(debug.traceback)=='function'then return debug.traceback(tostring(message),2)end;return tostring(message)end
+ local ok,result=xpcall(fn,trace);returned=true;fn=nil;busy=false;retryButton.Text='LOADED'
+ if not current(thisRun)then return end
+ if not ok then retryButton.Text='REPORT ERROR';return stop('RUNTIME ERROR:\n'..tostring(result):sub(1,1800))end
+ log("Main script returned without a caught runtime error.")
+local found
+pcall(function()
+    if typeof(result) == "Instance" and result:IsA("ScreenGui") then found = result end
+    if not found then found = parent:FindFirstChild("DEATH_NOTE_UI_CONTAINER") end
+    if not found then found = game:GetService("CoreGui"):FindFirstChild("DEATH_NOTE_UI_CONTAINER") end
+end)
+if not found then return stop("MAIN RETURNED, but DEATH_NOTE_UI_CONTAINER was not found. Send this report.") end
+pcall(function()
+    log("GUI: " .. found.Name .. "; parent=" .. tostring(found.Parent) .. "; enabled=" .. tostring(found.Enabled))
+    local main = found:FindFirstChild("MainWindow")
+    if main then
+        log("MainWindow visible=" .. tostring(main.Visible) .. "; size=" .. tostring(main.AbsoluteSize) .. "; position=" .. tostring(main.AbsolutePosition))
+    else log("MainWindow child was not found.") end
+end)
+stage("GUI EXISTS - hide this diagnostic panel to inspect")
+log("If GUI is still not visible, copy this report and send the executor name + screenshot.")
+
+-- Hide the progress panel only after a visible, on-screen main window exists.
+local visibleWindow = false
+pcall(function()
+    local main = found:FindFirstChild("MainWindow")
+    if found.Enabled and main and main.Visible and main.AbsoluteSize.X > 0 and main.AbsoluteSize.Y > 0 then
+        local camera = workspace.CurrentCamera
+        if camera then
+            local pos, size, view = main.AbsolutePosition, main.AbsoluteSize, camera.ViewportSize
+            visibleWindow = pos.X < view.X and pos.Y < view.Y and pos.X + size.X > 0 and pos.Y + size.Y > 0
+        else visibleWindow = true end
+    end
+end)
+if visibleWindow and not hasError then
+    stage("GUI READY - progress panel closes in 2 seconds")
+    task.delay(2, function() if alive and not hasError then cleanup() end end)
+end
+
+end
+retryButton.Activated:Connect(function()if retryAllowed and not busy then task.spawn(run)end end)
+local previousCleanup=cleanup
+cleanup=function()epoch+=1;if engine then engine:Cancel()end;previousCleanup()end
+env._REDHUB_DIAGNOSTIC_CLEANUP=cleanup
+-- Hiding progress does not cancel the download. A new loader run cancels the previous generation.
+hideButton.Activated:Connect(function()gui.Enabled=false end)
+task.spawn(run)
